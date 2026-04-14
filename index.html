@@ -984,6 +984,67 @@ function importJSON(e) {
 }
 
 /* ═══════════════════════════════════════════════════
+   STARTUP — Suggest rating an unrated film
+   ═══════════════════════════════════════════════════ */
+function suggestRating() {
+  const unrated = films.map((f, i) => ({ f, i })).filter(x => x.f.notePerso == null);
+  if (!unrated.length) return;
+  const pick = unrated[Math.floor(Math.random() * unrated.length)];
+  const f = pick.f;
+  const idx = pick.i;
+  const info = [f.genre, f.annee ? Math.round(f.annee) : null, f.realisateur].filter(Boolean).join(' · ');
+
+  const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay();">
+    <div class="modal" style="max-width:420px;text-align:center">
+      <div style="font-size:2.8rem;margin-bottom:10px">🎬</div>
+      <h2 style="margin-bottom:2px">Un film t'attend !</h2>
+      <p class="desc" style="margin-bottom:14px">${unrated.length} film${unrated.length>1?'s':''} sans note perso dans ton classeur.</p>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;margin-bottom:18px;text-align:left">
+        <div style="font-family:var(--font-display);font-weight:800;font-size:1.15rem;color:#fff;margin-bottom:4px">${esc(f.titre)}</div>
+        <div style="font-size:.85rem;color:var(--txt2);line-height:1.5">${esc(info)}</div>
+        ${f.acteurs ? '<div style="font-size:.8rem;color:var(--txt3);margin-top:4px">'+esc(f.acteurs)+'</div>' : ''}
+      </div>
+      <p style="color:var(--txt2);font-size:.9rem;margin-bottom:18px">Envie de noter ce film maintenant ?</p>
+      <div class="modal-row" style="margin-top:0">
+        <button class="btn" onclick="closeOverlay();" style="flex:1">Plus tard</button>
+        <button class="btn" onclick="closeOverlay();suggestAnother(${idx});" style="flex:1">Autre film 🎲</button>
+        <button class="btn gold" onclick="closeOverlay();openRating(${idx},'notePerso');" style="flex:1.3">Allons-y ! 🎯</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('overlay').innerHTML = html;
+}
+
+function suggestAnother(skipIdx) {
+  const unrated = films.map((f, i) => ({ f, i })).filter(x => x.f.notePerso == null && x.i !== skipIdx);
+  if (!unrated.length) { suggestRating(); return; }
+  const pick = unrated[Math.floor(Math.random() * unrated.length)];
+  const f = pick.f;
+  const idx = pick.i;
+  const info = [f.genre, f.annee ? Math.round(f.annee) : null, f.realisateur].filter(Boolean).join(' · ');
+
+  const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay();">
+    <div class="modal" style="max-width:420px;text-align:center">
+      <div style="font-size:2.8rem;margin-bottom:10px">🎬</div>
+      <h2 style="margin-bottom:2px">Un film t'attend !</h2>
+      <p class="desc" style="margin-bottom:14px">${films.filter(x=>x.notePerso==null).length} film${films.filter(x=>x.notePerso==null).length>1?'s':''} sans note perso dans ton classeur.</p>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;margin-bottom:18px;text-align:left">
+        <div style="font-family:var(--font-display);font-weight:800;font-size:1.15rem;color:#fff;margin-bottom:4px">${esc(f.titre)}</div>
+        <div style="font-size:.85rem;color:var(--txt2);line-height:1.5">${esc(info)}</div>
+        ${f.acteurs ? '<div style="font-size:.8rem;color:var(--txt3);margin-top:4px">'+esc(f.acteurs)+'</div>' : ''}
+      </div>
+      <p style="color:var(--txt2);font-size:.9rem;margin-bottom:18px">Envie de noter ce film maintenant ?</p>
+      <div class="modal-row" style="margin-top:0">
+        <button class="btn" onclick="closeOverlay();" style="flex:1">Plus tard</button>
+        <button class="btn" onclick="closeOverlay();suggestAnother(${idx});" style="flex:1">Autre film 🎲</button>
+        <button class="btn gold" onclick="closeOverlay();openRating(${idx},'notePerso');" style="flex:1.3">Allons-y ! 🎯</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('overlay').innerHTML = html;
+}
+
+/* ═══════════════════════════════════════════════════
    INIT
    ═══════════════════════════════════════════════════ */
 loadState();
@@ -991,6 +1052,9 @@ render();
 renderLogCount();
 bindFrozenHeader();
 syncFrozenHeader();
+
+// Show suggestion after a short delay to let the page settle
+setTimeout(suggestRating, 600);
 
 // PWA Service Worker
 if ('serviceWorker' in navigator) {
