@@ -343,7 +343,7 @@ tr:hover .del-btn { opacity: .7; }
 }
 .col-frozen-del  { left: 0;    min-width: 32px; width: 32px; }
 .col-frozen-pos  { left: 32px; min-width: 32px; width: 32px; }
-.col-frozen-titre{ left: 64px; min-width: var(--titre-col-width, 132px); width: var(--titre-col-width, 132px); max-width: min(100vw - 96px, 1000px); }
+.col-frozen-titre{ left: 64px; min-width: var(--titre-col-width, 66px); width: var(--titre-col-width, 66px); max-width: var(--titre-col-width, 66px); }
 
 thead .col-frozen-del,
 thead .col-frozen-pos,
@@ -660,9 +660,20 @@ function savePrefs() {
   localStorage.setItem('cf_showHidden', showHidden ? '1' : '0');
   localStorage.setItem('cf_titleExpanded', titleExpanded ? '1' : '0');
 }
+function getExpandedTitleWidthPx() {
+  const canvas = getExpandedTitleWidthPx._canvas || (getExpandedTitleWidthPx._canvas = document.createElement('canvas'));
+  const ctx = canvas.getContext('2d');
+  ctx.font = '600 14px Barlow, sans-serif';
+  const longest = films.reduce((max, f) => Math.max(max, ctx.measureText(String(f.titre || '')).width), 0);
+  return Math.max(120, Math.ceil(longest + 28));
+}
+
+function getTitleColumnWidthPx() {
+  return titleExpanded ? getExpandedTitleWidthPx() : 66;
+}
+
 function applyLayoutVars() {
-  const titreWidth = titleExpanded ? 'min(calc(100vw - 140px), 1000px)' : '132px';
-  document.documentElement.style.setProperty('--titre-col-width', titreWidth);
+  document.documentElement.style.setProperty('--titre-col-width', getTitleColumnWidthPx() + 'px');
 }
 
 function addLog(type, msg) {
@@ -771,10 +782,10 @@ function render() {
     const arrow = sortCol === c.key ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
     const frozenCls = c.key === 'titre' ? ' col-frozen-titre' : '';
     const widthStyle = c.key === 'titre'
-      ? `min-width:${titleExpanded ? 'min(calc(100vw - 140px), 1000px)' : c.w + 'px'};width:${titleExpanded ? 'min(calc(100vw - 140px), 1000px)' : c.w + 'px'}`
+      ? `min-width:${getTitleColumnWidthPx()}px;width:${getTitleColumnWidthPx()}px`
       : `min-width:${c.w}px`;
     const labelHtml = c.key === 'titre'
-      ? `${c.label}${arrow}<button class="col-expand-btn" onclick="event.stopPropagation();toggleTitleWidth()" title="${titleExpanded ? 'Réduire la colonne Titre' : 'Agrandir la colonne Titre'}" aria-label="${titleExpanded ? 'Réduire la colonne Titre' : 'Agrandir la colonne Titre'}">⤢</button>`
+      ? `${c.label}${arrow}<button class="col-expand-btn" onclick="event.stopPropagation();toggleTitleWidth()" title="${titleExpanded ? 'Réduire la colonne Titre' : 'Afficher tous les titres au complet'}" aria-label="${titleExpanded ? 'Réduire la colonne Titre' : 'Afficher tous les titres au complet'}">⤢</button>`
       : `${c.label}${arrow}`;
     html += `<th class="${cls}${frozenCls}" onclick="doSort('${c.key}')" style="text-align:${c.align};${widthStyle}">${labelHtml}</th>`;
   });
@@ -803,7 +814,7 @@ function render() {
         const display = v != null ? v.toFixed(2) : '<span class="hint">double-clic</span>';
         html += `<td class="${rater.css}" ondblclick="openRating(${f._idx},'${col.key}')">${display}</td>`;
       } else if (col.key === 'titre') {
-        html += `<td class="cell-titre editable col-frozen-titre" style="min-width:${titleExpanded ? 'min(calc(100vw - 140px), 1000px)' : col.w + 'px'};width:${titleExpanded ? 'min(calc(100vw - 140px), 1000px)' : col.w + 'px'}" ondblclick="startEdit(${f._idx},'${col.key}',this)" title="${esc(f[col.key]||'')}">${esc(f[col.key]||'—')}</td>`;
+        html += `<td class="cell-titre editable col-frozen-titre" style="min-width:${getTitleColumnWidthPx()}px;width:${getTitleColumnWidthPx()}px" ondblclick="startEdit(${f._idx},'${col.key}',this)" title="${esc(f[col.key]||'')}">${esc(f[col.key]||'—')}</td>`;
       } else if (col.edit) {
         const v = f[col.key];
         const display = v != null ? (col.type==='num' && col.key==='annee' ? String(Math.round(v)) : (typeof v==='number' ? v.toLocaleString('fr-CA'):esc(v))) : '—';
@@ -892,7 +903,7 @@ function bindFrozenHeader() {
 function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 function doSort(key) { if (sortCol===key) sortDir = sortDir==='asc'?'desc':'asc'; else { sortCol=key; sortDir='asc'; } render(); }
 function toggleHidden() { showHidden=!showHidden; savePrefs(); render(); toast(showHidden?'Colonnes détaillées affichées':'Colonnes détaillées masquées','info'); }
-function toggleTitleWidth() { titleExpanded = !titleExpanded; applyLayoutVars(); savePrefs(); render(); toast(titleExpanded ? 'Colonne Titre agrandie' : 'Colonne Titre réduite', 'info'); }
+function toggleTitleWidth() { titleExpanded = !titleExpanded; applyLayoutVars(); savePrefs(); render(); toast(titleExpanded ? 'Titres affichés au complet' : 'Colonne Titre réduite', 'info'); }
 
 /* ═══════════════════════════════════════════════════
    INLINE EDIT
