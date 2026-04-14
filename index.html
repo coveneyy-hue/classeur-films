@@ -540,20 +540,54 @@ function render() {
   }
   document.getElementById('counter').textContent = list.length + ' / ' + films.length + ' films';
 
+  // Determine if sort column is a "note" column (rater or criteria)
+  const raterKeys = RATERS.map(r => r.key);
+  const criteriaStorageKeys = [];
+  RATERS.forEach(r => CRITERIA.forEach(c => criteriaStorageKeys.push(r.prefix + c.key)));
+  const isNoteSort = sortCol && (raterKeys.includes(sortCol) || criteriaStorageKeys.includes(sortCol));
+
+  // Compute ranks: rank 1 = best (highest value) always
+  const ranks = new Map();
+  if (sortCol) {
+    if (isNoteSort) {
+      // Only rank films that have a value
+      const rated = list.filter(f => f[sortCol] != null);
+      // Sort by value desc to assign rank 1=highest
+      const byVal = [...rated].sort((a,b) => b[sortCol] - a[sortCol]);
+      byVal.forEach((f, i) => ranks.set(f._idx, i + 1));
+    } else {
+      // Non-note column: rank = row position in current sort
+      list.forEach((f, i) => ranks.set(f._idx, i + 1));
+    }
+  } else {
+    list.forEach((f, i) => ranks.set(f._idx, i + 1));
+  }
+
   let html = '<table><thead><tr><th style="width:32px"></th>';
+  // Position column
+  html += '<th class="' + (sortCol ? 'sorted' : '') + '" style="text-align:center;min-width:40px;width:48px">#</th>';
   COLS.forEach(c => {
     const cls = sortCol === c.key ? ' sorted' : '';
     const arrow = sortCol === c.key ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
     html += `<th class="${cls}" onclick="doSort('${c.key}')" style="text-align:${c.align};min-width:${c.w}px">${c.label}${arrow}</th>`;
   });
   if (showHidden) RATERS.forEach(r => {
-    CRITERIA.forEach(c => { html += `<th style="text-align:center;min-width:85px;color:${r.color};opacity:.7;font-size:.6rem">${r.label.substring(0,3)}·${c.label}</th>`; });
+    CRITERIA.forEach(c => {
+      const sk = r.prefix + c.key;
+      const cls = sortCol === sk ? ' sorted' : '';
+      const arrow = sortCol === sk ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
+      html += `<th class="${cls}" onclick="doSort('${sk}')" style="text-align:center;min-width:85px;color:${r.color};opacity:.7;font-size:.6rem;cursor:pointer">${r.label.substring(0,3)}·${c.label}${arrow}</th>`;
+    });
   });
   html += '</tr></thead><tbody>';
 
   list.forEach(f => {
     html += '<tr>';
     html += `<td class="cell-num"><button class="del-btn" onclick="deleteFilm(${f._idx})" title="Supprimer">✕</button></td>`;
+    // Position cell
+    const rank = ranks.get(f._idx);
+    const showRank = isNoteSort ? (f[sortCol] != null ? rank : null) : rank;
+    html += `<td class="cell-num" style="font-weight:700;color:var(--txt3);font-size:.8rem">${showRank != null ? showRank : '—'}</td>`;
     COLS.forEach(col => {
       if (col.rater) {
         const rater = RATERS.find(r => r.key === col.key);
