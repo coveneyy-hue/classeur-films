@@ -343,7 +343,7 @@ tr:hover .del-btn { opacity: .7; }
 }
 .col-frozen-del  { left: 0;    min-width: 32px; width: 32px; }
 .col-frozen-pos  { left: 32px; min-width: 32px; width: 32px; }
-.col-frozen-titre{ left: 64px; min-width: var(--titre-col-width, 130px); width: var(--titre-col-width, 130px); max-width: var(--titre-col-width, 130px); }
+.col-frozen-titre{ left: 64px; min-width: var(--titre-col-width, 132px); width: var(--titre-col-width, 132px); max-width: min(100vw - 96px, 1000px); }
 
 thead .col-frozen-del,
 thead .col-frozen-pos,
@@ -431,6 +431,7 @@ td.editing input {
 /* File input hidden */
 .file-input { display: none; }
 </style>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -444,6 +445,7 @@ td.editing input {
       <button class="btn btn-icon gold" onclick="openAddModal()" title="Ajouter un film" aria-label="Ajouter un film">＋</button>
       <button class="btn btn-icon" onclick="toggleHidden()" title="Afficher ou masquer les critères" aria-label="Afficher ou masquer les critères">👁</button>
       <button class="btn btn-icon" onclick="exportJSON()" title="Exporter JSON" aria-label="Exporter JSON">⬇</button>
+      <button class="btn btn-icon" onclick="exportExcel()" title="Exporter Excel" aria-label="Exporter Excel">📊</button>
       <button class="btn btn-icon" onclick="document.getElementById('importFile').click()" title="Importer JSON" aria-label="Importer JSON">⬆</button>
       <input type="file" id="importFile" class="file-input" accept=".json" onchange="importJSON(event)">
       <span class="btn-icon-wrap">
@@ -524,7 +526,7 @@ function ensureCriteriaKeys(f) {
   RATERS.forEach(r => CRITERIA.forEach(c => { const k = r.prefix + c.key; if (!(k in f)) f[k] = null; }));
 }
 const COLS = [
-  { key:'titre',       label:'Titre',           align:'left',   w:130, edit:true  },
+  { key:'titre',       label:'Titre',           align:'left',   w:132, edit:true  },
   { key:'genre',       label:'Genre',           align:'left',   w:170, edit:true  },
   { key:'realisateur', label:'Réalisateur',     align:'left',   w:155, edit:true  },
   { key:'acteurs',     label:'Acteurs principaux', align:'left',w:210, edit:true  },
@@ -660,20 +662,9 @@ function savePrefs() {
   localStorage.setItem('cf_showHidden', showHidden ? '1' : '0');
   localStorage.setItem('cf_titleExpanded', titleExpanded ? '1' : '0');
 }
-function getExpandedTitleWidthPx() {
-  const canvas = getExpandedTitleWidthPx._canvas || (getExpandedTitleWidthPx._canvas = document.createElement('canvas'));
-  const ctx = canvas.getContext('2d');
-  ctx.font = '600 14px Barlow, sans-serif';
-  const longest = films.reduce((max, f) => Math.max(max, ctx.measureText(String(f.titre || '')).width), 0);
-  return Math.max(120, Math.ceil(longest + 28));
-}
-
-function getTitleColumnWidthPx() {
-  return titleExpanded ? getExpandedTitleWidthPx() : 130;
-}
-
 function applyLayoutVars() {
-  document.documentElement.style.setProperty('--titre-col-width', getTitleColumnWidthPx() + 'px');
+  const titreWidth = titleExpanded ? 'min(calc(100vw - 140px), 1000px)' : '132px';
+  document.documentElement.style.setProperty('--titre-col-width', titreWidth);
 }
 
 function addLog(type, msg) {
@@ -782,10 +773,10 @@ function render() {
     const arrow = sortCol === c.key ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
     const frozenCls = c.key === 'titre' ? ' col-frozen-titre' : '';
     const widthStyle = c.key === 'titre'
-      ? `min-width:${getTitleColumnWidthPx()}px;width:${getTitleColumnWidthPx()}px`
+      ? `min-width:${titleExpanded ? 'min(calc(100vw - 140px), 1000px)' : c.w + 'px'};width:${titleExpanded ? 'min(calc(100vw - 140px), 1000px)' : c.w + 'px'}`
       : `min-width:${c.w}px`;
     const labelHtml = c.key === 'titre'
-      ? `${c.label}${arrow}<button class="col-expand-btn" onclick="event.stopPropagation();toggleTitleWidth()" title="${titleExpanded ? 'Réduire la colonne Titre' : 'Afficher tous les titres au complet'}" aria-label="${titleExpanded ? 'Réduire la colonne Titre' : 'Afficher tous les titres au complet'}">⤢</button>`
+      ? `${c.label}${arrow}<button class="col-expand-btn" onclick="event.stopPropagation();toggleTitleWidth()" title="${titleExpanded ? 'Réduire la colonne Titre' : 'Agrandir la colonne Titre'}" aria-label="${titleExpanded ? 'Réduire la colonne Titre' : 'Agrandir la colonne Titre'}">⤢</button>`
       : `${c.label}${arrow}`;
     html += `<th class="${cls}${frozenCls}" onclick="doSort('${c.key}')" style="text-align:${c.align};${widthStyle}">${labelHtml}</th>`;
   });
@@ -814,7 +805,7 @@ function render() {
         const display = v != null ? v.toFixed(2) : '<span class="hint">double-clic</span>';
         html += `<td class="${rater.css}" ondblclick="openRating(${f._idx},'${col.key}')">${display}</td>`;
       } else if (col.key === 'titre') {
-        html += `<td class="cell-titre editable col-frozen-titre" style="min-width:${getTitleColumnWidthPx()}px;width:${getTitleColumnWidthPx()}px" ondblclick="startEdit(${f._idx},'${col.key}',this)" title="${esc(f[col.key]||'')}">${esc(f[col.key]||'—')}</td>`;
+        html += `<td class="cell-titre editable col-frozen-titre" style="min-width:${titleExpanded ? 'min(calc(100vw - 140px), 1000px)' : col.w + 'px'};width:${titleExpanded ? 'min(calc(100vw - 140px), 1000px)' : col.w + 'px'}" ondblclick="startEdit(${f._idx},'${col.key}',this)" title="${esc(f[col.key]||'')}">${esc(f[col.key]||'—')}</td>`;
       } else if (col.edit) {
         const v = f[col.key];
         const display = v != null ? (col.type==='num' && col.key==='annee' ? String(Math.round(v)) : (typeof v==='number' ? v.toLocaleString('fr-CA'):esc(v))) : '—';
@@ -903,7 +894,7 @@ function bindFrozenHeader() {
 function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 function doSort(key) { if (sortCol===key) sortDir = sortDir==='asc'?'desc':'asc'; else { sortCol=key; sortDir='asc'; } render(); }
 function toggleHidden() { showHidden=!showHidden; savePrefs(); render(); toast(showHidden?'Colonnes détaillées affichées':'Colonnes détaillées masquées','info'); }
-function toggleTitleWidth() { titleExpanded = !titleExpanded; applyLayoutVars(); savePrefs(); render(); toast(titleExpanded ? 'Titres affichés au complet' : 'Colonne Titre réduite', 'info'); }
+function toggleTitleWidth() { titleExpanded = !titleExpanded; applyLayoutVars(); savePrefs(); render(); toast(titleExpanded ? 'Colonne Titre agrandie' : 'Colonne Titre réduite', 'info'); }
 
 /* ═══════════════════════════════════════════════════
    INLINE EDIT
@@ -1171,6 +1162,55 @@ function exportJSON() {
   URL.revokeObjectURL(a.href);
   addLog('backup', 'Exportation JSON effectuée');
   toast('Backup exporté avec succès', 'success');
+}
+function buildExcelRows() {
+  const baseCols = [
+    ['titre', 'Titre'],
+    ['genre', 'Genre'],
+    ['realisateur', 'Réalisateur'],
+    ['acteurs', 'Acteurs principaux'],
+    ['annee', 'Année'],
+    ['budget', 'Budget (M$)'],
+    ['boxOffice', 'Box office'],
+    ['imdb', 'IMDb Top 250'],
+    ['notePerso', 'Note perso'],
+    ['victor', 'Victor'],
+    ['lilyRose', 'Lily-Rose'],
+    ['julie', 'Julie']
+  ];
+  const rows = films.map((film, index) => {
+    const row = { '#': index + 1 };
+    baseCols.forEach(([key, label]) => { row[label] = film[key] ?? ''; });
+    RATERS.forEach(r => {
+      CRITERIA.forEach(c => {
+        row[`${r.label} - ${c.label}`] = film[r.prefix + c.key] ?? '';
+      });
+    });
+    return row;
+  });
+  return rows;
+}
+function exportExcel() {
+  try {
+    if (typeof XLSX === 'undefined') throw new Error('Librairie Excel indisponible');
+    const rows = buildExcelRows();
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const headers = rows.length ? Object.keys(rows[0]) : ['#'];
+    ws['!autofilter'] = { ref: `A1:${XLSX.utils.encode_cell({ r: 0, c: headers.length - 1 })}` };
+    ws['!cols'] = headers.map((h, idx) => {
+      if (idx === 0) return { wch: 6 };
+      if (h === 'Titre') return { wch: 28 };
+      return { wch: Math.min(Math.max(h.length + 2, 12), 26) };
+    });
+    XLSX.utils.book_append_sheet(wb, ws, 'Films');
+    XLSX.writeFile(wb, 'classeur_films_' + new Date().toISOString().slice(0,10) + '.xlsx');
+    addLog('backup', 'Exportation Excel effectuée');
+    toast('Fichier Excel exporté avec succès', 'success');
+  } catch (err) {
+    console.error(err);
+    toast('Erreur export Excel : ' + err.message, 'error');
+  }
 }
 function importJSON(e) {
   const file = e.target.files[0];
