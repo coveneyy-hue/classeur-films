@@ -349,27 +349,6 @@ tr:hover .del-btn { opacity: .7; }
   position: relative;
   padding-right: 18px !important;
 }
-.col-resizer {
-  position: absolute;
-  top: 0;
-  right: -4px;
-  width: 10px;
-  height: 100%;
-  cursor: col-resize;
-  z-index: 6;
-}
-.col-resizer::before {
-  content: '';
-  position: absolute;
-  top: 7px;
-  bottom: 7px;
-  left: 4px;
-  width: 2px;
-  border-radius: 2px;
-  background: var(--gold-dim);
-  opacity: .75;
-}
-.col-resizer:hover::before { background: var(--gold); opacity: 1; }
 
 thead .col-frozen-del,
 thead .col-frozen-pos,
@@ -745,26 +724,6 @@ function showPositionDuplicateModal(enteredValue, options, applyChoice) {
   document.getElementById('overlay').innerHTML = html;
 }
 
-function startTitreResize(event) {
-  event.preventDefault();
-  event.stopPropagation();
-  const startX = event.clientX;
-  const startWidth = titreWidth;
-
-  function onMove(ev) {
-    titreWidth = Math.max(160, Math.min(700, Math.round(startWidth + (ev.clientX - startX))));
-    render();
-  }
-
-  function onUp() {
-    saveTitreWidth();
-    window.removeEventListener('mousemove', onMove);
-    window.removeEventListener('mouseup', onUp);
-  }
-
-  window.addEventListener('mousemove', onMove);
-  window.addEventListener('mouseup', onUp);
-}
 
 /* ═══════════════════════════════════════════════════
    RENDER TABLE
@@ -837,9 +796,9 @@ function render() {
     const cls = sortCol === c.key ? ' sorted' : '';
     const arrow = sortCol === c.key ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
     const frozenCls = c.key === 'titre' ? ' col-frozen-titre col-title-head' : '';
-    const width = c.key === 'titre' ? titreWidth : c.w;
+    const width = c.w;
     const labelHtml = c.key === 'titre'
-      ? `${c.label}${arrow}<span class="col-resizer" onmousedown="startTitreResize(event)"></span>`
+      ? `${c.label}${arrow}`
       : `${c.label}${arrow}`;
     html += `<th class="${cls}${frozenCls}" onclick="doSort('${c.key}')" style="text-align:${c.align};min-width:${width}px;width:${width}px;max-width:${width}px">${labelHtml}</th>`;
   });
@@ -867,7 +826,7 @@ function render() {
         const display = v != null ? v.toFixed(2) : '<span class="hint">double-clic</span>';
         html += `<td class="${rater.css}" ondblclick="openRating(${f._idx},'${col.key}')">${display}</td>`;
       } else if (col.key === 'titre') {
-        html += `<td class="cell-titre editable col-frozen-titre" style="min-width:${titreWidth}px;width:${titreWidth}px;max-width:${titreWidth}px" ondblclick="startEdit(${f._idx},'${col.key}',this)" title="${esc(f[col.key]||'')}">${esc(f[col.key]||'—')}</td>`;
+        html += `<td class="cell-titre editable col-frozen-titre" ondblclick="startEdit(${f._idx},'${col.key}',this)" title="${esc(f[col.key]||'')}">${esc(f[col.key]||'—')}</td>`;
       } else if (col.edit) {
         const v = f[col.key];
         const display = v != null ? (col.type==='num' && col.key==='annee' ? String(Math.round(v)) : (typeof v==='number' ? v.toLocaleString('fr-CA'):esc(v))) : '—';
