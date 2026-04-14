@@ -430,6 +430,122 @@ td.editing input {
 
 /* File input hidden */
 .file-input { display: none; }
+
+.breakdown-modal { width:min(92vw, 760px); }
+.breakdown-top {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 220px;
+  gap:14px;
+  margin-top:16px;
+  align-items:end;
+}
+.breakdown-note-card {
+  padding:16px 18px;
+  border-radius:12px;
+  background:var(--bg);
+  border:1px solid var(--border);
+}
+.breakdown-note-label {
+  font-size:.78rem;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:var(--txt2);
+  margin-bottom:6px;
+}
+.breakdown-note-value {
+  font-family:var(--font-display);
+  font-size:2rem;
+  font-weight:800;
+}
+.breakdown-list {
+  margin-top:16px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  overflow:hidden;
+}
+.breakdown-head,
+.breakdown-row {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 132px;
+  gap:14px;
+}
+.breakdown-head {
+  padding:10px 14px;
+  background:var(--bg3);
+  color:var(--txt2);
+  font-weight:700;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+}
+.breakdown-head > :last-child { text-align:right; }
+.breakdown-row {
+  padding:14px;
+  border-top:1px solid var(--border);
+  align-items:center;
+}
+.breakdown-row:first-of-type { border-top:none; }
+.breakdown-meta { min-width:0; }
+.breakdown-label {
+  font-weight:700;
+  color:#fff;
+  line-height:1.25;
+}
+.breakdown-desc {
+  font-size:.82rem;
+  color:var(--txt2);
+  margin-top:4px;
+  line-height:1.35;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+.breakdown-value-wrap { min-width:0; }
+.breakdown-input {
+  width:100%;
+  padding:9px 12px;
+  border-radius:8px;
+  border:1px solid var(--border);
+  background:var(--bg);
+  color:#fff;
+  text-align:right;
+  font-weight:700;
+  outline:none;
+  font-size:1.1rem;
+}
+.breakdown-input:focus {
+  border-color:var(--gold);
+  box-shadow:0 0 0 3px rgba(232,166,48,.1);
+}
+.breakdown-suffix {
+  font-size:.78rem;
+  margin-top:4px;
+  text-align:right;
+}
+@media (max-width: 768px) {
+  .breakdown-modal {
+    width:calc(100vw - 24px);
+    padding:20px 16px;
+    max-height:calc(100vh - 24px);
+    overflow:auto;
+  }
+  .breakdown-top {
+    grid-template-columns:1fr;
+    align-items:stretch;
+  }
+  .breakdown-head,
+  .breakdown-row {
+    grid-template-columns:minmax(0,1fr) 110px;
+    gap:10px;
+  }
+  .breakdown-row {
+    padding:12px 10px;
+    align-items:start;
+  }
+  .breakdown-input {
+    min-height:48px;
+    font-size:1.25rem;
+  }
+}
+
 </style>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 </head>
@@ -911,56 +1027,53 @@ function openTitleBreakdown(idx, selectedRaterKey) {
   const note = f[rater.key];
   const rows = CRITERIA.map(c => {
     const value = f[rater.prefix + c.key];
-    return `<tr>
-      <td style="padding:8px 10px;border-bottom:1px solid var(--border);color:#fff">
-        <div style="font-weight:700">${c.label}</div>
-        <div style="font-size:.8rem;color:var(--txt2);margin-top:3px">${c.desc}</div>
-      </td>
-      <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right">
+    return `<div class="breakdown-row">
+      <div class="breakdown-meta">
+        <div class="breakdown-label">${c.label}</div>
+        <div class="breakdown-desc">${c.desc}</div>
+      </div>
+      <div class="breakdown-value-wrap">
         <input
-          type="number"
+          type="text"
+          inputmode="decimal"
           id="breakdown_${c.key}"
-          min="${c.min}"
-          max="${c.max}"
-          step="0.01"
+          data-min="${c.min}"
+          data-max="${c.max}"
           value="${value != null ? value : ''}"
           placeholder="${c.min} à ${c.max}"
           oninput="updateTitleBreakdownPreview()"
-          style="width:120px;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:#fff;text-align:right;font-weight:700;outline:none">
-        <div style="font-size:.78rem;color:${rater.color};margin-top:4px">${c.suffix}</div>
-      </td>
-    </tr>`;
+          class="breakdown-input"
+        >
+        <div class="breakdown-suffix" style="color:${rater.color}">${c.suffix}</div>
+      </div>
+    </div>`;
   }).join('');
   const options = RATERS.map(r => `<option value="${r.key}" ${r.key === rater.key ? 'selected' : ''}>${r.label}</option>`).join('');
   const hasAnyData = note != null || CRITERIA.some(c => f[rater.prefix + c.key] != null);
   const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()">
-    <div class="modal" style="max-width:760px">
+    <div class="modal breakdown-modal" style="max-width:760px">
       <h2>Modifier le film</h2>
       <p class="desc">Modifiez le titre et la ventilation des notes détaillées.</p>
       <label>Titre</label>
       <input type="text" id="breakdownTitle" value="${esc(f.titre || '')}" placeholder="Titre du film">
-      <div style="display:grid;grid-template-columns:1fr 220px;gap:14px;margin-top:16px;align-items:end">
+      <div class="breakdown-top">
         <div>
           <label>Afficher la ventilation pour</label>
           <select id="breakdownRater" onchange="openTitleBreakdown(${idx}, this.value)">
             ${options}
           </select>
         </div>
-        <div style="padding:16px 18px;border-radius:12px;background:var(--bg);border:1px solid var(--border)">
-          <div style="font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--txt2);margin-bottom:6px">Note globale</div>
-          <div id="breakdownNotePreview" style="font-family:var(--font-display);font-size:2rem;font-weight:800;color:${rater.color}">${note != null ? note.toFixed(2) + '/10' : 'n/a'}</div>
+        <div class="breakdown-note-card">
+          <div class="breakdown-note-label">Note globale</div>
+          <div id="breakdownNotePreview" class="breakdown-note-value" style="color:${rater.color}">${note != null ? note.toFixed(2) + '/10' : 'n/a'}</div>
         </div>
       </div>
-      <div style="margin-top:16px;border:1px solid var(--border);border-radius:12px;overflow:hidden">
-        <table style="width:100%;border-collapse:collapse">
-          <thead>
-            <tr>
-              <th style="text-align:left;padding:10px;background:var(--bg3);color:var(--txt2)">Critère</th>
-              <th style="text-align:right;padding:10px;background:var(--bg3);color:${rater.color}">Valeur</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
+      <div class="breakdown-list">
+        <div class="breakdown-head">
+          <div>Critère</div>
+          <div style="color:${rater.color}">Valeur</div>
+        </div>
+        ${rows}
       </div>
       ${hasAnyData ? '' : '<p class="desc" style="margin-top:14px;margin-bottom:0">Aucune ventilation enregistrée pour cette personne.</p>'}
       <div class="modal-row">
@@ -970,11 +1083,9 @@ function openTitleBreakdown(idx, selectedRaterKey) {
     </div>
   </div>`;
   document.getElementById('overlay').innerHTML = html;
-  setTimeout(() => {
-    const titleInput = document.getElementById('breakdownTitle');
-    if (titleInput) titleInput.focus();
+  requestAnimationFrame(() => {
     updateTitleBreakdownPreview();
-  }, 0);
+  });
 }
 
 function getTitleBreakdownDraft() {
