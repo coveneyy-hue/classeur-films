@@ -343,7 +343,7 @@ tr:hover .del-btn { opacity: .7; }
 }
 .col-frozen-del  { left: 0;    min-width: 32px; width: 32px; }
 .col-frozen-pos  { left: 32px; min-width: 32px; width: 32px; }
-.col-frozen-titre{ left: 64px; min-width: var(--titre-col-width, 66px); width: var(--titre-col-width, 66px); max-width: var(--titre-col-width, 66px); }
+.col-frozen-titre{ left: 64px; min-width: var(--titre-col-width, 130px); width: var(--titre-col-width, 130px); max-width: var(--titre-col-width, 130px); }
 
 thead .col-frozen-del,
 thead .col-frozen-pos,
@@ -524,7 +524,7 @@ function ensureCriteriaKeys(f) {
   RATERS.forEach(r => CRITERIA.forEach(c => { const k = r.prefix + c.key; if (!(k in f)) f[k] = null; }));
 }
 const COLS = [
-  { key:'titre',       label:'Titre',           align:'left',   w:132, edit:true  },
+  { key:'titre',       label:'Titre',           align:'left',   w:130, edit:true  },
   { key:'genre',       label:'Genre',           align:'left',   w:170, edit:true  },
   { key:'realisateur', label:'Réalisateur',     align:'left',   w:155, edit:true  },
   { key:'acteurs',     label:'Acteurs principaux', align:'left',w:210, edit:true  },
@@ -669,7 +669,7 @@ function getExpandedTitleWidthPx() {
 }
 
 function getTitleColumnWidthPx() {
-  return titleExpanded ? getExpandedTitleWidthPx() : 66;
+  return titleExpanded ? getExpandedTitleWidthPx() : 130;
 }
 
 function applyLayoutVars() {
