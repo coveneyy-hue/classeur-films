@@ -345,6 +345,32 @@ tr:hover .del-btn { opacity: .7; }
 .col-frozen-pos  { left: 32px; min-width: 48px; width: 48px; }
 .col-frozen-titre{ left: 80px; min-width: 220px; }
 
+.col-title-head {
+  position: relative;
+  padding-right: 18px !important;
+}
+.col-resizer {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  width: 10px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 6;
+}
+.col-resizer::before {
+  content: '';
+  position: absolute;
+  top: 7px;
+  bottom: 7px;
+  left: 4px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--gold-dim);
+  opacity: .75;
+}
+.col-resizer:hover::before { background: var(--gold); opacity: 1; }
+
 thead .col-frozen-del,
 thead .col-frozen-pos,
 thead .col-frozen-titre {
@@ -617,6 +643,7 @@ const DEFAULT_FILMS=[
    ═══════════════════════════════════════════════════ */
 let films = [], log = [], showHidden = false, sortCol = 'notePerso', sortDir = 'desc';
 let editCell = null; // {idx, key}
+let titreWidth = 220;
 
 function loadState() {
   try {
@@ -628,6 +655,15 @@ function loadState() {
 }
 function saveFilms() { localStorage.setItem('cf_films', JSON.stringify(films)); }
 function saveLog() { localStorage.setItem('cf_log', JSON.stringify(log)); }
+function loadTitreWidth() {
+  try {
+    const raw = parseInt(localStorage.getItem('cf_titre_width') || '220', 10);
+    titreWidth = Number.isFinite(raw) ? Math.max(160, Math.min(700, raw)) : 220;
+  } catch(e) {
+    titreWidth = 220;
+  }
+}
+function saveTitreWidth() { localStorage.setItem('cf_titre_width', String(titreWidth)); }
 
 function addLog(type, msg) {
   const entry = { ts: new Date().toISOString(), type, msg };
@@ -660,6 +696,74 @@ function toast(msg, type='info') {
   el.textContent = msg;
   document.getElementById('toasts').appendChild(el);
   setTimeout(() => { el.style.animation = 'toastOut .3s forwards'; setTimeout(() => el.remove(), 300); }, 3000);
+}
+
+function getUsedPositions(prefix, currentIdx) {
+  return new Set(
+    films
+      .map((f, idx) => idx === currentIdx ? null : f[prefix + 'position100'])
+      .filter(v => Number.isInteger(v) && v >= 1 && v <= 100)
+  );
+}
+
+function getNearestAvailablePositionOptions(target, currentIdx, prefix) {
+  const used = getUsedPositions(prefix, currentIdx);
+  if (!used.has(target)) return { isDuplicate: false, lower: null, upper: null };
+
+  let lower = null;
+  let upper = null;
+
+  for (let n = target - 1; n >= 1; n--) {
+    if (!used.has(n)) { lower = n; break; }
+  }
+  for (let n = target + 1; n <= 100; n++) {
+    if (!used.has(n)) { upper = n; break; }
+  }
+
+  return { isDuplicate: true, lower, upper };
+}
+
+function showPositionDuplicateModal(enteredValue, options, applyChoice) {
+  const buttons = [];
+  if (options.lower != null) {
+    buttons.push(`<button class="btn" onclick="(${applyChoice})(${options.lower});closeOverlay();">Prendre ${options.lower} (plus près en haut)</button>`);
+  }
+  if (options.upper != null) {
+    buttons.push(`<button class="btn gold" onclick="(${applyChoice})(${options.upper});closeOverlay();">Prendre ${options.upper} (plus près en bas)</button>`);
+  }
+
+  const html = `<div class="overlay" onclick="if(event.target===this)showRatingStep();">
+    <div class="modal" style="max-width:460px">
+      <h2>Classement déjà utilisé</h2>
+      <p class="desc">Le chiffre ${enteredValue} est déjà pris dans cette colonne. Choisissez un chiffre disponible parmi les deux plus proches.</p>
+      <div style="display:flex;flex-direction:column;gap:10px">${buttons.join('')}</div>
+      <div class="modal-row">
+        <button class="btn" onclick="showRatingStep()">Retour</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('overlay').innerHTML = html;
+}
+
+function startTitreResize(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  const startX = event.clientX;
+  const startWidth = titreWidth;
+
+  function onMove(ev) {
+    titreWidth = Math.max(160, Math.min(700, Math.round(startWidth + (ev.clientX - startX))));
+    render();
+  }
+
+  function onUp() {
+    saveTitreWidth();
+    window.removeEventListener('mousemove', onMove);
+    window.removeEventListener('mouseup', onUp);
+  }
+
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onUp);
 }
 
 /* ═══════════════════════════════════════════════════
@@ -732,8 +836,12 @@ function render() {
   COLS.forEach(c => {
     const cls = sortCol === c.key ? ' sorted' : '';
     const arrow = sortCol === c.key ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
-    const frozenCls = c.key === 'titre' ? ' col-frozen-titre' : '';
-    html += `<th class="${cls}${frozenCls}" onclick="doSort('${c.key}')" style="text-align:${c.align};min-width:${c.w}px">${c.label}${arrow}</th>`;
+    const frozenCls = c.key === 'titre' ? ' col-frozen-titre col-title-head' : '';
+    const width = c.key === 'titre' ? titreWidth : c.w;
+    const labelHtml = c.key === 'titre'
+      ? `${c.label}${arrow}<span class="col-resizer" onmousedown="startTitreResize(event)"></span>`
+      : `${c.label}${arrow}`;
+    html += `<th class="${cls}${frozenCls}" onclick="doSort('${c.key}')" style="text-align:${c.align};min-width:${width}px;width:${width}px;max-width:${width}px">${labelHtml}</th>`;
   });
   if (showHidden) RATERS.forEach(r => {
     CRITERIA.forEach(c => {
@@ -759,7 +867,7 @@ function render() {
         const display = v != null ? v.toFixed(2) : '<span class="hint">double-clic</span>';
         html += `<td class="${rater.css}" ondblclick="openRating(${f._idx},'${col.key}')">${display}</td>`;
       } else if (col.key === 'titre') {
-        html += `<td class="cell-titre editable col-frozen-titre" ondblclick="startEdit(${f._idx},'${col.key}',this)" title="${esc(f[col.key]||'')}">${esc(f[col.key]||'—')}</td>`;
+        html += `<td class="cell-titre editable col-frozen-titre" style="min-width:${titreWidth}px;width:${titreWidth}px;max-width:${titreWidth}px" ondblclick="startEdit(${f._idx},'${col.key}',this)" title="${esc(f[col.key]||'')}">${esc(f[col.key]||'—')}</td>`;
       } else if (col.edit) {
         const v = f[col.key];
         const display = v != null ? (col.type==='num' && col.key==='annee' ? String(Math.round(v)) : (typeof v==='number' ? v.toLocaleString('fr-CA'):esc(v))) : '—';
@@ -995,27 +1103,42 @@ function showRatingStep() {
   document.getElementById('overlay').innerHTML = html;
   setTimeout(() => { const inp = document.getElementById('ratingInput'); inp.focus(); inp.select(); }, 100);
 }
+function finalizeRating() {
+  const f = films[ratingState.idx];
+  const r = ratingState.rater;
+  const oldNote = f[r.key];
+  CRITERIA.forEach(cr => { f[r.prefix + cr.key] = ratingState.scores[cr.key]; });
+  f[r.key] = computeNote(f, r.prefix);
+  saveFilms();
+  const noteStr = f[r.key] != null ? f[r.key].toFixed(2) : '—';
+  addLog('note', `<strong>${r.label}</strong> - Note calculée pour <strong>${f.titre}</strong> : ${noteStr}/10 (ancien : ${oldNote!=null?oldNote.toFixed(2):'—'})`);
+  toast(`${r.label} → ${f.titre} : ${noteStr}`, 'success');
+  ratingState = null;
+  closeOverlay();
+  render();
+}
+
 function ratingNext() {
   const c = CRITERIA[ratingState.step];
   const v = parseFloat(document.getElementById('ratingInput').value);
   if (isNaN(v) || v < c.min || v > c.max) { toast(`Entrez une valeur entre ${c.min} et ${c.max}`, 'error'); return; }
-  ratingState.scores[c.key] = v;
+
+  if (c.key === 'position100') {
+    const options = getNearestAvailablePositionOptions(Math.round(v), ratingState.idx, ratingState.rater.prefix);
+    if (options.isDuplicate) {
+      showPositionDuplicateModal(Math.round(v), options, `function(chosenValue){ ratingState.scores['position100']=chosenValue; ${ratingState.step < CRITERIA.length - 1 ? "ratingState.step++;showRatingStep();" : "finalizeRating();"} }`);
+      return;
+    }
+    ratingState.scores[c.key] = Math.round(v);
+  } else {
+    ratingState.scores[c.key] = v;
+  }
+
   if (ratingState.step < CRITERIA.length - 1) {
     ratingState.step++;
     showRatingStep();
   } else {
-    const f = films[ratingState.idx];
-    const r = ratingState.rater;
-    const oldNote = f[r.key];
-    CRITERIA.forEach(cr => { f[r.prefix + cr.key] = ratingState.scores[cr.key]; });
-    f[r.key] = computeNote(f, r.prefix);
-    saveFilms();
-    const noteStr = f[r.key] != null ? f[r.key].toFixed(2) : '—';
-    addLog('note', `<strong>${r.label}</strong> — Note calculée pour <strong>${f.titre}</strong> : ${noteStr}/10 (ancien : ${oldNote!=null?oldNote.toFixed(2):'—'})`);
-    toast(`${r.label} → ${f.titre} : ${noteStr}`, 'success');
-    ratingState = null;
-    closeOverlay();
-    render();
+    finalizeRating();
   }
 }
 function ratingPrev() {
@@ -1146,6 +1269,7 @@ function showSuggestModal(f, idx, count) {
    INIT
    ═══════════════════════════════════════════════════ */
 loadState();
+loadTitreWidth();
 render();
 renderLogCount();
 bindFrozenHeader();
