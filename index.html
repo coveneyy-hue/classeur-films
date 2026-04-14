@@ -342,8 +342,8 @@ tr:hover .del-btn { opacity: .7; }
   background: var(--bg2);
 }
 .col-frozen-del  { left: 0;    min-width: 32px; width: 32px; }
-.col-frozen-pos  { left: 32px; min-width: 48px; width: 48px; }
-.col-frozen-titre{ left: 80px; min-width: 220px; }
+.col-frozen-pos  { left: 32px; min-width: 32px; width: 32px; }
+.col-frozen-titre{ left: 64px; min-width: var(--titre-col-width, 132px); width: var(--titre-col-width, 132px); max-width: min(100vw - 96px, 1000px); }
 
 thead .col-frozen-del,
 thead .col-frozen-pos,
@@ -392,6 +392,30 @@ tbody tr:hover .col-frozen-titre { background: #1a1a2e; }
 }
 .log-item:hover .log-del-btn { opacity: .75; }
 .log-del-btn:hover { opacity: 1 !important; }
+
+
+.col-expand-btn {
+  margin-left: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg4);
+  color: var(--txt2);
+  font-size: .78rem;
+  line-height: 1;
+  cursor: pointer;
+  vertical-align: middle;
+}
+.col-expand-btn:hover {
+  color: var(--gold);
+  border-color: var(--gold-dim);
+}
+.modal-row.wrap { flex-wrap: wrap; }
+.modal-row.wrap .btn-grow { flex: 1 1 100%; }
 
 /* Inline edit mode */
 td.editing {
@@ -500,7 +524,7 @@ function ensureCriteriaKeys(f) {
   RATERS.forEach(r => CRITERIA.forEach(c => { const k = r.prefix + c.key; if (!(k in f)) f[k] = null; }));
 }
 const COLS = [
-  { key:'titre',       label:'Titre',           align:'left',   w:220, edit:true  },
+  { key:'titre',       label:'Titre',           align:'left',   w:132, edit:true  },
   { key:'genre',       label:'Genre',           align:'left',   w:170, edit:true  },
   { key:'realisateur', label:'Réalisateur',     align:'left',   w:155, edit:true  },
   { key:'acteurs',     label:'Acteurs principaux', align:'left',w:210, edit:true  },
@@ -615,7 +639,7 @@ const DEFAULT_FILMS=[
 /* ═══════════════════════════════════════════════════
    STATE
    ═══════════════════════════════════════════════════ */
-let films = [], log = [], showHidden = false, sortCol = 'notePerso', sortDir = 'desc';
+let films = [], log = [], showHidden = false, sortCol = 'notePerso', sortDir = 'desc', titleExpanded = false;
 let editCell = null; // {idx, key}
 
 function loadState() {
@@ -625,9 +649,21 @@ function loadState() {
     films.forEach(f => ensureCriteriaKeys(f));
   } catch(e) { films = JSON.parse(JSON.stringify(DEFAULT_FILMS)); films.forEach(f => ensureCriteriaKeys(f)); }
   try { log = JSON.parse(localStorage.getItem('cf_log') || '[]'); } catch(e) { log = []; }
+  showHidden = localStorage.getItem('cf_showHidden') === '1';
+  titleExpanded = localStorage.getItem('cf_titleExpanded') === '1';
+  applyLayoutVars();
 }
+
 function saveFilms() { localStorage.setItem('cf_films', JSON.stringify(films)); }
 function saveLog() { localStorage.setItem('cf_log', JSON.stringify(log)); }
+function savePrefs() {
+  localStorage.setItem('cf_showHidden', showHidden ? '1' : '0');
+  localStorage.setItem('cf_titleExpanded', titleExpanded ? '1' : '0');
+}
+function applyLayoutVars() {
+  const titreWidth = titleExpanded ? 'min(calc(100vw - 140px), 1000px)' : '132px';
+  document.documentElement.style.setProperty('--titre-col-width', titreWidth);
+}
 
 function addLog(type, msg) {
   const entry = { ts: new Date().toISOString(), type, msg };
@@ -726,14 +762,21 @@ function render() {
     list.forEach((f, i) => ranks.set(f._idx, i + 1));
   }
 
+  const hiddenBaseCols = new Set(['genre','realisateur','acteurs','annee','budget','boxOffice','imdb']);
   let html = '<table><thead><tr><th class="col-frozen-del" style="width:32px"></th>';
-  // Position column
-  html += '<th class="col-frozen-pos ' + (sortCol ? 'sorted' : '') + '" style="text-align:center;min-width:40px;width:48px">#</th>';
+  html += '<th class="col-frozen-pos ' + (sortCol ? 'sorted' : '') + '" style="text-align:center;min-width:32px;width:32px">#</th>';
   COLS.forEach(c => {
+    if (!showHidden && hiddenBaseCols.has(c.key)) return;
     const cls = sortCol === c.key ? ' sorted' : '';
     const arrow = sortCol === c.key ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
     const frozenCls = c.key === 'titre' ? ' col-frozen-titre' : '';
-    html += `<th class="${cls}${frozenCls}" onclick="doSort('${c.key}')" style="text-align:${c.align};min-width:${c.w}px">${c.label}${arrow}</th>`;
+    const widthStyle = c.key === 'titre'
+      ? `min-width:${titleExpanded ? 'min(calc(100vw - 140px), 1000px)' : c.w + 'px'};width:${titleExpanded ? 'min(calc(100vw - 140px), 1000px)' : c.w + 'px'}`
+      : `min-width:${c.w}px`;
+    const labelHtml = c.key === 'titre'
+      ? `${c.label}${arrow}<button class="col-expand-btn" onclick="event.stopPropagation();toggleTitleWidth()" title="${titleExpanded ? 'Réduire la colonne Titre' : 'Agrandir la colonne Titre'}" aria-label="${titleExpanded ? 'Réduire la colonne Titre' : 'Agrandir la colonne Titre'}">⤢</button>`
+      : `${c.label}${arrow}`;
+    html += `<th class="${cls}${frozenCls}" onclick="doSort('${c.key}')" style="text-align:${c.align};${widthStyle}">${labelHtml}</th>`;
   });
   if (showHidden) RATERS.forEach(r => {
     CRITERIA.forEach(c => {
@@ -753,13 +796,14 @@ function render() {
     const showRank = isNoteSort ? (f[sortCol] != null ? rank : null) : rank;
     html += `<td class="cell-num col-frozen-pos" style="font-weight:700;color:var(--txt3);font-size:.8rem">${showRank != null ? showRank : '—'}</td>`;
     COLS.forEach(col => {
+      if (!showHidden && hiddenBaseCols.has(col.key)) return;
       if (col.rater) {
         const rater = RATERS.find(r => r.key === col.key);
         const v = f[col.key];
         const display = v != null ? v.toFixed(2) : '<span class="hint">double-clic</span>';
         html += `<td class="${rater.css}" ondblclick="openRating(${f._idx},'${col.key}')">${display}</td>`;
       } else if (col.key === 'titre') {
-        html += `<td class="cell-titre editable col-frozen-titre" ondblclick="startEdit(${f._idx},'${col.key}',this)" title="${esc(f[col.key]||'')}">${esc(f[col.key]||'—')}</td>`;
+        html += `<td class="cell-titre editable col-frozen-titre" style="min-width:${titleExpanded ? 'min(calc(100vw - 140px), 1000px)' : col.w + 'px'};width:${titleExpanded ? 'min(calc(100vw - 140px), 1000px)' : col.w + 'px'}" ondblclick="startEdit(${f._idx},'${col.key}',this)" title="${esc(f[col.key]||'')}">${esc(f[col.key]||'—')}</td>`;
       } else if (col.edit) {
         const v = f[col.key];
         const display = v != null ? (col.type==='num' && col.key==='annee' ? String(Math.round(v)) : (typeof v==='number' ? v.toLocaleString('fr-CA'):esc(v))) : '—';
@@ -847,7 +891,8 @@ function bindFrozenHeader() {
 
 function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 function doSort(key) { if (sortCol===key) sortDir = sortDir==='asc'?'desc':'asc'; else { sortCol=key; sortDir='asc'; } render(); }
-function toggleHidden() { showHidden=!showHidden; render(); toast(showHidden?'Colonnes de critères affichées':'Colonnes de critères masquées','info'); }
+function toggleHidden() { showHidden=!showHidden; savePrefs(); render(); toast(showHidden?'Colonnes détaillées affichées':'Colonnes détaillées masquées','info'); }
+function toggleTitleWidth() { titleExpanded = !titleExpanded; applyLayoutVars(); savePrefs(); render(); toast(titleExpanded ? 'Colonne Titre agrandie' : 'Colonne Titre réduite', 'info'); }
 
 /* ═══════════════════════════════════════════════════
    INLINE EDIT
@@ -970,6 +1015,7 @@ function showRatingStep() {
   const r = s.rater;
   const val = s.scores[c.key];
   const pct = ((s.step + 1) / CRITERIA.length * 100).toFixed(0);
+  const hasExistingRating = films[s.idx][r.key] != null || CRITERIA.some(cr => films[s.idx][r.prefix + cr.key] != null);
   const html = `<div class="overlay" onclick="if(event.target===this){ratingState=null;closeOverlay();}">
     <div class="modal">
       <div class="step-label" style="color:${r.color}">Critère ${s.step+1} / ${CRITERIA.length} — ${r.label} — ${films[s.idx].titre}</div>
@@ -985,10 +1031,11 @@ function showRatingStep() {
           onkeydown="if(event.key==='Enter')ratingNext();">
         <span class="suffix">${c.suffix}</span>
       </div>
-      <div class="modal-row">
+      <div class="modal-row wrap">
         <button class="btn" onclick="ratingState=null;closeOverlay();">Annuler</button>
         ${s.step > 0 ? '<button class="btn" onclick="ratingPrev()">← Précédent</button>' : ''}
         <button class="btn" style="background:${r.gradient};color:#000;border:none;font-weight:700" onclick="ratingNext()">${s.step < CRITERIA.length-1 ? 'Suivant →' : 'Calculer la note ✓'}</button>
+        ${s.step === 0 && hasExistingRating ? '<button class="btn red btn-grow" onclick="confirmDeleteRating()">Supprimer</button>' : ''}
       </div>
     </div>
   </div>`;
@@ -1024,6 +1071,38 @@ function ratingPrev() {
   if (v !== '') ratingState.scores[c.key] = parseFloat(v);
   ratingState.step--;
   showRatingStep();
+}
+
+function confirmDeleteRating() {
+  const s = ratingState;
+  const f = films[s.idx];
+  const r = s.rater;
+  const html = `<div class="overlay" onclick="if(event.target===this)showRatingStep();">
+    <div class="modal" style="max-width:380px">
+      <h2>Supprimer cette note ?</h2>
+      <p class="desc">La note <strong>${r.label}</strong> et tous ses critères détaillés seront effacés pour <strong>${esc(f.titre)}</strong>.</p>
+      <div class="modal-row">
+        <button class="btn" onclick="showRatingStep()">Annuler</button>
+        <button class="btn red" onclick="deleteRating()">Supprimer</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('overlay').innerHTML = html;
+}
+
+function deleteRating() {
+  const s = ratingState;
+  const f = films[s.idx];
+  const r = s.rater;
+  const oldNote = f[r.key];
+  CRITERIA.forEach(cr => { f[r.prefix + cr.key] = null; });
+  f[r.key] = null;
+  saveFilms();
+  addLog('note', `<strong>${r.label}</strong> — Note supprimée pour <strong>${f.titre}</strong> : ${oldNote!=null?oldNote.toFixed(2):'—'}`);
+  toast(`Note supprimée : ${r.label} · ${f.titre}`, 'warn');
+  ratingState = null;
+  closeOverlay();
+  render();
 }
 
 /* ═══════════════════════════════════════════════════
@@ -1146,6 +1225,7 @@ function showSuggestModal(f, idx, count) {
    INIT
    ═══════════════════════════════════════════════════ */
 loadState();
+applyLayoutVars();
 render();
 renderLogCount();
 bindFrozenHeader();
