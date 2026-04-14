@@ -913,7 +913,7 @@ function openTitleBreakdown(idx, selectedRaterKey) {
     const value = f[rater.prefix + c.key];
     return `<tr>
       <td style="padding:8px 10px;border-bottom:1px solid var(--border);color:#fff">${c.label}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right;font-weight:700;color:${rater.color}">${value != null ? value.toFixed(2) : '—'}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right;font-weight:700;color:${rater.color}">${value != null ? Math.round(value) : '—'}</td>
     </tr>`;
   }).join('');
   const options = RATERS.map(r => `<option value="${r.key}" ${r.key === rater.key ? 'selected' : ''}>${r.label}</option>`).join('');
