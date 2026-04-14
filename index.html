@@ -912,23 +912,44 @@ function openTitleBreakdown(idx, selectedRaterKey) {
   const rows = CRITERIA.map(c => {
     const value = f[rater.prefix + c.key];
     return `<tr>
-      <td style="padding:8px 10px;border-bottom:1px solid var(--border);color:#fff">${c.label}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right;font-weight:700;color:${rater.color}">${value != null ? Math.round(value) : '—'}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--border);color:#fff">
+        <div style="font-weight:700">${c.label}</div>
+        <div style="font-size:.8rem;color:var(--txt2);margin-top:3px">${c.desc}</div>
+      </td>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right">
+        <input
+          type="number"
+          id="breakdown_${c.key}"
+          min="${c.min}"
+          max="${c.max}"
+          step="0.01"
+          value="${value != null ? value : ''}"
+          placeholder="${c.min} à ${c.max}"
+          oninput="updateTitleBreakdownPreview()"
+          style="width:120px;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:#fff;text-align:right;font-weight:700;outline:none">
+        <div style="font-size:.78rem;color:${rater.color};margin-top:4px">${c.suffix}</div>
+      </td>
     </tr>`;
   }).join('');
   const options = RATERS.map(r => `<option value="${r.key}" ${r.key === rater.key ? 'selected' : ''}>${r.label}</option>`).join('');
   const hasAnyData = note != null || CRITERIA.some(c => f[rater.prefix + c.key] != null);
   const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()">
-    <div class="modal" style="max-width:620px">
-      <h2>${esc(f.titre || 'Film')}</h2>
-      <p class="desc">Ventilation des notes détaillées enregistrées dans les colonnes masquées.</p>
-      <label>Afficher la ventilation pour</label>
-      <select id="breakdownRater" onchange="openTitleBreakdown(${idx}, this.value)">
-        ${options}
-      </select>
-      <div style="margin-top:16px;padding:16px 18px;border-radius:12px;background:var(--bg);border:1px solid var(--border)">
-        <div style="font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--txt2);margin-bottom:6px">Note globale</div>
-        <div style="font-family:var(--font-display);font-size:2rem;font-weight:800;color:${rater.color}">${note != null ? note.toFixed(2) + '/10' : '—'}</div>
+    <div class="modal" style="max-width:760px">
+      <h2>Modifier le film</h2>
+      <p class="desc">Modifiez le titre et la ventilation des notes détaillées.</p>
+      <label>Titre</label>
+      <input type="text" id="breakdownTitle" value="${esc(f.titre || '')}" placeholder="Titre du film">
+      <div style="display:grid;grid-template-columns:1fr 220px;gap:14px;margin-top:16px;align-items:end">
+        <div>
+          <label>Afficher la ventilation pour</label>
+          <select id="breakdownRater" onchange="openTitleBreakdown(${idx}, this.value)">
+            ${options}
+          </select>
+        </div>
+        <div style="padding:16px 18px;border-radius:12px;background:var(--bg);border:1px solid var(--border)">
+          <div style="font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--txt2);margin-bottom:6px">Note globale</div>
+          <div id="breakdownNotePreview" style="font-family:var(--font-display);font-size:2rem;font-weight:800;color:${rater.color}">${note != null ? note.toFixed(2) + '/10' : 'n/a'}</div>
+        </div>
       </div>
       <div style="margin-top:16px;border:1px solid var(--border);border-radius:12px;overflow:hidden">
         <table style="width:100%;border-collapse:collapse">
@@ -943,11 +964,86 @@ function openTitleBreakdown(idx, selectedRaterKey) {
       </div>
       ${hasAnyData ? '' : '<p class="desc" style="margin-top:14px;margin-bottom:0">Aucune ventilation enregistrée pour cette personne.</p>'}
       <div class="modal-row">
-        <button class="btn" onclick="closeOverlay()">Fermer</button>
+        <button class="btn" onclick="closeOverlay()">Annuler</button>
+        <button class="btn gold" onclick="saveTitleBreakdown(${idx})">Enregistrer</button>
       </div>
     </div>
   </div>`;
   document.getElementById('overlay').innerHTML = html;
+  setTimeout(() => {
+    const titleInput = document.getElementById('breakdownTitle');
+    if (titleInput) titleInput.focus();
+    updateTitleBreakdownPreview();
+  }, 0);
+}
+
+function getTitleBreakdownDraft() {
+  const rater = getRaterByKey(document.getElementById('breakdownRater')?.value || RATERS[0].key);
+  const draft = {};
+  CRITERIA.forEach(c => {
+    const raw = document.getElementById('breakdown_' + c.key)?.value ?? '';
+    const trimmed = String(raw).trim();
+    draft[c.key] = trimmed === '' ? null : parseFloat(trimmed);
+  });
+  return { rater, draft };
+}
+
+function computeDraftNote(draft) {
+  const pos = draft.position100;
+  if (pos == null || isNaN(pos)) return null;
+  const posNote = 10 - (pos / 100) * 10;
+  const others = CRITERIA.filter(c => !c.isPos).map(c => draft[c.key]);
+  if (others.some(v => v == null || isNaN(v))) return null;
+  const avg = others.reduce((a, b) => a + b, 0) / others.length;
+  return Math.round((posNote * 0.33 + avg * 0.67) * 100) / 100;
+}
+
+function updateTitleBreakdownPreview() {
+  const noteEl = document.getElementById('breakdownNotePreview');
+  if (!noteEl) return;
+  const { rater, draft } = getTitleBreakdownDraft();
+  const invalid = CRITERIA.some(c => {
+    const v = draft[c.key];
+    return v != null && (isNaN(v) || v < c.min || v > c.max);
+  });
+  noteEl.style.color = rater.color;
+  if (invalid) {
+    noteEl.textContent = 'Invalide';
+    return;
+  }
+  const note = computeDraftNote(draft);
+  noteEl.textContent = note != null ? note.toFixed(2) + '/10' : 'n/a';
+}
+
+function saveTitleBreakdown(idx) {
+  const f = films[idx];
+  const oldTitle = f.titre;
+  const titleInput = document.getElementById('breakdownTitle');
+  const newTitle = (titleInput?.value || '').trim();
+  if (!newTitle) {
+    toast('Le titre est requis', 'error');
+    return;
+  }
+  const { rater, draft } = getTitleBreakdownDraft();
+  for (const c of CRITERIA) {
+    const v = draft[c.key];
+    if (v != null && (isNaN(v) || v < c.min || v > c.max)) {
+      toast(`Entrez une valeur entre ${c.min} et ${c.max} pour ${c.label}`, 'error');
+      return;
+    }
+  }
+  const oldNote = f[rater.key];
+  f.titre = newTitle;
+  CRITERIA.forEach(c => { f[rater.prefix + c.key] = draft[c.key]; });
+  f[rater.key] = computeDraftNote(draft);
+  saveFilms();
+  if (newTitle !== oldTitle) {
+    addLog('edit', `<strong>${oldTitle}</strong> → <strong>${newTitle}</strong>`);
+  }
+  addLog('note', `<strong>${rater.label}</strong> - Ventilation modifiée pour <strong>${newTitle}</strong> : ${oldNote != null ? oldNote.toFixed(2) : 'n/a'} → ${f[rater.key] != null ? f[rater.key].toFixed(2) : 'n/a'}`);
+  toast(`Modifications enregistrées pour ${newTitle}`, 'success');
+  closeOverlay();
+  render();
 }
 
 /* ═══════════════════════════════════════════════════
