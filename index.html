@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#e8a630">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Classeur Films</title>
+<link rel="manifest" href="manifest.json">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Barlow:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #0a0a16;
+  --bg2:       #10101f;
+  --bg3:       #161630;
+  --bg4:       #1c1c3a;
+  --gold:      #e8a630;
+  --gold2:     #f0c060;
+  --gold-dim:  #a07020;
+  --red:       #e84040;
+  --green:     #40c890;
+  --blue:      #4088e8;
+  --txt:       #d0d0e0;
+  --txt2:      #808098;
+  --txt3:      #505068;
+  --border:    #1e1e38;
+  --font-display: 'Outfit', sans-serif;
+  --font-body:    'Barlow', sans-serif;
+  --radius:    12px;
+  --radius-sm: 8px;
+  --shadow:    0 8px 40px rgba(0,0,0,.5);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; scroll-behavior: smooth; }
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--txt);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.03'/%3E%3C/svg%3E") repeat;
+  opacity: .6;
+}
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--gold-dim); }
+
+/* ─── LAYOUT ────────────────────────────────────── */
+#app { position: relative; z-index: 1; max-width: 1920px; margin: 0 auto; padding: 20px 16px 80px; }
+
+.topbar {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding-bottom: 18px; border-bottom: 1px solid var(--border); margin-bottom: 18px;
+}
+.topbar h1 {
+  font-family: var(--font-display); font-weight: 900; font-size: 1.7rem;
+  background: linear-gradient(135deg, var(--gold), var(--red));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  letter-spacing: -.02em; white-space: nowrap;
+}
+.topbar h1 span { font-size: 1.3em; -webkit-text-fill-color: initial; margin-right: 4px; }
+.searchbox {
+  flex: 1; min-width: 200px; max-width: 380px;
+  padding: 10px 14px 10px 36px; border-radius: var(--radius);
+  border: 1px solid var(--border); background: var(--bg2); color: var(--txt);
+  font-size: .95rem; font-family: var(--font-body); outline: none;
+  transition: border .2s, box-shadow .2s;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23505068' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.242.156a5 5 0 1 1 0-10 5 5 0 0 1 0 10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: 12px center;
+}
+.searchbox:focus { border-color: var(--gold-dim); box-shadow: 0 0 0 3px rgba(232,166,48,.1); }
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 16px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--bg3);
+  color: var(--txt); font-family: var(--font-body); font-weight: 600;
+  font-size: .85rem; cursor: pointer; white-space: nowrap;
+  transition: all .2s;
+}
+.btn:hover { background: var(--bg4); border-color: var(--txt3); transform: translateY(-1px); }
+.btn.gold { background: linear-gradient(135deg, var(--gold), #d08820); color: #000; border: none; font-weight: 700; }
+.btn.gold:hover { box-shadow: 0 4px 20px rgba(232,166,48,.3); }
+.btn.red { border-color: var(--red); color: var(--red); }
+.btn.red:hover { background: rgba(232,64,64,.1); }
+.count { font-size: .8rem; color: var(--txt3); margin-left: auto; font-weight: 500; }
+
+.toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
+
+/* ─── TABLE ─────────────────────────────────────── */
+.table-wrap {
+  overflow-x: auto; border-radius: var(--radius);
+  border: 1px solid var(--border); background: var(--bg2);
+  box-shadow: var(--shadow);
+}
+table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+thead th {
+  padding: 11px 8px; background: var(--bg3);
+  font-family: var(--font-display); font-weight: 700;
+  font-size: .7rem; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--txt2); border-bottom: 2px solid var(--border);
+  position: sticky; top: 0; z-index: 5; cursor: pointer;
+  white-space: nowrap; user-select: none; transition: color .15s;
+}
+thead th:hover { color: var(--gold); }
+thead th.sorted { color: var(--gold); }
+tbody td {
+  padding: 9px 8px; border-bottom: 1px solid var(--border);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 240px; transition: background .15s;
+}
+tbody tr { transition: background .15s; }
+tbody tr:nth-child(even) { background: rgba(255,255,255,.012); }
+tbody tr:hover { background: rgba(232,166,48,.04); }
+.cell-titre { font-weight: 600; color: #fff; text-align: left; }
+.cell-note {
+  font-weight: 800; color: var(--gold); font-family: var(--font-display);
+  font-size: 1.05rem; cursor: pointer; text-align: center;
+  background: rgba(232,166,48,.04); position: relative;
+}
+.cell-note:hover { background: rgba(232,166,48,.1); }
+.cell-note .hint {
+  font-size: .7rem; font-weight: 400; color: var(--txt3);
+  font-style: italic; font-family: var(--font-body);
+}
+.cell-num { text-align: center; font-variant-numeric: tabular-nums; }
+.cell-hidden { color: var(--gold-dim); text-align: center; font-size: .82rem; }
+td.editable { cursor: text; }
+td.editable:hover { outline: 1px dashed var(--txt3); outline-offset: -2px; border-radius: 3px; }
+.del-btn {
+  opacity: 0; width: 22px; height: 22px; border-radius: 50%;
+  border: none; background: var(--red); color: #fff; font-size: .7rem;
+  cursor: pointer; transition: opacity .2s, transform .15s; display: inline-flex;
+  align-items: center; justify-content: center;
+}
+tr:hover .del-btn { opacity: .7; }
+.del-btn:hover { opacity: 1 !important; transform: scale(1.15); }
+
+/* ─── MODAL OVERLAY ─────────────────────────────── */
+.overlay {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(0,0,0,.75); backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  animation: fadeIn .2s;
+}
+@keyframes fadeIn { from { opacity: 0; } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(30px) scale(.97); } }
+.modal {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 16px; padding: 28px 32px; width: 90%; max-width: 460px;
+  box-shadow: 0 30px 80px rgba(0,0,0,.7), 0 0 60px rgba(232,166,48,.06);
+  animation: slideUp .3s ease-out;
+}
+.modal h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.3rem; color: #fff; margin-bottom: 4px; }
+.modal h3 { font-family: var(--font-display); font-weight: 700; font-size: 1.15rem; color: #fff; margin: 12px 0 4px; }
+.modal p.desc { color: var(--txt2); font-size: .9rem; line-height: 1.5; margin-bottom: 16px; }
+.modal label { display: block; font-size: .8rem; font-weight: 600; color: var(--txt2); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .05em; }
+.modal input[type=text], .modal input[type=number], .modal select, .modal textarea {
+  width: 100%; padding: 11px 14px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--bg); color: #fff;
+  font-family: var(--font-body); font-size: 1rem; outline: none;
+  transition: border .2s;
+}
+.modal input:focus, .modal textarea:focus { border-color: var(--gold); }
+.modal textarea { resize: vertical; min-height: 60px; }
+.progress-bar { height: 4px; background: var(--bg4); border-radius: 4px; overflow: hidden; margin-bottom: 16px; }
+.progress-bar .fill { height: 100%; background: linear-gradient(90deg, var(--gold), var(--red)); border-radius: 4px; transition: width .35s ease; }
+.step-label { font-size: .75rem; color: var(--gold); font-weight: 700; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 6px; }
+.modal-row { display: flex; gap: 10px; margin-top: 18px; }
+.modal-row .btn { flex: 1; justify-content: center; padding: 12px; }
+.score-input-wrap { position: relative; margin-bottom: 4px; }
+.score-input-wrap .suffix { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--txt3); font-size: .85rem; font-weight: 600; }
+
+/* ─── LOG PANEL (slide-in) ──────────────────────── */
+.log-panel {
+  position: fixed; top: 0; right: -460px; width: 440px; max-width: 92vw;
+  height: 100vh; z-index: 90;
+  background: var(--bg2); border-left: 1px solid var(--border);
+  box-shadow: -10px 0 50px rgba(0,0,0,.5);
+  transition: right .35s cubic-bezier(.4,0,.2,1);
+  display: flex; flex-direction: column;
+}
+.log-panel.open { right: 0; }
+.log-header {
+  padding: 20px 20px 14px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.log-header h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.15rem; color: #fff; }
+.log-close {
+  width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border);
+  background: var(--bg3); color: var(--txt2); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; font-size: 1rem;
+  transition: all .15s;
+}
+.log-close:hover { background: var(--red); color: #fff; border-color: var(--red); }
+.log-list { flex: 1; overflow-y: auto; padding: 12px 16px; }
+.log-item {
+  padding: 10px 12px; border-radius: var(--radius-sm);
+  margin-bottom: 8px; border-left: 3px solid var(--gold-dim);
+  background: var(--bg3); animation: slideUp .25s ease-out;
+}
+.log-item.add { border-left-color: var(--green); }
+.log-item.delete { border-left-color: var(--red); }
+.log-item.edit { border-left-color: var(--blue); }
+.log-item.note { border-left-color: var(--gold); }
+.log-item.backup { border-left-color: #a050e0; }
+.log-time { font-size: .7rem; color: var(--txt3); margin-bottom: 3px; font-variant-numeric: tabular-nums; }
+.log-msg { font-size: .85rem; color: var(--txt); line-height: 1.4; }
+.log-msg strong { color: #fff; }
+.log-empty { text-align: center; padding: 40px; color: var(--txt3); font-style: italic; }
+.log-footer { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; gap: 8px; }
+.log-footer .btn { flex: 1; justify-content: center; font-size: .8rem; }
+
+/* ─── TOASTS ────────────────────────────────────── */
+.toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 200; display: flex; flex-direction: column-reverse; gap: 8px; }
+.toast {
+  padding: 12px 18px; border-radius: var(--radius-sm);
+  background: var(--bg3); border: 1px solid var(--border);
+  color: var(--txt); font-size: .88rem; font-weight: 500;
+  box-shadow: 0 8px 30px rgba(0,0,0,.5);
+  animation: toastIn .3s ease-out;
+  max-width: 360px;
+}
+.toast.success { border-left: 3px solid var(--green); }
+.toast.info { border-left: 3px solid var(--blue); }
+.toast.warn { border-left: 3px solid var(--gold); }
+.toast.error { border-left: 3px solid var(--red); }
+@keyframes toastIn { from { opacity: 0; transform: translateX(40px); } }
+@keyframes toastOut { to { opacity: 0; transform: translateX(40px); } }
+
+/* ─── FORMULA BOX ───────────────────────────────── */
+.formula-box {
+  margin-top: 18px; padding: 16px 20px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.formula-box h3 { font-family: var(--font-display); font-weight: 700; font-size: 1rem; color: var(--gold); margin-bottom: 8px; }
+.formula-box p { color: var(--txt2); font-size: .85rem; line-height: 1.7; }
+.formula-box strong { color: var(--txt); }
+
+/* ─── RESPONSIVE ────────────────────────────────── */
+@media (max-width: 768px) {
+  .topbar h1 { font-size: 1.3rem; }
+  .searchbox { max-width: 100%; }
+  .toolbar { gap: 6px; }
+  .btn { padding: 8px 10px; font-size: .78rem; }
+  .log-panel { width: 100vw; max-width: 100vw; }
+}
+
+/* ─── PULSE glow for Note perso cells on hover ── */
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: inset 0 0 0 rgba(232,166,48,0); }
+  50% { box-shadow: inset 0 0 20px rgba(232,166,48,.08); }
+}
+.cell-note:hover { animation: pulseGlow 1.5s infinite; }
+
+/* Inline edit mode */
+td.editing {
+  outline: 2px solid var(--gold) !important;
+  outline-offset: -2px; border-radius: 4px;
+  background: var(--bg) !important;
+}
+td.editing input {
+  width: 100%; background: transparent; border: none; color: #fff;
+  font: inherit; outline: none; text-align: inherit; padding: 0;
+}
+
+/* File input hidden */
+.file-input { display: none; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- Topbar -->
+  <div class="topbar">
+    <h1><span>🎬</span> Classeur Films</h1>
+    <input type="text" class="searchbox" id="search" placeholder="Rechercher titre, genre, réalisateur…" oninput="render()">
+    <span class="count" id="counter"></span>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <button class="btn gold" onclick="openAddModal()">＋ Ajouter un film</button>
+    <button class="btn" onclick="toggleHidden()">👁 Critères</button>
+    <button class="btn" onclick="exportJSON()">⬇ Exporter JSON</button>
+    <button class="btn" onclick="document.getElementById('importFile').click()">⬆ Importer JSON</button>
+    <input type="file" id="importFile" class="file-input" accept=".json" onchange="importJSON(event)">
+    <button class="btn" onclick="toggleLog()" id="logBtn">📋 Journal <span id="logCount"></span></button>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap" id="tableWrap"></div>
+
+  <!-- Formula -->
+  <div class="formula-box">
+    <h3>📐 Calcul de la Note perso</h3>
+    <p>
+      <strong>Position sur 100</strong> (33 %) — Convertie en note : position 1 → 9.9, position 50 → 5.0, position 100 → 0.0<br>
+      <strong>7 autres critères</strong> (67 % répartis également, ~9.57 % chacun) — Acteur principal · Acteur secondaire · Antagoniste · Trame sonore · Fluidité narrative · Réalisation · La fin
+    </p>
+  </div>
+</div>
+
+<!-- Log Panel -->
+<div class="log-panel" id="logPanel">
+  <div class="log-header">
+    <h2>📋 Journal d'activité</h2>
+    <button class="log-close" onclick="toggleLog()">✕</button>
+  </div>
+  <div class="log-list" id="logList"></div>
+  <div class="log-footer">
+    <button class="btn red" onclick="clearLog()">Vider le journal</button>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toasts"></div>
+
+<!-- Overlay target -->
+<div id="overlay"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════
+   DATA
+   ═══════════════════════════════════════════════════ */
+const CRITERIA = [
+  { key:'position100', label:'Position sur 100 estimée', desc:'Où situez-vous ce film dans un top 100 ? (1 = meilleur, 100 = pire). Ex : 80 → note de 2/10', min:1, max:100, suffix:'/100', isPos:true },
+  { key:'castPrincipal', label:'Acteur principal', desc:'Performance de l\'acteur/actrice principal(e) — charisme, justesse, émotion.', min:0, max:10, suffix:'/10' },
+  { key:'castSecondaire', label:'Acteur secondaire', desc:'Qualité et impact des rôles secondaires.', min:0, max:10, suffix:'/10' },
+  { key:'antagoniste', label:'Antagoniste', desc:'Mémorabilité, menace et complexité du vilain ou opposant.', min:0, max:10, suffix:'/10' },
+  { key:'trameSonore', label:'Trame sonore', desc:'Musique, bande originale, design sonore — ça donne des frissons ?', min:0, max:10, suffix:'/10' },
+  { key:'fluidite', label:'Fluidité narrative', desc:'Le film coule sans temps mort, sans rupture de rythme ni incohérence.', min:0, max:10, suffix:'/10' },
+  { key:'realisation', label:'Réalisation', desc:'Mise en scène, photographie, direction artistique, plans mémorables.', min:0, max:10, suffix:'/10' },
+  { key:'fin', label:'La fin', desc:'Satisfaction de la conclusion — émotion, surprise, cohérence.', min:0, max:10, suffix:'/10' }
+];
+
+const COLS = [
+  { key:'titre',       label:'Titre',           align:'left',   w:220, edit:true  },
+  { key:'genre',       label:'Genre',           align:'left',   w:170, edit:true  },
+  { key:'realisateur', label:'Réalisateur',     align:'left',   w:155, edit:true  },
+  { key:'acteurs',     label:'Acteurs principaux', align:'left',w:210, edit:true  },
+  { key:'annee',       label:'Année',           align:'center', w:60,  edit:true, type:'num' },
+  { key:'budget',      label:'Budget (M$)',     align:'center', w:90,  edit:true, type:'num' },
+  { key:'boxOffice',   label:'Box Office (M$)', align:'center', w:100, edit:true, type:'num' },
+  { key:'imdb',        label:'IMDb Top 250',    align:'center', w:85,  edit:true, type:'num' },
+  { key:'notePerso',   label:'Note perso',      align:'center', w:90,  edit:false },
+  { key:'victor',      label:'Victor',          align:'center', w:60,  edit:true, type:'num' },
+  { key:'lilyRose',    label:'Lily-Rose',       align:'center', w:70,  edit:true, type:'num' }
+];
+
+const DEFAULT_FILMS=[
+{titre:"The Godfather",genre:"Crime, Drame",realisateur:"Francis Ford Coppola",acteurs:"Marlon Brando; Al Pacino; James Caan",annee:1972,imdb:2,notePerso:1,victor:null,lilyRose:null,budget:6,boxOffice:250},
+{titre:"Goodfellas",genre:"Crime, Drame",realisateur:"Martin Scorsese",acteurs:"Robert De Niro; Ray Liotta; Joe Pesci",annee:1990,imdb:17,notePerso:2,victor:null,lilyRose:null,budget:25,boxOffice:46.8},
+{titre:"Gladiator",genre:"Action, Aventure, Drame",realisateur:"Ridley Scott",acteurs:"Russell Crowe; Joaquin Phoenix; Connie Nielsen",annee:2000,imdb:33,notePerso:3,victor:null,lilyRose:null,budget:103,boxOffice:465},
+{titre:"Pulp Fiction",genre:"Crime, Drame",realisateur:"Quentin Tarantino",acteurs:"John Travolta; Samuel L. Jackson; Uma Thurman",annee:1994,imdb:9,notePerso:4,victor:null,lilyRose:null,budget:8,boxOffice:213},
+{titre:"Heat",genre:"Crime, Drame, Thriller",realisateur:"Michael Mann",acteurs:"Al Pacino; Robert De Niro; Val Kilmer",annee:1995,imdb:102,notePerso:5,victor:null,lilyRose:null,budget:60,boxOffice:187},
+{titre:"L.A. Confidential",genre:"Crime, Drame, Mystère",realisateur:"Curtis Hanson",acteurs:"Kevin Spacey; Russell Crowe; Guy Pearce",annee:1997,imdb:124,notePerso:6,victor:null,lilyRose:null,budget:35,boxOffice:126},
+{titre:"The Insider",genre:"Biographie, Drame, Thriller",realisateur:"Michael Mann",acteurs:"Al Pacino; Russell Crowe; Christopher Plummer",annee:1999,imdb:null,notePerso:7,victor:null,lilyRose:null,budget:68,boxOffice:60},
+{titre:"Moneyball",genre:"Biographie, Drame, Sport",realisateur:"Bennett Miller",acteurs:"Brad Pitt; Jonah Hill; Philip Seymour Hoffman",annee:2011,imdb:null,notePerso:8,victor:null,lilyRose:null,budget:50,boxOffice:110},
+{titre:"Die Hard",genre:"Action, Thriller",realisateur:"John McTiernan",acteurs:"Bruce Willis; Alan Rickman; Bonnie Bedelia",annee:1988,imdb:116,notePerso:9,victor:null,lilyRose:null,budget:28,boxOffice:140},
+{titre:"Almost Famous",genre:"Aventure, Comédie, Drame",realisateur:"Cameron Crowe",acteurs:"Billy Crudup; Frances McDormand; Patrick Fugit",annee:2000,imdb:null,notePerso:10,victor:null,lilyRose:null,budget:60,boxOffice:47},
+{titre:"Forrest Gump",genre:"Drame, Romance",realisateur:"Robert Zemeckis",acteurs:"Tom Hanks; Robin Wright; Gary Sinise",annee:1994,imdb:12,notePerso:null,victor:null,lilyRose:null,budget:55,boxOffice:678},
+{titre:"Training Day",genre:"Crime, Drame, Thriller",realisateur:"Antoine Fuqua",acteurs:"Denzel Washington; Ethan Hawke; Scott Glenn",annee:2001,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:45,boxOffice:104},
+{titre:"Terminator 2: Judgment Day",genre:"Action, Science-fiction",realisateur:"James Cameron",acteurs:"Arnold Schwarzenegger; Linda Hamilton; Edward Furlong",annee:1991,imdb:28,notePerso:null,victor:null,lilyRose:null,budget:102,boxOffice:520},
+{titre:"Aliens",genre:"Action, Aventure, Science-fiction",realisateur:"James Cameron",acteurs:"Sigourney Weaver; Michael Biehn; Bill Paxton",annee:1986,imdb:71,notePerso:null,victor:null,lilyRose:null,budget:18.5,boxOffice:183},
+{titre:"Fight Club",genre:"Drame",realisateur:"David Fincher",acteurs:"Brad Pitt; Edward Norton; Helena Bonham Carter",annee:1999,imdb:13,notePerso:null,victor:null,lilyRose:null,budget:63,boxOffice:101},
+{titre:"Whiplash",genre:"Drame, Musique",realisateur:"Damien Chazelle",acteurs:"Miles Teller; J.K. Simmons; Melissa Benoist",annee:2014,imdb:40,notePerso:null,victor:null,lilyRose:null,budget:3.3,boxOffice:49},
+{titre:"The Game",genre:"Drame, Mystère, Thriller",realisateur:"David Fincher",acteurs:"Michael Douglas; Sean Penn; Deborah Kara Unger",annee:1997,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:50,boxOffice:109},
+{titre:"Memento",genre:"Mystère, Thriller",realisateur:"Christopher Nolan",acteurs:"Guy Pearce; Carrie-Anne Moss; Joe Pantoliano",annee:2000,imdb:58,notePerso:null,victor:null,lilyRose:null,budget:9,boxOffice:40},
+{titre:"The Shining",genre:"Drame, Horreur",realisateur:"Stanley Kubrick",acteurs:"Jack Nicholson; Shelley Duvall; Danny Lloyd",annee:1980,imdb:67,notePerso:null,victor:null,lilyRose:null,budget:19,boxOffice:44},
+{titre:"Good Will Hunting",genre:"Drame, Romance",realisateur:"Gus Van Sant",acteurs:"Matt Damon; Robin Williams; Ben Affleck",annee:1997,imdb:73,notePerso:null,victor:null,lilyRose:null,budget:10,boxOffice:225},
+{titre:"World War Z",genre:"Action, Aventure, Horreur",realisateur:"Marc Forster",acteurs:"Brad Pitt; Mireille Enos; Daniella Kertesz",annee:2013,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:190,boxOffice:540},
+{titre:"Le Dîner de cons",genre:"Comédie",realisateur:"Francis Veber",acteurs:"Thierry Lhermitte; Jacques Villeret; Francis Huster",annee:1998,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:5,boxOffice:85},
+{titre:"Amadeus",genre:"Biographie, Drame, Musique",realisateur:"Miloš Forman",acteurs:"F. Murray Abraham; Tom Hulce; Elizabeth Berridge",annee:1984,imdb:77,notePerso:null,victor:null,lilyRose:null,budget:18,boxOffice:90},
+{titre:"American Beauty",genre:"Drame",realisateur:"Sam Mendes",acteurs:"Kevin Spacey; Annette Bening; Thora Birch",annee:1999,imdb:86,notePerso:null,victor:null,lilyRose:null,budget:15,boxOffice:356},
+{titre:"The Matrix",genre:"Action, Science-fiction",realisateur:"Lana Wachowski, Lilly Wachowski",acteurs:"Keanu Reeves; Laurence Fishburne; Carrie-Anne Moss",annee:1999,imdb:16,notePerso:null,victor:null,lilyRose:null,budget:63,boxOffice:467},
+{titre:"The Truman Show",genre:"Comédie, Drame, Science-fiction",realisateur:"Peter Weir",acteurs:"Jim Carrey; Laura Linney; Ed Harris",annee:1998,imdb:128,notePerso:null,victor:null,lilyRose:null,budget:60,boxOffice:264},
+{titre:"The Shawshank Redemption",genre:"Drame",realisateur:"Frank Darabont",acteurs:"Tim Robbins; Morgan Freeman; Bob Gunton",annee:1994,imdb:1,notePerso:null,victor:null,lilyRose:null,budget:25,boxOffice:58},
+{titre:"Arrival",genre:"Drame, Mystère, Science-fiction",realisateur:"Denis Villeneuve",acteurs:"Amy Adams; Jeremy Renner; Forest Whitaker",annee:2016,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:47,boxOffice:203},
+{titre:"Back to the Future",genre:"Aventure, Comédie, Science-fiction",realisateur:"Robert Zemeckis",acteurs:"Michael J. Fox; Christopher Lloyd; Lea Thompson",annee:1985,imdb:30,notePerso:null,victor:null,lilyRose:null,budget:19,boxOffice:388},
+{titre:"The Illusionist",genre:"Drame, Fantastique, Mystère",realisateur:"Neil Burger",acteurs:"Edward Norton; Jessica Biel; Paul Giamatti",annee:2006,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:16.5,boxOffice:88},
+{titre:"Inglourious Basterds",genre:"Aventure, Drame, Guerre",realisateur:"Quentin Tarantino",acteurs:"Brad Pitt; Christoph Waltz; Mélanie Laurent",annee:2009,imdb:69,notePerso:null,victor:null,lilyRose:null,budget:70,boxOffice:321},
+{titre:"Batman Begins",genre:"Action, Crime, Drame",realisateur:"Christopher Nolan",acteurs:"Christian Bale; Michael Caine; Liam Neeson",annee:2005,imdb:134,notePerso:null,victor:null,lilyRose:null,budget:150,boxOffice:373},
+{titre:"Catch Me If You Can",genre:"Biographie, Crime, Drame",realisateur:"Steven Spielberg",acteurs:"Leonardo DiCaprio; Tom Hanks; Christopher Walken",annee:2002,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:52,boxOffice:352},
+{titre:"A Few Good Men",genre:"Drame, Thriller",realisateur:"Rob Reiner",acteurs:"Tom Cruise; Jack Nicholson; Demi Moore",annee:1992,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:40,boxOffice:243},
+{titre:"Sicario",genre:"Action, Crime, Drame",realisateur:"Denis Villeneuve",acteurs:"Emily Blunt; Benicio Del Toro; Josh Brolin",annee:2015,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:30,boxOffice:85},
+{titre:"Saving Private Ryan",genre:"Drame, Guerre",realisateur:"Steven Spielberg",acteurs:"Tom Hanks; Matt Damon; Tom Sizemore",annee:1998,imdb:24,notePerso:null,victor:null,lilyRose:null,budget:70,boxOffice:482},
+{titre:"The Hunt for Red October",genre:"Action, Aventure, Thriller",realisateur:"John McTiernan",acteurs:"Sean Connery; Alec Baldwin; Scott Glenn",annee:1990,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:30,boxOffice:200},
+{titre:"The Fugitive",genre:"Action, Crime, Drame",realisateur:"Andrew Davis",acteurs:"Harrison Ford; Tommy Lee Jones; Sela Ward",annee:1993,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:44,boxOffice:368},
+{titre:"Road to Perdition",genre:"Crime, Drame, Thriller",realisateur:"Sam Mendes",acteurs:"Tom Hanks; Paul Newman; Jude Law",annee:2002,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:80,boxOffice:181},
+{titre:"The Mask",genre:"Comédie, Crime, Fantastique",realisateur:"Chuck Russell",acteurs:"Jim Carrey; Cameron Diaz; Peter Greene",annee:1994,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:23,boxOffice:351},
+{titre:"The Dark Knight",genre:"Action, Crime, Drame",realisateur:"Christopher Nolan",acteurs:"Christian Bale; Heath Ledger; Aaron Eckhart",annee:2008,imdb:3,notePerso:null,victor:null,lilyRose:null,budget:185,boxOffice:1005},
+{titre:"LOTR: The Fellowship of the Ring",genre:"Fantastique, Aventure",realisateur:"Peter Jackson",acteurs:"Elijah Wood; Ian McKellen; Viggo Mortensen",annee:2001,imdb:9,notePerso:null,victor:null,lilyRose:null,budget:93,boxOffice:898},
+{titre:"LOTR: The Two Towers",genre:"Fantastique, Aventure",realisateur:"Peter Jackson",acteurs:"Elijah Wood; Ian McKellen; Viggo Mortensen",annee:2002,imdb:13,notePerso:null,victor:null,lilyRose:null,budget:94,boxOffice:947},
+{titre:"LOTR: The Return of the King",genre:"Fantastique, Aventure",realisateur:"Peter Jackson",acteurs:"Elijah Wood; Ian McKellen; Viggo Mortensen",annee:2003,imdb:7,notePerso:null,victor:null,lilyRose:null,budget:94,boxOffice:1142},
+{titre:"Interstellar",genre:"Aventure, Drame, Science-fiction",realisateur:"Christopher Nolan",acteurs:"Matthew McConaughey; Anne Hathaway; Jessica Chastain",annee:2014,imdb:18,notePerso:null,victor:null,lilyRose:null,budget:165,boxOffice:773},
+{titre:"Project Hail Mary",genre:"Drame, Science-fiction, Thriller",realisateur:"Phil Lord, Christopher Miller",acteurs:"Ryan Gosling; Sandra Hüller; Milana Vayntrub",annee:2026,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:200,boxOffice:511},
+{titre:"Inception",genre:"Action, Aventure, Science-fiction",realisateur:"Christopher Nolan",acteurs:"Leonardo DiCaprio; Joseph Gordon-Levitt; Elliot Page",annee:2010,imdb:14,notePerso:null,victor:null,lilyRose:null,budget:160,boxOffice:839},
+{titre:"Braveheart",genre:"Biographie, Drame, Guerre",realisateur:"Mel Gibson",acteurs:"Mel Gibson; Sophie Marceau; Patrick McGoohan",annee:1995,imdb:82,notePerso:null,victor:null,lilyRose:null,budget:72,boxOffice:210},
+{titre:"Scarface",genre:"Crime, Drame",realisateur:"Brian De Palma",acteurs:"Al Pacino; Michelle Pfeiffer; Steven Bauer",annee:1983,imdb:105,notePerso:null,victor:null,lilyRose:null,budget:25,boxOffice:66},
+{titre:"Full Metal Jacket",genre:"Drame, Guerre",realisateur:"Stanley Kubrick",acteurs:"Matthew Modine; R. Lee Ermey; Vincent D'Onofrio",annee:1987,imdb:110,notePerso:null,victor:null,lilyRose:null,budget:30,boxOffice:120},
+{titre:"Jurassic Park",genre:"Action, Aventure, Science-fiction",realisateur:"Steven Spielberg",acteurs:"Sam Neill; Laura Dern; Jeff Goldblum",annee:1993,imdb:138,notePerso:null,victor:null,lilyRose:null,budget:63,boxOffice:1046},
+{titre:"V for Vendetta",genre:"Action, Drame, Science-fiction",realisateur:"James McTeigue",acteurs:"Natalie Portman; Hugo Weaving; Stephen Rea",annee:2005,imdb:171,notePerso:null,victor:null,lilyRose:null,budget:54,boxOffice:132},
+{titre:"Fargo",genre:"Crime, Drame, Thriller",realisateur:"Joel Coen",acteurs:"Frances McDormand; William H. Macy; Steve Buscemi",annee:1996,imdb:183,notePerso:null,victor:null,lilyRose:null,budget:7,boxOffice:60},
+{titre:"No Country for Old Men",genre:"Crime, Drame, Thriller",realisateur:"Joel Coen, Ethan Coen",acteurs:"Tommy Lee Jones; Javier Bardem; Josh Brolin",annee:2007,imdb:147,notePerso:null,victor:null,lilyRose:null,budget:25,boxOffice:171},
+{titre:"Scent of a Woman",genre:"Drame",realisateur:"Martin Brest",acteurs:"Al Pacino; Chris O'Donnell; James Rebhorn",annee:1992,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:31,boxOffice:134},
+{titre:"Edge of Tomorrow",genre:"Action, Aventure, Science-fiction",realisateur:"Doug Liman",acteurs:"Tom Cruise; Emily Blunt; Bill Paxton",annee:2014,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:178,boxOffice:370},
+{titre:"Ocean's Eleven",genre:"Crime, Thriller",realisateur:"Steven Soderbergh",acteurs:"George Clooney; Brad Pitt; Matt Damon",annee:2001,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:85,boxOffice:451},
+{titre:"Black Hawk Down",genre:"Drame, Historique, Guerre",realisateur:"Ridley Scott",acteurs:"Josh Hartnett; Ewan McGregor; Eric Bana",annee:2001,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:92,boxOffice:173},
+{titre:"Point Break",genre:"Action, Crime, Thriller",realisateur:"Kathryn Bigelow",acteurs:"Patrick Swayze; Keanu Reeves; Gary Busey",annee:1991,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:24,boxOffice:83},
+{titre:"Carlito's Way",genre:"Crime, Drame, Thriller",realisateur:"Brian De Palma",acteurs:"Al Pacino; Sean Penn; Penelope Ann Miller",annee:1993,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:30,boxOffice:63},
+{titre:"High Fidelity",genre:"Comédie, Drame, Musique",realisateur:"Stephen Frears",acteurs:"John Cusack; Iben Hjejle; Jack Black",annee:2000,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:30,boxOffice:47},
+{titre:"Runaway Jury",genre:"Crime, Drame, Thriller",realisateur:"Gary Fleder",acteurs:"John Cusack; Gene Hackman; Dustin Hoffman",annee:2003,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:60,boxOffice:80},
+{titre:"The Firm",genre:"Drame, Mystère, Thriller",realisateur:"Sydney Pollack",acteurs:"Tom Cruise; Jeanne Tripplehorn; Gene Hackman",annee:1993,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:42,boxOffice:270},
+{titre:"Identity",genre:"Mystère, Thriller",realisateur:"James Mangold",acteurs:"John Cusack; Ray Liotta; Amanda Peet",annee:2003,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:28,boxOffice:90},
+{titre:"Predator",genre:"Action, Aventure, Science-fiction",realisateur:"John McTiernan",acteurs:"Arnold Schwarzenegger; Carl Weathers; Kevin Peter Hall",annee:1987,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:15,boxOffice:98},
+{titre:"The Silence of the Lambs",genre:"Crime, Drame, Thriller",realisateur:"Jonathan Demme",acteurs:"Jodie Foster; Anthony Hopkins; Scott Glenn",annee:1991,imdb:22,notePerso:null,victor:null,lilyRose:null,budget:19,boxOffice:273},
+{titre:"Twelve Monkeys",genre:"Mystère, Science-fiction, Thriller",realisateur:"Terry Gilliam",acteurs:"Bruce Willis; Madeleine Stowe; Brad Pitt",annee:1995,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:29,boxOffice:168},
+{titre:"Gattaca",genre:"Drame, Science-fiction, Thriller",realisateur:"Andrew Niccol",acteurs:"Ethan Hawke; Uma Thurman; Jude Law",annee:1997,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:36,boxOffice:12},
+{titre:"The Empire Strikes Back",genre:"Action, Aventure, Fantastique",realisateur:"Irvin Kershner",acteurs:"Mark Hamill; Harrison Ford; Carrie Fisher",annee:1980,imdb:15,notePerso:null,victor:null,lilyRose:null,budget:18,boxOffice:538},
+{titre:"Return of the Jedi",genre:"Action, Aventure, Fantastique",realisateur:"Richard Marquand",acteurs:"Mark Hamill; Harrison Ford; Carrie Fisher",annee:1983,imdb:93,notePerso:null,victor:null,lilyRose:null,budget:32,boxOffice:475},
+{titre:"Star Wars",genre:"Action, Aventure, Fantastique",realisateur:"George Lucas",acteurs:"Mark Hamill; Harrison Ford; Carrie Fisher",annee:1977,imdb:29,notePerso:null,victor:null,lilyRose:null,budget:11,boxOffice:775},
+{titre:"Drive",genre:"Crime, Drame, Thriller",realisateur:"Nicolas Winding Refn",acteurs:"Ryan Gosling; Carey Mulligan; Bryan Cranston",annee:2011,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:15,boxOffice:78},
+{titre:"Mulholland Drive",genre:"Drame, Mystère, Thriller",realisateur:"David Lynch",acteurs:"Naomi Watts; Laura Harring; Justin Theroux",annee:2001,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:15,boxOffice:20},
+{titre:"Jacob's Ladder",genre:"Drame, Horreur, Mystère",realisateur:"Adrian Lyne",acteurs:"Tim Robbins; Elizabeth Pena; Danny Aiello",annee:1990,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:25,boxOffice:26},
+{titre:"Get Out",genre:"Horreur, Mystère, Thriller",realisateur:"Jordan Peele",acteurs:"Daniel Kaluuya; Allison Williams; Bradley Whitford",annee:2017,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:4.5,boxOffice:255},
+{titre:"The Ring",genre:"Horreur, Mystère",realisateur:"Gore Verbinski",acteurs:"Naomi Watts; Martin Henderson; Brian Cox",annee:2002,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:48,boxOffice:249},
+{titre:"Dune: Part One",genre:"Action, Aventure, Drame",realisateur:"Denis Villeneuve",acteurs:"Timothée Chalamet; Rebecca Ferguson; Oscar Isaac",annee:2021,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:165,boxOffice:408},
+{titre:"The Godfather Part II",genre:"Crime, Drame",realisateur:"Francis Ford Coppola",acteurs:"Al Pacino; Robert De Niro; Robert Duvall",annee:1974,imdb:4,notePerso:null,victor:null,lilyRose:null,budget:13,boxOffice:93},
+{titre:"As Good as It Gets",genre:"Comédie, Drame, Romance",realisateur:"James L. Brooks",acteurs:"Jack Nicholson; Helen Hunt; Greg Kinnear",annee:1997,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:50,boxOffice:314},
+{titre:"Moon",genre:"Drame, Mystère, Science-fiction",realisateur:"Duncan Jones",acteurs:"Sam Rockwell; Kevin Spacey; Dominique McElligott",annee:2009,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:5,boxOffice:10},
+{titre:"Le Fabuleux Destin d'Amélie Poulain",genre:"Comédie, Romance",realisateur:"Jean-Pierre Jeunet",acteurs:"Audrey Tautou; Mathieu Kassovitz; Rufus",annee:2001,imdb:112,notePerso:null,victor:null,lilyRose:null,budget:10,boxOffice:174},
+{titre:"American Psycho",genre:"Crime, Drame, Horreur",realisateur:"Mary Harron",acteurs:"Christian Bale; Justin Theroux; Willem Dafoe",annee:2000,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:7,boxOffice:34},
+{titre:"The Golden Child",genre:"Action, Comédie, Fantastique",realisateur:"Michael Ritchie",acteurs:"Eddie Murphy; Charles Dance; Charlotte Lewis",annee:1986,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:25,boxOffice:80},
+{titre:"2001: A Space Odyssey",genre:"Aventure, Science-fiction",realisateur:"Stanley Kubrick",acteurs:"Keir Dullea; Gary Lockwood; William Sylvester",annee:1968,imdb:103,notePerso:null,victor:null,lilyRose:null,budget:12,boxOffice:146},
+{titre:"Dinner Rush",genre:"Crime, Drame",realisateur:"Bob Giraldi",acteurs:"Danny Aiello; Edoardo Ballerini; John Rothman",annee:2000,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:5,boxOffice:1.5},
+{titre:"The Big Short",genre:"Biographie, Comédie, Drame",realisateur:"Adam McKay",acteurs:"Christian Bale; Steve Carell; Ryan Gosling",annee:2015,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:28,boxOffice:133},
+{titre:"Home Alone",genre:"Comédie, Famille",realisateur:"Chris Columbus",acteurs:"Macaulay Culkin; Joe Pesci; Daniel Stern",annee:1990,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:18,boxOffice:476},
+{titre:"Get Shorty",genre:"Comédie, Crime, Thriller",realisateur:"Barry Sonnenfeld",acteurs:"John Travolta; Gene Hackman; Rene Russo",annee:1995,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:30,boxOffice:115},
+{titre:"Ex Machina",genre:"Drame, Science-fiction, Thriller",realisateur:"Alex Garland",acteurs:"Alicia Vikander; Domhnall Gleeson; Oscar Isaac",annee:2014,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:15,boxOffice:36},
+{titre:"Source Code",genre:"Action, Drame, Mystère",realisateur:"Duncan Jones",acteurs:"Jake Gyllenhaal; Michelle Monaghan; Vera Farmiga",annee:2011,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:32,boxOffice:148},
+{titre:"Rounders",genre:"Crime, Drame",realisateur:"John Dahl",acteurs:"Matt Damon; Edward Norton; John Malkovich",annee:1998,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:12,boxOffice:23},
+{titre:"Jerry Maguire",genre:"Comédie, Drame, Romance",realisateur:"Cameron Crowe",acteurs:"Tom Cruise; Cuba Gooding Jr.; Renée Zellweger",annee:1996,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:50,boxOffice:274},
+{titre:"Black Rain",genre:"Action, Crime, Thriller",realisateur:"Ridley Scott",acteurs:"Michael Douglas; Andy Garcia; Ken Takakura",annee:1989,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:43,boxOffice:134},
+{titre:"Gaz Bar Blues",genre:"Comédie, Drame",realisateur:"Louis Bélanger",acteurs:"Serge Thériault; Gilles Renaud; Fanny Mallette",annee:2003,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:3.5,boxOffice:4},
+{titre:"Dune: Part Two",genre:"Action, Aventure, Drame, Sci-Fi",realisateur:"Denis Villeneuve",acteurs:"Timothée Chalamet; Zendaya; Austin Butler",annee:2024,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:190,boxOffice:711}
+];
+
+/* ═══════════════════════════════════════════════════
+   STATE
+   ═══════════════════════════════════════════════════ */
+let films = [], log = [], showHidden = false, sortCol = null, sortDir = 'asc';
+let editCell = null; // {idx, key}
+
+function loadState() {
+  try {
+    const d = localStorage.getItem('cf_films');
+    films = d ? JSON.parse(d) : JSON.parse(JSON.stringify(DEFAULT_FILMS));
+    // Ensure criteria keys exist
+    films.forEach(f => CRITERIA.forEach(c => { if (!(c.key in f)) f[c.key] = null; }));
+  } catch(e) { films = JSON.parse(JSON.stringify(DEFAULT_FILMS)); }
+  try { log = JSON.parse(localStorage.getItem('cf_log') || '[]'); } catch(e) { log = []; }
+}
+function saveFilms() { localStorage.setItem('cf_films', JSON.stringify(films)); }
+function saveLog() { localStorage.setItem('cf_log', JSON.stringify(log)); }
+
+function addLog(type, msg) {
+  const entry = { ts: new Date().toISOString(), type, msg };
+  log.unshift(entry);
+  if (log.length > 500) log.length = 500;
+  saveLog();
+  renderLogCount();
+}
+
+/* ═══════════════════════════════════════════════════
+   COMPUTE NOTE
+   ═══════════════════════════════════════════════════ */
+function computeNote(f) {
+  const pos = f.position100;
+  if (pos == null) return null;
+  const posNote = 10 - (pos / 100) * 10;
+  const others = CRITERIA.filter(c => !c.isPos).map(c => f[c.key]);
+  if (others.some(v => v == null)) return null;
+  const avg = others.reduce((a,b) => a + b, 0) / others.length;
+  return Math.round((posNote * 0.33 + avg * 0.67) * 100) / 100;
+}
+
+/* ═══════════════════════════════════════════════════
+   TOAST
+   ═══════════════════════════════════════════════════ */
+function toast(msg, type='info') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => { el.style.animation = 'toastOut .3s forwards'; setTimeout(() => el.remove(), 300); }, 3000);
+}
+
+/* ═══════════════════════════════════════════════════
+   RENDER TABLE
+   ═══════════════════════════════════════════════════ */
+function render() {
+  const q = document.getElementById('search').value.toLowerCase();
+  let list = films.map((f, i) => ({ ...f, _idx: i }));
+  if (q) list = list.filter(f => (f.titre+f.genre+f.realisateur+f.acteurs).toLowerCase().includes(q));
+  if (sortCol) {
+    list.sort((a,b) => {
+      let va = a[sortCol], vb = b[sortCol];
+      if (va == null) return 1; if (vb == null) return -1;
+      if (typeof va === 'string') return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+      return sortDir === 'asc' ? va - vb : vb - va;
+    });
+  }
+  document.getElementById('counter').textContent = list.length + ' / ' + films.length + ' films';
+
+  let html = '<table><thead><tr><th style="width:32px"></th>';
+  COLS.forEach(c => {
+    const cls = sortCol === c.key ? ' sorted' : '';
+    const arrow = sortCol === c.key ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
+    html += `<th class="${cls}" onclick="doSort('${c.key}')" style="text-align:${c.align};min-width:${c.w}px">${c.label}${arrow}</th>`;
+  });
+  if (showHidden) CRITERIA.forEach(c => { html += `<th style="text-align:center;min-width:90px;color:var(--gold-dim)">${c.label}</th>`; });
+  html += '</tr></thead><tbody>';
+
+  list.forEach(f => {
+    html += '<tr>';
+    html += `<td class="cell-num"><button class="del-btn" onclick="deleteFilm(${f._idx})" title="Supprimer">✕</button></td>`;
+    COLS.forEach(col => {
+      if (col.key === 'notePerso') {
+        const v = f.notePerso;
+        const display = v != null ? v.toFixed(2) : '<span class="hint">double-clic</span>';
+        html += `<td class="cell-note" ondblclick="openRating(${f._idx})">${display}</td>`;
+      } else if (col.key === 'titre') {
+        html += `<td class="cell-titre editable" ondblclick="startEdit(${f._idx},'${col.key}',this)" title="${esc(f[col.key]||'')}">${esc(f[col.key]||'—')}</td>`;
+      } else if (col.edit) {
+        const v = f[col.key];
+        const display = v != null ? (col.type==='num' && col.key==='annee' ? String(Math.round(v)) : (typeof v==='number' ? v.toLocaleString('fr-CA'):esc(v))) : '—';
+        html += `<td class="cell-num editable" style="text-align:${col.align}" ondblclick="startEdit(${f._idx},'${col.key}',this)">${display}</td>`;
+      } else {
+        html += `<td class="cell-num">${f[col.key]!=null?f[col.key]:'—'}</td>`;
+      }
+    });
+    if (showHidden) CRITERIA.forEach(c => {
+      html += `<td class="cell-hidden">${f[c.key]!=null?f[c.key]:'—'}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById('tableWrap').innerHTML = html;
+}
+
+function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+function doSort(key) { if (sortCol===key) sortDir = sortDir==='asc'?'desc':'asc'; else { sortCol=key; sortDir='asc'; } render(); }
+function toggleHidden() { showHidden=!showHidden; render(); toast(showHidden?'Colonnes de critères affichées':'Colonnes de critères masquées','info'); }
+
+/* ═══════════════════════════════════════════════════
+   INLINE EDIT
+   ═══════════════════════════════════════════════════ */
+function startEdit(idx, key, td) {
+  const f = films[idx];
+  const col = COLS.find(c=>c.key===key);
+  const val = f[key] != null ? (col.type==='num'&&key==='annee'?String(Math.round(f[key])):String(f[key])) : '';
+  td.classList.add('editing');
+  td.innerHTML = `<input type="${col.type==='num'?'number':'text'}" value="${esc(val)}" onblur="finishEdit(${idx},'${key}',this)" onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.dataset.cancel='1';this.blur();}">`;
+  td.querySelector('input').focus();
+  td.querySelector('input').select();
+}
+function finishEdit(idx, key, input) {
+  if (input.dataset.cancel) { render(); return; }
+  const col = COLS.find(c=>c.key===key);
+  const oldVal = films[idx][key];
+  let newVal = input.value.trim();
+  if (col.type === 'num') {
+    newVal = newVal === '' ? null : parseFloat(newVal);
+    if (newVal !== null && isNaN(newVal)) { render(); return; }
+  } else {
+    newVal = newVal || null;
+  }
+  if (newVal !== oldVal) {
+    films[idx][key] = newVal;
+    saveFilms();
+    addLog('edit', `<strong>${films[idx].titre}</strong> — ${col.label} : ${oldVal ?? '—'} → ${newVal ?? '—'}`);
+    toast(`${col.label} modifié pour ${films[idx].titre}`, 'success');
+  }
+  render();
+}
+
+/* ═══════════════════════════════════════════════════
+   ADD / DELETE FILM
+   ═══════════════════════════════════════════════════ */
+function openAddModal() {
+  const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()">
+    <div class="modal">
+      <h2>Ajouter un film</h2>
+      <p class="desc">Remplissez les informations de base. Vous pourrez compléter les détails ensuite.</p>
+      <label>Titre *</label><input type="text" id="addTitre" placeholder="Ex: Blade Runner 2049"><br><br>
+      <label>Genre</label><input type="text" id="addGenre" placeholder="Ex: Science-fiction, Drame"><br><br>
+      <label>Réalisateur</label><input type="text" id="addReal" placeholder="Ex: Denis Villeneuve"><br><br>
+      <label>Acteurs principaux</label><input type="text" id="addActeurs" placeholder="Séparés par des ;"><br><br>
+      <label>Année</label><input type="number" id="addAnnee" placeholder="Ex: 2017"><br><br>
+      <div style="display:flex;gap:10px">
+        <div style="flex:1"><label>Budget (M$)</label><input type="number" id="addBudget" step="0.1"></div>
+        <div style="flex:1"><label>Box Office (M$)</label><input type="number" id="addBO" step="0.1"></div>
+      </div><br>
+      <div class="modal-row">
+        <button class="btn" onclick="closeOverlay()">Annuler</button>
+        <button class="btn gold" onclick="doAddFilm()">Ajouter le film</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('overlay').innerHTML = html;
+  setTimeout(() => document.getElementById('addTitre').focus(), 100);
+}
+function doAddFilm() {
+  const t = document.getElementById('addTitre').value.trim();
+  if (!t) { toast('Le titre est requis','error'); return; }
+  const f = {
+    titre: t,
+    genre: document.getElementById('addGenre').value.trim() || null,
+    realisateur: document.getElementById('addReal').value.trim() || null,
+    acteurs: document.getElementById('addActeurs').value.trim() || null,
+    annee: parseFloat(document.getElementById('addAnnee').value) || null,
+    budget: parseFloat(document.getElementById('addBudget').value) || null,
+    boxOffice: parseFloat(document.getElementById('addBO').value) || null,
+    imdb: null, notePerso: null, victor: null, lilyRose: null
+  };
+  CRITERIA.forEach(c => f[c.key] = null);
+  films.push(f);
+  saveFilms();
+  addLog('add', `Film ajouté : <strong>${t}</strong>`);
+  toast(`${t} ajouté avec succès`, 'success');
+  closeOverlay();
+  render();
+}
+function deleteFilm(idx) {
+  const name = films[idx].titre;
+  const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()">
+    <div class="modal" style="max-width:380px">
+      <h2>Supprimer ce film ?</h2>
+      <p class="desc">« <strong>${esc(name)}</strong> » sera retiré définitivement de votre classeur.</p>
+      <div class="modal-row">
+        <button class="btn" onclick="closeOverlay()">Annuler</button>
+        <button class="btn red" onclick="doDelete(${idx})">Supprimer</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('overlay').innerHTML = html;
+}
+function doDelete(idx) {
+  const name = films[idx].titre;
+  films.splice(idx, 1);
+  saveFilms();
+  addLog('delete', `Film supprimé : <strong>${name}</strong>`);
+  toast(`${name} supprimé`, 'warn');
+  closeOverlay();
+  render();
+}
+function closeOverlay() { document.getElementById('overlay').innerHTML = ''; }
+
+/* ═══════════════════════════════════════════════════
+   RATING MODAL (multi-step)
+   ═══════════════════════════════════════════════════ */
+let ratingState = null;
+function openRating(idx) {
+  ratingState = { idx, step: 0, scores: {} };
+  CRITERIA.forEach(c => { ratingState.scores[c.key] = films[idx][c.key]; });
+  showRatingStep();
+}
+function showRatingStep() {
+  const s = ratingState;
+  const c = CRITERIA[s.step];
+  const val = s.scores[c.key];
+  const pct = ((s.step + 1) / CRITERIA.length * 100).toFixed(0);
+  const html = `<div class="overlay" onclick="if(event.target===this){ratingState=null;closeOverlay();}">
+    <div class="modal">
+      <div class="step-label">Critère ${s.step+1} / ${CRITERIA.length} — ${films[s.idx].titre}</div>
+      <div class="progress-bar"><div class="fill" style="width:${pct}%"></div></div>
+      <h3>${c.label}</h3>
+      <p class="desc">${c.desc}</p>
+      <div class="score-input-wrap">
+        <input type="number" id="ratingInput" step="0.01" min="${c.min}" max="${c.max}" value="${val!=null?val:''}"
+          placeholder="${c.min} – ${c.max}"
+          onkeydown="if(event.key==='Enter')ratingNext();">
+        <span class="suffix">${c.suffix}</span>
+      </div>
+      <div class="modal-row">
+        <button class="btn" onclick="ratingState=null;closeOverlay();">Annuler</button>
+        ${s.step > 0 ? '<button class="btn" onclick="ratingPrev()">← Précédent</button>' : ''}
+        <button class="btn gold" onclick="ratingNext()">${s.step < CRITERIA.length-1 ? 'Suivant →' : 'Calculer la note ✓'}</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('overlay').innerHTML = html;
+  setTimeout(() => { const inp = document.getElementById('ratingInput'); inp.focus(); inp.select(); }, 100);
+}
+function ratingNext() {
+  const c = CRITERIA[ratingState.step];
+  const v = parseFloat(document.getElementById('ratingInput').value);
+  if (isNaN(v) || v < c.min || v > c.max) { toast(`Entrez une valeur entre ${c.min} et ${c.max}`, 'error'); return; }
+  ratingState.scores[c.key] = v;
+  if (ratingState.step < CRITERIA.length - 1) {
+    ratingState.step++;
+    showRatingStep();
+  } else {
+    // Apply scores
+    const f = films[ratingState.idx];
+    const oldNote = f.notePerso;
+    CRITERIA.forEach(cr => { f[cr.key] = ratingState.scores[cr.key]; });
+    f.notePerso = computeNote(f);
+    saveFilms();
+    const noteStr = f.notePerso != null ? f.notePerso.toFixed(2) : '—';
+    addLog('note', `Note calculée pour <strong>${f.titre}</strong> : ${noteStr}/10 (ancien : ${oldNote!=null?oldNote.toFixed(2):'—'})`);
+    toast(`${f.titre} → Note perso : ${noteStr}`, 'success');
+    ratingState = null;
+    closeOverlay();
+    render();
+  }
+}
+function ratingPrev() {
+  const c = CRITERIA[ratingState.step];
+  const v = document.getElementById('ratingInput').value;
+  if (v !== '') ratingState.scores[c.key] = parseFloat(v);
+  ratingState.step--;
+  showRatingStep();
+}
+
+/* ═══════════════════════════════════════════════════
+   LOG PANEL
+   ═══════════════════════════════════════════════════ */
+function toggleLog() { document.getElementById('logPanel').classList.toggle('open'); renderLog(); }
+function renderLog() {
+  const el = document.getElementById('logList');
+  if (!log.length) { el.innerHTML = '<div class="log-empty">Aucune activité enregistrée</div>'; return; }
+  el.innerHTML = log.map(e => {
+    const d = new Date(e.ts);
+    const ts = d.toLocaleDateString('fr-CA') + ' ' + d.toLocaleTimeString('fr-CA', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    return `<div class="log-item ${e.type}"><div class="log-time">${ts}</div><div class="log-msg">${e.msg}</div></div>`;
+  }).join('');
+}
+function renderLogCount() {
+  const el = document.getElementById('logCount');
+  if (log.length) el.textContent = '(' + log.length + ')'; else el.textContent = '';
+}
+function clearLog() { log = []; saveLog(); renderLog(); renderLogCount(); toast('Journal vidé','info'); }
+
+/* ═══════════════════════════════════════════════════
+   IMPORT / EXPORT
+   ═══════════════════════════════════════════════════ */
+function exportJSON() {
+  const data = { version: 2, exportDate: new Date().toISOString(), films, log };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'classeur_films_backup_' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  addLog('backup', 'Exportation JSON effectuée');
+  toast('Backup exporté avec succès', 'success');
+}
+function importJSON(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (!data.films || !Array.isArray(data.films)) throw new Error('Format invalide');
+      const count = data.films.length;
+      films = data.films;
+      films.forEach(f => CRITERIA.forEach(c => { if (!(c.key in f)) f[c.key] = null; }));
+      if (data.log && Array.isArray(data.log)) log = data.log;
+      saveFilms(); saveLog();
+      addLog('backup', `Importation JSON : ${count} films restaurés`);
+      toast(`${count} films importés avec succès`, 'success');
+      render(); renderLogCount();
+    } catch(err) { toast('Erreur : fichier JSON invalide — ' + err.message, 'error'); }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+/* ═══════════════════════════════════════════════════
+   INIT
+   ═══════════════════════════════════════════════════ */
+loadState();
+render();
+renderLogCount();
+
+// PWA Service Worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
