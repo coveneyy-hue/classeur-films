@@ -143,12 +143,15 @@ thead th {
   left: 0;
   z-index: 80;
   display: none;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   border: 1px solid var(--border);
   border-radius: 0 0 var(--radius) var(--radius);
   background: var(--bg2);
   box-shadow: 0 10px 30px rgba(0,0,0,.45);
+  scrollbar-width: none;
 }
+.floating-head::-webkit-scrollbar { display: none; }
 .floating-head.active { display: block; }
 .floating-head table { border-collapse: collapse; margin: 0; }
 .floating-head th {
@@ -274,8 +277,7 @@ tr:hover .del-btn { opacity: .7; }
 .log-msg { font-size: .85rem; color: var(--txt); line-height: 1.4; }
 .log-msg strong { color: #fff; }
 .log-empty { text-align: center; padding: 40px; color: var(--txt3); font-style: italic; }
-.log-footer { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; gap: 8px; }
-.log-footer .btn { flex: 1; justify-content: center; font-size: .8rem; }
+.log-footer { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 8px; min-height: 44px; }
 
 /* ─── TOASTS ────────────────────────────────────── */
 .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 200; display: flex; flex-direction: column-reverse; gap: 8px; }
@@ -327,6 +329,69 @@ tr:hover .del-btn { opacity: .7; }
 .cell-lily { font-weight: 800; color: #e860a0; font-family: var(--font-display); font-size: 1.05rem; cursor: pointer; text-align: center; background: rgba(232,96,160,.04); position: relative; }
 .cell-lily:hover { background: rgba(232,96,160,.1); animation: pulseGlow 1.5s infinite; }
 .cell-lily .hint { font-size: .7rem; font-weight: 400; color: var(--txt3); font-style: italic; font-family: var(--font-body); }
+.cell-julie { font-weight: 800; color: #a06eea; font-family: var(--font-display); font-size: 1.05rem; cursor: pointer; text-align: center; background: rgba(160,110,234,.04); position: relative; }
+.cell-julie:hover { background: rgba(160,110,234,.1); animation: pulseGlow 1.5s infinite; }
+.cell-julie .hint { font-size: .7rem; font-weight: 400; color: var(--txt3); font-style: italic; font-family: var(--font-body); }
+
+/* ─── FROZEN COLUMNS (pos + titre) ─────────────────── */
+.col-frozen-del,
+.col-frozen-pos,
+.col-frozen-titre {
+  position: sticky;
+  z-index: 2;
+  background: var(--bg2);
+}
+.col-frozen-del  { left: 0;    min-width: 32px; width: 32px; }
+.col-frozen-pos  { left: 32px; min-width: 48px; width: 48px; }
+.col-frozen-titre{ left: 80px; min-width: 220px; }
+
+thead .col-frozen-del,
+thead .col-frozen-pos,
+thead .col-frozen-titre {
+  background: var(--bg3);
+  z-index: 3;
+}
+/* shadow on right edge of frozen zone */
+.col-frozen-titre::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: 8px;
+  background: linear-gradient(to right, rgba(0,0,0,.18), transparent);
+  pointer-events: none;
+}
+/* Even-row tint for frozen cells */
+tbody tr:nth-child(even) .col-frozen-del,
+tbody tr:nth-child(even) .col-frozen-pos,
+tbody tr:nth-child(even) .col-frozen-titre { background: #111122; }
+tbody tr:hover .col-frozen-del,
+tbody tr:hover .col-frozen-pos,
+tbody tr:hover .col-frozen-titre { background: #1a1a2e; }
+
+/* ─── LOG FILTER ─────────────────────────────────── */
+.log-filter {
+  padding: 10px 16px 4px;
+  border-bottom: 1px solid var(--border);
+}
+.log-filter input {
+  width: 100%; padding: 8px 12px 8px 32px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--bg); color: var(--txt);
+  font-size: .85rem; font-family: var(--font-body); outline: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='%23505068' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.242.156a5 5 0 1 1 0-10 5 5 0 0 1 0 10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: 10px center;
+  transition: border .2s;
+}
+.log-filter input:focus { border-color: var(--gold-dim); }
+.log-item { position: relative; padding-right: 28px; }
+.log-del-btn {
+  position: absolute; top: 8px; right: 8px;
+  width: 18px; height: 18px; border-radius: 50%;
+  border: none; background: var(--red); color: #fff; font-size: .6rem;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity .15s;
+}
+.log-item:hover .log-del-btn { opacity: .75; }
+.log-del-btn:hover { opacity: 1 !important; }
 
 /* Inline edit mode */
 td.editing {
@@ -374,9 +439,9 @@ td.editing input {
   <div class="floating-head" id="floatingHead" aria-hidden="true"></div>
 
   <div class="formula-box">
-    <h3>📐 Calcul des notes (Note perso · Victor · Lily-Rose)</h3>
+    <h3>📐 Calcul des notes (Note perso · Victor · Lily-Rose · Julie)</h3>
     <p>
-      Même formule pour les 3 colonnes — double-cliquez sur n'importe laquelle pour noter.<br>
+      Même formule pour les 4 colonnes — double-cliquez sur n'importe laquelle pour noter.<br>
       <strong>Position sur 100</strong> (33 %) — Convertie en note : position 1 → 9.9, position 50 → 5.0, position 100 → 0.0<br>
       <strong>7 autres critères</strong> (67 % répartis également, ~9.57 % chacun) — Acteur principal · Acteur secondaire · Antagoniste · Trame sonore · Fluidité narrative · Réalisation · La fin
     </p>
@@ -389,9 +454,12 @@ td.editing input {
     <h2>📋 Journal d'activité</h2>
     <button class="log-close" onclick="toggleLog()">✕</button>
   </div>
+  <div class="log-filter">
+    <input type="text" id="logSearch" placeholder="Filtrer le journal…" oninput="renderLog()">
+  </div>
   <div class="log-list" id="logList"></div>
   <div class="log-footer">
-    <button class="btn red" onclick="clearLog()">Vider le journal</button>
+    <span style="font-size:.8rem;color:var(--txt3)" id="logFooterCount"></span>
   </div>
 </div>
 
@@ -419,7 +487,8 @@ const CRITERIA = [
 const RATERS = [
   { key:'notePerso', label:'Note perso', prefix:'', css:'cell-note', color:'#e8a630', gradient:'linear-gradient(135deg,#e8a630,#d08820)' },
   { key:'victor', label:'Victor', prefix:'v_', css:'cell-victor', color:'#40c890', gradient:'linear-gradient(135deg,#40c890,#20a870)' },
-  { key:'lilyRose', label:'Lily-Rose', prefix:'lr_', css:'cell-lily', color:'#e860a0', gradient:'linear-gradient(135deg,#e860a0,#d04080)' }
+  { key:'lilyRose', label:'Lily-Rose', prefix:'lr_', css:'cell-lily', color:'#e860a0', gradient:'linear-gradient(135deg,#e860a0,#d04080)' },
+  { key:'julie', label:'Julie', prefix:'ju_', css:'cell-julie', color:'#a06eea', gradient:'linear-gradient(135deg,#a06eea,#7040c8)' }
 ];
 
 function allCriteriaKeys() {
@@ -441,111 +510,112 @@ const COLS = [
   { key:'imdb',        label:'IMDb Top 250',    align:'center', w:85,  edit:true, type:'num' },
   { key:'notePerso',   label:'Note perso',      align:'center', w:90,  rater:true },
   { key:'victor',      label:'Victor',          align:'center', w:75,  rater:true },
-  { key:'lilyRose',    label:'Lily-Rose',       align:'center', w:80,  rater:true }
+  { key:'lilyRose',    label:'Lily-Rose',       align:'center', w:80,  rater:true },
+  { key:'julie',       label:'Julie',           align:'center', w:75,  rater:true }
 ];
 
 const DEFAULT_FILMS=[
-{titre:"The Godfather",genre:"Crime, Drame",realisateur:"Francis Ford Coppola",acteurs:"Marlon Brando; Al Pacino; James Caan",annee:1972,imdb:2,notePerso:1,victor:null,lilyRose:null,budget:6,boxOffice:250},
-{titre:"Goodfellas",genre:"Crime, Drame",realisateur:"Martin Scorsese",acteurs:"Robert De Niro; Ray Liotta; Joe Pesci",annee:1990,imdb:17,notePerso:2,victor:null,lilyRose:null,budget:25,boxOffice:46.8},
-{titre:"Gladiator",genre:"Action, Aventure, Drame",realisateur:"Ridley Scott",acteurs:"Russell Crowe; Joaquin Phoenix; Connie Nielsen",annee:2000,imdb:33,notePerso:3,victor:null,lilyRose:null,budget:103,boxOffice:465},
-{titre:"Pulp Fiction",genre:"Crime, Drame",realisateur:"Quentin Tarantino",acteurs:"John Travolta; Samuel L. Jackson; Uma Thurman",annee:1994,imdb:9,notePerso:4,victor:null,lilyRose:null,budget:8,boxOffice:213},
-{titre:"Heat",genre:"Crime, Drame, Thriller",realisateur:"Michael Mann",acteurs:"Al Pacino; Robert De Niro; Val Kilmer",annee:1995,imdb:102,notePerso:5,victor:null,lilyRose:null,budget:60,boxOffice:187},
-{titre:"L.A. Confidential",genre:"Crime, Drame, Mystère",realisateur:"Curtis Hanson",acteurs:"Kevin Spacey; Russell Crowe; Guy Pearce",annee:1997,imdb:124,notePerso:6,victor:null,lilyRose:null,budget:35,boxOffice:126},
-{titre:"The Insider",genre:"Biographie, Drame, Thriller",realisateur:"Michael Mann",acteurs:"Al Pacino; Russell Crowe; Christopher Plummer",annee:1999,imdb:null,notePerso:7,victor:null,lilyRose:null,budget:68,boxOffice:60},
-{titre:"Moneyball",genre:"Biographie, Drame, Sport",realisateur:"Bennett Miller",acteurs:"Brad Pitt; Jonah Hill; Philip Seymour Hoffman",annee:2011,imdb:null,notePerso:8,victor:null,lilyRose:null,budget:50,boxOffice:110},
-{titre:"Die Hard",genre:"Action, Thriller",realisateur:"John McTiernan",acteurs:"Bruce Willis; Alan Rickman; Bonnie Bedelia",annee:1988,imdb:116,notePerso:9,victor:null,lilyRose:null,budget:28,boxOffice:140},
-{titre:"Almost Famous",genre:"Aventure, Comédie, Drame",realisateur:"Cameron Crowe",acteurs:"Billy Crudup; Frances McDormand; Patrick Fugit",annee:2000,imdb:null,notePerso:10,victor:null,lilyRose:null,budget:60,boxOffice:47},
-{titre:"Forrest Gump",genre:"Drame, Romance",realisateur:"Robert Zemeckis",acteurs:"Tom Hanks; Robin Wright; Gary Sinise",annee:1994,imdb:12,notePerso:null,victor:null,lilyRose:null,budget:55,boxOffice:678},
-{titre:"Training Day",genre:"Crime, Drame, Thriller",realisateur:"Antoine Fuqua",acteurs:"Denzel Washington; Ethan Hawke; Scott Glenn",annee:2001,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:45,boxOffice:104},
-{titre:"Terminator 2: Judgment Day",genre:"Action, Science-fiction",realisateur:"James Cameron",acteurs:"Arnold Schwarzenegger; Linda Hamilton; Edward Furlong",annee:1991,imdb:28,notePerso:null,victor:null,lilyRose:null,budget:102,boxOffice:520},
-{titre:"Aliens",genre:"Action, Aventure, Science-fiction",realisateur:"James Cameron",acteurs:"Sigourney Weaver; Michael Biehn; Bill Paxton",annee:1986,imdb:71,notePerso:null,victor:null,lilyRose:null,budget:18.5,boxOffice:183},
-{titre:"Fight Club",genre:"Drame",realisateur:"David Fincher",acteurs:"Brad Pitt; Edward Norton; Helena Bonham Carter",annee:1999,imdb:13,notePerso:null,victor:null,lilyRose:null,budget:63,boxOffice:101},
-{titre:"Whiplash",genre:"Drame, Musique",realisateur:"Damien Chazelle",acteurs:"Miles Teller; J.K. Simmons; Melissa Benoist",annee:2014,imdb:40,notePerso:null,victor:null,lilyRose:null,budget:3.3,boxOffice:49},
-{titre:"The Game",genre:"Drame, Mystère, Thriller",realisateur:"David Fincher",acteurs:"Michael Douglas; Sean Penn; Deborah Kara Unger",annee:1997,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:50,boxOffice:109},
-{titre:"Memento",genre:"Mystère, Thriller",realisateur:"Christopher Nolan",acteurs:"Guy Pearce; Carrie-Anne Moss; Joe Pantoliano",annee:2000,imdb:58,notePerso:null,victor:null,lilyRose:null,budget:9,boxOffice:40},
-{titre:"The Shining",genre:"Drame, Horreur",realisateur:"Stanley Kubrick",acteurs:"Jack Nicholson; Shelley Duvall; Danny Lloyd",annee:1980,imdb:67,notePerso:null,victor:null,lilyRose:null,budget:19,boxOffice:44},
-{titre:"Good Will Hunting",genre:"Drame, Romance",realisateur:"Gus Van Sant",acteurs:"Matt Damon; Robin Williams; Ben Affleck",annee:1997,imdb:73,notePerso:null,victor:null,lilyRose:null,budget:10,boxOffice:225},
-{titre:"World War Z",genre:"Action, Aventure, Horreur",realisateur:"Marc Forster",acteurs:"Brad Pitt; Mireille Enos; Daniella Kertesz",annee:2013,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:190,boxOffice:540},
-{titre:"Le Dîner de cons",genre:"Comédie",realisateur:"Francis Veber",acteurs:"Thierry Lhermitte; Jacques Villeret; Francis Huster",annee:1998,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:5,boxOffice:85},
-{titre:"Amadeus",genre:"Biographie, Drame, Musique",realisateur:"Miloš Forman",acteurs:"F. Murray Abraham; Tom Hulce; Elizabeth Berridge",annee:1984,imdb:77,notePerso:null,victor:null,lilyRose:null,budget:18,boxOffice:90},
-{titre:"American Beauty",genre:"Drame",realisateur:"Sam Mendes",acteurs:"Kevin Spacey; Annette Bening; Thora Birch",annee:1999,imdb:86,notePerso:null,victor:null,lilyRose:null,budget:15,boxOffice:356},
-{titre:"The Matrix",genre:"Action, Science-fiction",realisateur:"Lana Wachowski, Lilly Wachowski",acteurs:"Keanu Reeves; Laurence Fishburne; Carrie-Anne Moss",annee:1999,imdb:16,notePerso:null,victor:null,lilyRose:null,budget:63,boxOffice:467},
-{titre:"The Truman Show",genre:"Comédie, Drame, Science-fiction",realisateur:"Peter Weir",acteurs:"Jim Carrey; Laura Linney; Ed Harris",annee:1998,imdb:128,notePerso:null,victor:null,lilyRose:null,budget:60,boxOffice:264},
-{titre:"The Shawshank Redemption",genre:"Drame",realisateur:"Frank Darabont",acteurs:"Tim Robbins; Morgan Freeman; Bob Gunton",annee:1994,imdb:1,notePerso:null,victor:null,lilyRose:null,budget:25,boxOffice:58},
-{titre:"Arrival",genre:"Drame, Mystère, Science-fiction",realisateur:"Denis Villeneuve",acteurs:"Amy Adams; Jeremy Renner; Forest Whitaker",annee:2016,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:47,boxOffice:203},
-{titre:"Back to the Future",genre:"Aventure, Comédie, Science-fiction",realisateur:"Robert Zemeckis",acteurs:"Michael J. Fox; Christopher Lloyd; Lea Thompson",annee:1985,imdb:30,notePerso:null,victor:null,lilyRose:null,budget:19,boxOffice:388},
-{titre:"The Illusionist",genre:"Drame, Fantastique, Mystère",realisateur:"Neil Burger",acteurs:"Edward Norton; Jessica Biel; Paul Giamatti",annee:2006,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:16.5,boxOffice:88},
-{titre:"Inglourious Basterds",genre:"Aventure, Drame, Guerre",realisateur:"Quentin Tarantino",acteurs:"Brad Pitt; Christoph Waltz; Mélanie Laurent",annee:2009,imdb:69,notePerso:null,victor:null,lilyRose:null,budget:70,boxOffice:321},
-{titre:"Batman Begins",genre:"Action, Crime, Drame",realisateur:"Christopher Nolan",acteurs:"Christian Bale; Michael Caine; Liam Neeson",annee:2005,imdb:134,notePerso:null,victor:null,lilyRose:null,budget:150,boxOffice:373},
-{titre:"Catch Me If You Can",genre:"Biographie, Crime, Drame",realisateur:"Steven Spielberg",acteurs:"Leonardo DiCaprio; Tom Hanks; Christopher Walken",annee:2002,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:52,boxOffice:352},
-{titre:"A Few Good Men",genre:"Drame, Thriller",realisateur:"Rob Reiner",acteurs:"Tom Cruise; Jack Nicholson; Demi Moore",annee:1992,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:40,boxOffice:243},
-{titre:"Sicario",genre:"Action, Crime, Drame",realisateur:"Denis Villeneuve",acteurs:"Emily Blunt; Benicio Del Toro; Josh Brolin",annee:2015,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:30,boxOffice:85},
-{titre:"Saving Private Ryan",genre:"Drame, Guerre",realisateur:"Steven Spielberg",acteurs:"Tom Hanks; Matt Damon; Tom Sizemore",annee:1998,imdb:24,notePerso:null,victor:null,lilyRose:null,budget:70,boxOffice:482},
-{titre:"The Hunt for Red October",genre:"Action, Aventure, Thriller",realisateur:"John McTiernan",acteurs:"Sean Connery; Alec Baldwin; Scott Glenn",annee:1990,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:30,boxOffice:200},
-{titre:"The Fugitive",genre:"Action, Crime, Drame",realisateur:"Andrew Davis",acteurs:"Harrison Ford; Tommy Lee Jones; Sela Ward",annee:1993,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:44,boxOffice:368},
-{titre:"Road to Perdition",genre:"Crime, Drame, Thriller",realisateur:"Sam Mendes",acteurs:"Tom Hanks; Paul Newman; Jude Law",annee:2002,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:80,boxOffice:181},
-{titre:"The Mask",genre:"Comédie, Crime, Fantastique",realisateur:"Chuck Russell",acteurs:"Jim Carrey; Cameron Diaz; Peter Greene",annee:1994,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:23,boxOffice:351},
-{titre:"The Dark Knight",genre:"Action, Crime, Drame",realisateur:"Christopher Nolan",acteurs:"Christian Bale; Heath Ledger; Aaron Eckhart",annee:2008,imdb:3,notePerso:null,victor:null,lilyRose:null,budget:185,boxOffice:1005},
-{titre:"LOTR: The Fellowship of the Ring",genre:"Fantastique, Aventure",realisateur:"Peter Jackson",acteurs:"Elijah Wood; Ian McKellen; Viggo Mortensen",annee:2001,imdb:9,notePerso:null,victor:null,lilyRose:null,budget:93,boxOffice:898},
-{titre:"LOTR: The Two Towers",genre:"Fantastique, Aventure",realisateur:"Peter Jackson",acteurs:"Elijah Wood; Ian McKellen; Viggo Mortensen",annee:2002,imdb:13,notePerso:null,victor:null,lilyRose:null,budget:94,boxOffice:947},
-{titre:"LOTR: The Return of the King",genre:"Fantastique, Aventure",realisateur:"Peter Jackson",acteurs:"Elijah Wood; Ian McKellen; Viggo Mortensen",annee:2003,imdb:7,notePerso:null,victor:null,lilyRose:null,budget:94,boxOffice:1142},
-{titre:"Interstellar",genre:"Aventure, Drame, Science-fiction",realisateur:"Christopher Nolan",acteurs:"Matthew McConaughey; Anne Hathaway; Jessica Chastain",annee:2014,imdb:18,notePerso:null,victor:null,lilyRose:null,budget:165,boxOffice:773},
-{titre:"Project Hail Mary",genre:"Drame, Science-fiction, Thriller",realisateur:"Phil Lord, Christopher Miller",acteurs:"Ryan Gosling; Sandra Hüller; Milana Vayntrub",annee:2026,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:200,boxOffice:511},
-{titre:"Inception",genre:"Action, Aventure, Science-fiction",realisateur:"Christopher Nolan",acteurs:"Leonardo DiCaprio; Joseph Gordon-Levitt; Elliot Page",annee:2010,imdb:14,notePerso:null,victor:null,lilyRose:null,budget:160,boxOffice:839},
-{titre:"Braveheart",genre:"Biographie, Drame, Guerre",realisateur:"Mel Gibson",acteurs:"Mel Gibson; Sophie Marceau; Patrick McGoohan",annee:1995,imdb:82,notePerso:null,victor:null,lilyRose:null,budget:72,boxOffice:210},
-{titre:"Scarface",genre:"Crime, Drame",realisateur:"Brian De Palma",acteurs:"Al Pacino; Michelle Pfeiffer; Steven Bauer",annee:1983,imdb:105,notePerso:null,victor:null,lilyRose:null,budget:25,boxOffice:66},
-{titre:"Full Metal Jacket",genre:"Drame, Guerre",realisateur:"Stanley Kubrick",acteurs:"Matthew Modine; R. Lee Ermey; Vincent D'Onofrio",annee:1987,imdb:110,notePerso:null,victor:null,lilyRose:null,budget:30,boxOffice:120},
-{titre:"Jurassic Park",genre:"Action, Aventure, Science-fiction",realisateur:"Steven Spielberg",acteurs:"Sam Neill; Laura Dern; Jeff Goldblum",annee:1993,imdb:138,notePerso:null,victor:null,lilyRose:null,budget:63,boxOffice:1046},
-{titre:"V for Vendetta",genre:"Action, Drame, Science-fiction",realisateur:"James McTeigue",acteurs:"Natalie Portman; Hugo Weaving; Stephen Rea",annee:2005,imdb:171,notePerso:null,victor:null,lilyRose:null,budget:54,boxOffice:132},
-{titre:"Fargo",genre:"Crime, Drame, Thriller",realisateur:"Joel Coen",acteurs:"Frances McDormand; William H. Macy; Steve Buscemi",annee:1996,imdb:183,notePerso:null,victor:null,lilyRose:null,budget:7,boxOffice:60},
-{titre:"No Country for Old Men",genre:"Crime, Drame, Thriller",realisateur:"Joel Coen, Ethan Coen",acteurs:"Tommy Lee Jones; Javier Bardem; Josh Brolin",annee:2007,imdb:147,notePerso:null,victor:null,lilyRose:null,budget:25,boxOffice:171},
-{titre:"Scent of a Woman",genre:"Drame",realisateur:"Martin Brest",acteurs:"Al Pacino; Chris O'Donnell; James Rebhorn",annee:1992,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:31,boxOffice:134},
-{titre:"Edge of Tomorrow",genre:"Action, Aventure, Science-fiction",realisateur:"Doug Liman",acteurs:"Tom Cruise; Emily Blunt; Bill Paxton",annee:2014,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:178,boxOffice:370},
-{titre:"Ocean's Eleven",genre:"Crime, Thriller",realisateur:"Steven Soderbergh",acteurs:"George Clooney; Brad Pitt; Matt Damon",annee:2001,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:85,boxOffice:451},
-{titre:"Black Hawk Down",genre:"Drame, Historique, Guerre",realisateur:"Ridley Scott",acteurs:"Josh Hartnett; Ewan McGregor; Eric Bana",annee:2001,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:92,boxOffice:173},
-{titre:"Point Break",genre:"Action, Crime, Thriller",realisateur:"Kathryn Bigelow",acteurs:"Patrick Swayze; Keanu Reeves; Gary Busey",annee:1991,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:24,boxOffice:83},
-{titre:"Carlito's Way",genre:"Crime, Drame, Thriller",realisateur:"Brian De Palma",acteurs:"Al Pacino; Sean Penn; Penelope Ann Miller",annee:1993,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:30,boxOffice:63},
-{titre:"High Fidelity",genre:"Comédie, Drame, Musique",realisateur:"Stephen Frears",acteurs:"John Cusack; Iben Hjejle; Jack Black",annee:2000,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:30,boxOffice:47},
-{titre:"Runaway Jury",genre:"Crime, Drame, Thriller",realisateur:"Gary Fleder",acteurs:"John Cusack; Gene Hackman; Dustin Hoffman",annee:2003,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:60,boxOffice:80},
-{titre:"The Firm",genre:"Drame, Mystère, Thriller",realisateur:"Sydney Pollack",acteurs:"Tom Cruise; Jeanne Tripplehorn; Gene Hackman",annee:1993,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:42,boxOffice:270},
-{titre:"Identity",genre:"Mystère, Thriller",realisateur:"James Mangold",acteurs:"John Cusack; Ray Liotta; Amanda Peet",annee:2003,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:28,boxOffice:90},
-{titre:"Predator",genre:"Action, Aventure, Science-fiction",realisateur:"John McTiernan",acteurs:"Arnold Schwarzenegger; Carl Weathers; Kevin Peter Hall",annee:1987,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:15,boxOffice:98},
-{titre:"The Silence of the Lambs",genre:"Crime, Drame, Thriller",realisateur:"Jonathan Demme",acteurs:"Jodie Foster; Anthony Hopkins; Scott Glenn",annee:1991,imdb:22,notePerso:null,victor:null,lilyRose:null,budget:19,boxOffice:273},
-{titre:"Twelve Monkeys",genre:"Mystère, Science-fiction, Thriller",realisateur:"Terry Gilliam",acteurs:"Bruce Willis; Madeleine Stowe; Brad Pitt",annee:1995,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:29,boxOffice:168},
-{titre:"Gattaca",genre:"Drame, Science-fiction, Thriller",realisateur:"Andrew Niccol",acteurs:"Ethan Hawke; Uma Thurman; Jude Law",annee:1997,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:36,boxOffice:12},
-{titre:"The Empire Strikes Back",genre:"Action, Aventure, Fantastique",realisateur:"Irvin Kershner",acteurs:"Mark Hamill; Harrison Ford; Carrie Fisher",annee:1980,imdb:15,notePerso:null,victor:null,lilyRose:null,budget:18,boxOffice:538},
-{titre:"Return of the Jedi",genre:"Action, Aventure, Fantastique",realisateur:"Richard Marquand",acteurs:"Mark Hamill; Harrison Ford; Carrie Fisher",annee:1983,imdb:93,notePerso:null,victor:null,lilyRose:null,budget:32,boxOffice:475},
-{titre:"Star Wars",genre:"Action, Aventure, Fantastique",realisateur:"George Lucas",acteurs:"Mark Hamill; Harrison Ford; Carrie Fisher",annee:1977,imdb:29,notePerso:null,victor:null,lilyRose:null,budget:11,boxOffice:775},
-{titre:"Drive",genre:"Crime, Drame, Thriller",realisateur:"Nicolas Winding Refn",acteurs:"Ryan Gosling; Carey Mulligan; Bryan Cranston",annee:2011,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:15,boxOffice:78},
-{titre:"Mulholland Drive",genre:"Drame, Mystère, Thriller",realisateur:"David Lynch",acteurs:"Naomi Watts; Laura Harring; Justin Theroux",annee:2001,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:15,boxOffice:20},
-{titre:"Jacob's Ladder",genre:"Drame, Horreur, Mystère",realisateur:"Adrian Lyne",acteurs:"Tim Robbins; Elizabeth Pena; Danny Aiello",annee:1990,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:25,boxOffice:26},
-{titre:"Get Out",genre:"Horreur, Mystère, Thriller",realisateur:"Jordan Peele",acteurs:"Daniel Kaluuya; Allison Williams; Bradley Whitford",annee:2017,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:4.5,boxOffice:255},
-{titre:"The Ring",genre:"Horreur, Mystère",realisateur:"Gore Verbinski",acteurs:"Naomi Watts; Martin Henderson; Brian Cox",annee:2002,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:48,boxOffice:249},
-{titre:"Dune: Part One",genre:"Action, Aventure, Drame",realisateur:"Denis Villeneuve",acteurs:"Timothée Chalamet; Rebecca Ferguson; Oscar Isaac",annee:2021,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:165,boxOffice:408},
-{titre:"The Godfather Part II",genre:"Crime, Drame",realisateur:"Francis Ford Coppola",acteurs:"Al Pacino; Robert De Niro; Robert Duvall",annee:1974,imdb:4,notePerso:null,victor:null,lilyRose:null,budget:13,boxOffice:93},
-{titre:"As Good as It Gets",genre:"Comédie, Drame, Romance",realisateur:"James L. Brooks",acteurs:"Jack Nicholson; Helen Hunt; Greg Kinnear",annee:1997,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:50,boxOffice:314},
-{titre:"Moon",genre:"Drame, Mystère, Science-fiction",realisateur:"Duncan Jones",acteurs:"Sam Rockwell; Kevin Spacey; Dominique McElligott",annee:2009,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:5,boxOffice:10},
-{titre:"Le Fabuleux Destin d'Amélie Poulain",genre:"Comédie, Romance",realisateur:"Jean-Pierre Jeunet",acteurs:"Audrey Tautou; Mathieu Kassovitz; Rufus",annee:2001,imdb:112,notePerso:null,victor:null,lilyRose:null,budget:10,boxOffice:174},
-{titre:"American Psycho",genre:"Crime, Drame, Horreur",realisateur:"Mary Harron",acteurs:"Christian Bale; Justin Theroux; Willem Dafoe",annee:2000,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:7,boxOffice:34},
-{titre:"The Golden Child",genre:"Action, Comédie, Fantastique",realisateur:"Michael Ritchie",acteurs:"Eddie Murphy; Charles Dance; Charlotte Lewis",annee:1986,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:25,boxOffice:80},
-{titre:"2001: A Space Odyssey",genre:"Aventure, Science-fiction",realisateur:"Stanley Kubrick",acteurs:"Keir Dullea; Gary Lockwood; William Sylvester",annee:1968,imdb:103,notePerso:null,victor:null,lilyRose:null,budget:12,boxOffice:146},
-{titre:"Dinner Rush",genre:"Crime, Drame",realisateur:"Bob Giraldi",acteurs:"Danny Aiello; Edoardo Ballerini; John Rothman",annee:2000,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:5,boxOffice:1.5},
-{titre:"The Big Short",genre:"Biographie, Comédie, Drame",realisateur:"Adam McKay",acteurs:"Christian Bale; Steve Carell; Ryan Gosling",annee:2015,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:28,boxOffice:133},
-{titre:"Home Alone",genre:"Comédie, Famille",realisateur:"Chris Columbus",acteurs:"Macaulay Culkin; Joe Pesci; Daniel Stern",annee:1990,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:18,boxOffice:476},
-{titre:"Get Shorty",genre:"Comédie, Crime, Thriller",realisateur:"Barry Sonnenfeld",acteurs:"John Travolta; Gene Hackman; Rene Russo",annee:1995,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:30,boxOffice:115},
-{titre:"Ex Machina",genre:"Drame, Science-fiction, Thriller",realisateur:"Alex Garland",acteurs:"Alicia Vikander; Domhnall Gleeson; Oscar Isaac",annee:2014,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:15,boxOffice:36},
-{titre:"Source Code",genre:"Action, Drame, Mystère",realisateur:"Duncan Jones",acteurs:"Jake Gyllenhaal; Michelle Monaghan; Vera Farmiga",annee:2011,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:32,boxOffice:148},
-{titre:"Rounders",genre:"Crime, Drame",realisateur:"John Dahl",acteurs:"Matt Damon; Edward Norton; John Malkovich",annee:1998,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:12,boxOffice:23},
-{titre:"Jerry Maguire",genre:"Comédie, Drame, Romance",realisateur:"Cameron Crowe",acteurs:"Tom Cruise; Cuba Gooding Jr.; Renée Zellweger",annee:1996,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:50,boxOffice:274},
-{titre:"Black Rain",genre:"Action, Crime, Thriller",realisateur:"Ridley Scott",acteurs:"Michael Douglas; Andy Garcia; Ken Takakura",annee:1989,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:43,boxOffice:134},
-{titre:"Gaz Bar Blues",genre:"Comédie, Drame",realisateur:"Louis Bélanger",acteurs:"Serge Thériault; Gilles Renaud; Fanny Mallette",annee:2003,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:3.5,boxOffice:4},
-{titre:"Dune: Part Two",genre:"Action, Aventure, Drame, Sci-Fi",realisateur:"Denis Villeneuve",acteurs:"Timothée Chalamet; Zendaya; Austin Butler",annee:2024,imdb:null,notePerso:null,victor:null,lilyRose:null,budget:190,boxOffice:711}
+{titre:"The Godfather",genre:"Crime, Drame",realisateur:"Francis Ford Coppola",acteurs:"Marlon Brando; Al Pacino; James Caan",annee:1972,imdb:2,notePerso:1,victor:null,lilyRose:null,julie:null,budget:6,boxOffice:250},
+{titre:"Goodfellas",genre:"Crime, Drame",realisateur:"Martin Scorsese",acteurs:"Robert De Niro; Ray Liotta; Joe Pesci",annee:1990,imdb:17,notePerso:2,victor:null,lilyRose:null,julie:null,budget:25,boxOffice:46.8},
+{titre:"Gladiator",genre:"Action, Aventure, Drame",realisateur:"Ridley Scott",acteurs:"Russell Crowe; Joaquin Phoenix; Connie Nielsen",annee:2000,imdb:33,notePerso:3,victor:null,lilyRose:null,julie:null,budget:103,boxOffice:465},
+{titre:"Pulp Fiction",genre:"Crime, Drame",realisateur:"Quentin Tarantino",acteurs:"John Travolta; Samuel L. Jackson; Uma Thurman",annee:1994,imdb:9,notePerso:4,victor:null,lilyRose:null,julie:null,budget:8,boxOffice:213},
+{titre:"Heat",genre:"Crime, Drame, Thriller",realisateur:"Michael Mann",acteurs:"Al Pacino; Robert De Niro; Val Kilmer",annee:1995,imdb:102,notePerso:5,victor:null,lilyRose:null,julie:null,budget:60,boxOffice:187},
+{titre:"L.A. Confidential",genre:"Crime, Drame, Mystère",realisateur:"Curtis Hanson",acteurs:"Kevin Spacey; Russell Crowe; Guy Pearce",annee:1997,imdb:124,notePerso:6,victor:null,lilyRose:null,julie:null,budget:35,boxOffice:126},
+{titre:"The Insider",genre:"Biographie, Drame, Thriller",realisateur:"Michael Mann",acteurs:"Al Pacino; Russell Crowe; Christopher Plummer",annee:1999,imdb:null,notePerso:7,victor:null,lilyRose:null,julie:null,budget:68,boxOffice:60},
+{titre:"Moneyball",genre:"Biographie, Drame, Sport",realisateur:"Bennett Miller",acteurs:"Brad Pitt; Jonah Hill; Philip Seymour Hoffman",annee:2011,imdb:null,notePerso:8,victor:null,lilyRose:null,julie:null,budget:50,boxOffice:110},
+{titre:"Die Hard",genre:"Action, Thriller",realisateur:"John McTiernan",acteurs:"Bruce Willis; Alan Rickman; Bonnie Bedelia",annee:1988,imdb:116,notePerso:9,victor:null,lilyRose:null,julie:null,budget:28,boxOffice:140},
+{titre:"Almost Famous",genre:"Aventure, Comédie, Drame",realisateur:"Cameron Crowe",acteurs:"Billy Crudup; Frances McDormand; Patrick Fugit",annee:2000,imdb:null,notePerso:10,victor:null,lilyRose:null,julie:null,budget:60,boxOffice:47},
+{titre:"Forrest Gump",genre:"Drame, Romance",realisateur:"Robert Zemeckis",acteurs:"Tom Hanks; Robin Wright; Gary Sinise",annee:1994,imdb:12,notePerso:null,victor:null,lilyRose:null,julie:null,budget:55,boxOffice:678},
+{titre:"Training Day",genre:"Crime, Drame, Thriller",realisateur:"Antoine Fuqua",acteurs:"Denzel Washington; Ethan Hawke; Scott Glenn",annee:2001,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:45,boxOffice:104},
+{titre:"Terminator 2: Judgment Day",genre:"Action, Science-fiction",realisateur:"James Cameron",acteurs:"Arnold Schwarzenegger; Linda Hamilton; Edward Furlong",annee:1991,imdb:28,notePerso:null,victor:null,lilyRose:null,julie:null,budget:102,boxOffice:520},
+{titre:"Aliens",genre:"Action, Aventure, Science-fiction",realisateur:"James Cameron",acteurs:"Sigourney Weaver; Michael Biehn; Bill Paxton",annee:1986,imdb:71,notePerso:null,victor:null,lilyRose:null,julie:null,budget:18.5,boxOffice:183},
+{titre:"Fight Club",genre:"Drame",realisateur:"David Fincher",acteurs:"Brad Pitt; Edward Norton; Helena Bonham Carter",annee:1999,imdb:13,notePerso:null,victor:null,lilyRose:null,julie:null,budget:63,boxOffice:101},
+{titre:"Whiplash",genre:"Drame, Musique",realisateur:"Damien Chazelle",acteurs:"Miles Teller; J.K. Simmons; Melissa Benoist",annee:2014,imdb:40,notePerso:null,victor:null,lilyRose:null,julie:null,budget:3.3,boxOffice:49},
+{titre:"The Game",genre:"Drame, Mystère, Thriller",realisateur:"David Fincher",acteurs:"Michael Douglas; Sean Penn; Deborah Kara Unger",annee:1997,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:50,boxOffice:109},
+{titre:"Memento",genre:"Mystère, Thriller",realisateur:"Christopher Nolan",acteurs:"Guy Pearce; Carrie-Anne Moss; Joe Pantoliano",annee:2000,imdb:58,notePerso:null,victor:null,lilyRose:null,julie:null,budget:9,boxOffice:40},
+{titre:"The Shining",genre:"Drame, Horreur",realisateur:"Stanley Kubrick",acteurs:"Jack Nicholson; Shelley Duvall; Danny Lloyd",annee:1980,imdb:67,notePerso:null,victor:null,lilyRose:null,julie:null,budget:19,boxOffice:44},
+{titre:"Good Will Hunting",genre:"Drame, Romance",realisateur:"Gus Van Sant",acteurs:"Matt Damon; Robin Williams; Ben Affleck",annee:1997,imdb:73,notePerso:null,victor:null,lilyRose:null,julie:null,budget:10,boxOffice:225},
+{titre:"World War Z",genre:"Action, Aventure, Horreur",realisateur:"Marc Forster",acteurs:"Brad Pitt; Mireille Enos; Daniella Kertesz",annee:2013,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:190,boxOffice:540},
+{titre:"Le Dîner de cons",genre:"Comédie",realisateur:"Francis Veber",acteurs:"Thierry Lhermitte; Jacques Villeret; Francis Huster",annee:1998,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:5,boxOffice:85},
+{titre:"Amadeus",genre:"Biographie, Drame, Musique",realisateur:"Miloš Forman",acteurs:"F. Murray Abraham; Tom Hulce; Elizabeth Berridge",annee:1984,imdb:77,notePerso:null,victor:null,lilyRose:null,julie:null,budget:18,boxOffice:90},
+{titre:"American Beauty",genre:"Drame",realisateur:"Sam Mendes",acteurs:"Kevin Spacey; Annette Bening; Thora Birch",annee:1999,imdb:86,notePerso:null,victor:null,lilyRose:null,julie:null,budget:15,boxOffice:356},
+{titre:"The Matrix",genre:"Action, Science-fiction",realisateur:"Lana Wachowski, Lilly Wachowski",acteurs:"Keanu Reeves; Laurence Fishburne; Carrie-Anne Moss",annee:1999,imdb:16,notePerso:null,victor:null,lilyRose:null,julie:null,budget:63,boxOffice:467},
+{titre:"The Truman Show",genre:"Comédie, Drame, Science-fiction",realisateur:"Peter Weir",acteurs:"Jim Carrey; Laura Linney; Ed Harris",annee:1998,imdb:128,notePerso:null,victor:null,lilyRose:null,julie:null,budget:60,boxOffice:264},
+{titre:"The Shawshank Redemption",genre:"Drame",realisateur:"Frank Darabont",acteurs:"Tim Robbins; Morgan Freeman; Bob Gunton",annee:1994,imdb:1,notePerso:null,victor:null,lilyRose:null,julie:null,budget:25,boxOffice:58},
+{titre:"Arrival",genre:"Drame, Mystère, Science-fiction",realisateur:"Denis Villeneuve",acteurs:"Amy Adams; Jeremy Renner; Forest Whitaker",annee:2016,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:47,boxOffice:203},
+{titre:"Back to the Future",genre:"Aventure, Comédie, Science-fiction",realisateur:"Robert Zemeckis",acteurs:"Michael J. Fox; Christopher Lloyd; Lea Thompson",annee:1985,imdb:30,notePerso:null,victor:null,lilyRose:null,julie:null,budget:19,boxOffice:388},
+{titre:"The Illusionist",genre:"Drame, Fantastique, Mystère",realisateur:"Neil Burger",acteurs:"Edward Norton; Jessica Biel; Paul Giamatti",annee:2006,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:16.5,boxOffice:88},
+{titre:"Inglourious Basterds",genre:"Aventure, Drame, Guerre",realisateur:"Quentin Tarantino",acteurs:"Brad Pitt; Christoph Waltz; Mélanie Laurent",annee:2009,imdb:69,notePerso:null,victor:null,lilyRose:null,julie:null,budget:70,boxOffice:321},
+{titre:"Batman Begins",genre:"Action, Crime, Drame",realisateur:"Christopher Nolan",acteurs:"Christian Bale; Michael Caine; Liam Neeson",annee:2005,imdb:134,notePerso:null,victor:null,lilyRose:null,julie:null,budget:150,boxOffice:373},
+{titre:"Catch Me If You Can",genre:"Biographie, Crime, Drame",realisateur:"Steven Spielberg",acteurs:"Leonardo DiCaprio; Tom Hanks; Christopher Walken",annee:2002,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:52,boxOffice:352},
+{titre:"A Few Good Men",genre:"Drame, Thriller",realisateur:"Rob Reiner",acteurs:"Tom Cruise; Jack Nicholson; Demi Moore",annee:1992,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:40,boxOffice:243},
+{titre:"Sicario",genre:"Action, Crime, Drame",realisateur:"Denis Villeneuve",acteurs:"Emily Blunt; Benicio Del Toro; Josh Brolin",annee:2015,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:30,boxOffice:85},
+{titre:"Saving Private Ryan",genre:"Drame, Guerre",realisateur:"Steven Spielberg",acteurs:"Tom Hanks; Matt Damon; Tom Sizemore",annee:1998,imdb:24,notePerso:null,victor:null,lilyRose:null,julie:null,budget:70,boxOffice:482},
+{titre:"The Hunt for Red October",genre:"Action, Aventure, Thriller",realisateur:"John McTiernan",acteurs:"Sean Connery; Alec Baldwin; Scott Glenn",annee:1990,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:30,boxOffice:200},
+{titre:"The Fugitive",genre:"Action, Crime, Drame",realisateur:"Andrew Davis",acteurs:"Harrison Ford; Tommy Lee Jones; Sela Ward",annee:1993,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:44,boxOffice:368},
+{titre:"Road to Perdition",genre:"Crime, Drame, Thriller",realisateur:"Sam Mendes",acteurs:"Tom Hanks; Paul Newman; Jude Law",annee:2002,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:80,boxOffice:181},
+{titre:"The Mask",genre:"Comédie, Crime, Fantastique",realisateur:"Chuck Russell",acteurs:"Jim Carrey; Cameron Diaz; Peter Greene",annee:1994,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:23,boxOffice:351},
+{titre:"The Dark Knight",genre:"Action, Crime, Drame",realisateur:"Christopher Nolan",acteurs:"Christian Bale; Heath Ledger; Aaron Eckhart",annee:2008,imdb:3,notePerso:null,victor:null,lilyRose:null,julie:null,budget:185,boxOffice:1005},
+{titre:"LOTR: The Fellowship of the Ring",genre:"Fantastique, Aventure",realisateur:"Peter Jackson",acteurs:"Elijah Wood; Ian McKellen; Viggo Mortensen",annee:2001,imdb:9,notePerso:null,victor:null,lilyRose:null,julie:null,budget:93,boxOffice:898},
+{titre:"LOTR: The Two Towers",genre:"Fantastique, Aventure",realisateur:"Peter Jackson",acteurs:"Elijah Wood; Ian McKellen; Viggo Mortensen",annee:2002,imdb:13,notePerso:null,victor:null,lilyRose:null,julie:null,budget:94,boxOffice:947},
+{titre:"LOTR: The Return of the King",genre:"Fantastique, Aventure",realisateur:"Peter Jackson",acteurs:"Elijah Wood; Ian McKellen; Viggo Mortensen",annee:2003,imdb:7,notePerso:null,victor:null,lilyRose:null,julie:null,budget:94,boxOffice:1142},
+{titre:"Interstellar",genre:"Aventure, Drame, Science-fiction",realisateur:"Christopher Nolan",acteurs:"Matthew McConaughey; Anne Hathaway; Jessica Chastain",annee:2014,imdb:18,notePerso:null,victor:null,lilyRose:null,julie:null,budget:165,boxOffice:773},
+{titre:"Project Hail Mary",genre:"Drame, Science-fiction, Thriller",realisateur:"Phil Lord, Christopher Miller",acteurs:"Ryan Gosling; Sandra Hüller; Milana Vayntrub",annee:2026,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:200,boxOffice:511},
+{titre:"Inception",genre:"Action, Aventure, Science-fiction",realisateur:"Christopher Nolan",acteurs:"Leonardo DiCaprio; Joseph Gordon-Levitt; Elliot Page",annee:2010,imdb:14,notePerso:null,victor:null,lilyRose:null,julie:null,budget:160,boxOffice:839},
+{titre:"Braveheart",genre:"Biographie, Drame, Guerre",realisateur:"Mel Gibson",acteurs:"Mel Gibson; Sophie Marceau; Patrick McGoohan",annee:1995,imdb:82,notePerso:null,victor:null,lilyRose:null,julie:null,budget:72,boxOffice:210},
+{titre:"Scarface",genre:"Crime, Drame",realisateur:"Brian De Palma",acteurs:"Al Pacino; Michelle Pfeiffer; Steven Bauer",annee:1983,imdb:105,notePerso:null,victor:null,lilyRose:null,julie:null,budget:25,boxOffice:66},
+{titre:"Full Metal Jacket",genre:"Drame, Guerre",realisateur:"Stanley Kubrick",acteurs:"Matthew Modine; R. Lee Ermey; Vincent D'Onofrio",annee:1987,imdb:110,notePerso:null,victor:null,lilyRose:null,julie:null,budget:30,boxOffice:120},
+{titre:"Jurassic Park",genre:"Action, Aventure, Science-fiction",realisateur:"Steven Spielberg",acteurs:"Sam Neill; Laura Dern; Jeff Goldblum",annee:1993,imdb:138,notePerso:null,victor:null,lilyRose:null,julie:null,budget:63,boxOffice:1046},
+{titre:"V for Vendetta",genre:"Action, Drame, Science-fiction",realisateur:"James McTeigue",acteurs:"Natalie Portman; Hugo Weaving; Stephen Rea",annee:2005,imdb:171,notePerso:null,victor:null,lilyRose:null,julie:null,budget:54,boxOffice:132},
+{titre:"Fargo",genre:"Crime, Drame, Thriller",realisateur:"Joel Coen",acteurs:"Frances McDormand; William H. Macy; Steve Buscemi",annee:1996,imdb:183,notePerso:null,victor:null,lilyRose:null,julie:null,budget:7,boxOffice:60},
+{titre:"No Country for Old Men",genre:"Crime, Drame, Thriller",realisateur:"Joel Coen, Ethan Coen",acteurs:"Tommy Lee Jones; Javier Bardem; Josh Brolin",annee:2007,imdb:147,notePerso:null,victor:null,lilyRose:null,julie:null,budget:25,boxOffice:171},
+{titre:"Scent of a Woman",genre:"Drame",realisateur:"Martin Brest",acteurs:"Al Pacino; Chris O'Donnell; James Rebhorn",annee:1992,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:31,boxOffice:134},
+{titre:"Edge of Tomorrow",genre:"Action, Aventure, Science-fiction",realisateur:"Doug Liman",acteurs:"Tom Cruise; Emily Blunt; Bill Paxton",annee:2014,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:178,boxOffice:370},
+{titre:"Ocean's Eleven",genre:"Crime, Thriller",realisateur:"Steven Soderbergh",acteurs:"George Clooney; Brad Pitt; Matt Damon",annee:2001,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:85,boxOffice:451},
+{titre:"Black Hawk Down",genre:"Drame, Historique, Guerre",realisateur:"Ridley Scott",acteurs:"Josh Hartnett; Ewan McGregor; Eric Bana",annee:2001,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:92,boxOffice:173},
+{titre:"Point Break",genre:"Action, Crime, Thriller",realisateur:"Kathryn Bigelow",acteurs:"Patrick Swayze; Keanu Reeves; Gary Busey",annee:1991,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:24,boxOffice:83},
+{titre:"Carlito's Way",genre:"Crime, Drame, Thriller",realisateur:"Brian De Palma",acteurs:"Al Pacino; Sean Penn; Penelope Ann Miller",annee:1993,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:30,boxOffice:63},
+{titre:"High Fidelity",genre:"Comédie, Drame, Musique",realisateur:"Stephen Frears",acteurs:"John Cusack; Iben Hjejle; Jack Black",annee:2000,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:30,boxOffice:47},
+{titre:"Runaway Jury",genre:"Crime, Drame, Thriller",realisateur:"Gary Fleder",acteurs:"John Cusack; Gene Hackman; Dustin Hoffman",annee:2003,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:60,boxOffice:80},
+{titre:"The Firm",genre:"Drame, Mystère, Thriller",realisateur:"Sydney Pollack",acteurs:"Tom Cruise; Jeanne Tripplehorn; Gene Hackman",annee:1993,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:42,boxOffice:270},
+{titre:"Identity",genre:"Mystère, Thriller",realisateur:"James Mangold",acteurs:"John Cusack; Ray Liotta; Amanda Peet",annee:2003,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:28,boxOffice:90},
+{titre:"Predator",genre:"Action, Aventure, Science-fiction",realisateur:"John McTiernan",acteurs:"Arnold Schwarzenegger; Carl Weathers; Kevin Peter Hall",annee:1987,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:15,boxOffice:98},
+{titre:"The Silence of the Lambs",genre:"Crime, Drame, Thriller",realisateur:"Jonathan Demme",acteurs:"Jodie Foster; Anthony Hopkins; Scott Glenn",annee:1991,imdb:22,notePerso:null,victor:null,lilyRose:null,julie:null,budget:19,boxOffice:273},
+{titre:"Twelve Monkeys",genre:"Mystère, Science-fiction, Thriller",realisateur:"Terry Gilliam",acteurs:"Bruce Willis; Madeleine Stowe; Brad Pitt",annee:1995,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:29,boxOffice:168},
+{titre:"Gattaca",genre:"Drame, Science-fiction, Thriller",realisateur:"Andrew Niccol",acteurs:"Ethan Hawke; Uma Thurman; Jude Law",annee:1997,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:36,boxOffice:12},
+{titre:"The Empire Strikes Back",genre:"Action, Aventure, Fantastique",realisateur:"Irvin Kershner",acteurs:"Mark Hamill; Harrison Ford; Carrie Fisher",annee:1980,imdb:15,notePerso:null,victor:null,lilyRose:null,julie:null,budget:18,boxOffice:538},
+{titre:"Return of the Jedi",genre:"Action, Aventure, Fantastique",realisateur:"Richard Marquand",acteurs:"Mark Hamill; Harrison Ford; Carrie Fisher",annee:1983,imdb:93,notePerso:null,victor:null,lilyRose:null,julie:null,budget:32,boxOffice:475},
+{titre:"Star Wars",genre:"Action, Aventure, Fantastique",realisateur:"George Lucas",acteurs:"Mark Hamill; Harrison Ford; Carrie Fisher",annee:1977,imdb:29,notePerso:null,victor:null,lilyRose:null,julie:null,budget:11,boxOffice:775},
+{titre:"Drive",genre:"Crime, Drame, Thriller",realisateur:"Nicolas Winding Refn",acteurs:"Ryan Gosling; Carey Mulligan; Bryan Cranston",annee:2011,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:15,boxOffice:78},
+{titre:"Mulholland Drive",genre:"Drame, Mystère, Thriller",realisateur:"David Lynch",acteurs:"Naomi Watts; Laura Harring; Justin Theroux",annee:2001,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:15,boxOffice:20},
+{titre:"Jacob's Ladder",genre:"Drame, Horreur, Mystère",realisateur:"Adrian Lyne",acteurs:"Tim Robbins; Elizabeth Pena; Danny Aiello",annee:1990,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:25,boxOffice:26},
+{titre:"Get Out",genre:"Horreur, Mystère, Thriller",realisateur:"Jordan Peele",acteurs:"Daniel Kaluuya; Allison Williams; Bradley Whitford",annee:2017,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:4.5,boxOffice:255},
+{titre:"The Ring",genre:"Horreur, Mystère",realisateur:"Gore Verbinski",acteurs:"Naomi Watts; Martin Henderson; Brian Cox",annee:2002,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:48,boxOffice:249},
+{titre:"Dune: Part One",genre:"Action, Aventure, Drame",realisateur:"Denis Villeneuve",acteurs:"Timothée Chalamet; Rebecca Ferguson; Oscar Isaac",annee:2021,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:165,boxOffice:408},
+{titre:"The Godfather Part II",genre:"Crime, Drame",realisateur:"Francis Ford Coppola",acteurs:"Al Pacino; Robert De Niro; Robert Duvall",annee:1974,imdb:4,notePerso:null,victor:null,lilyRose:null,julie:null,budget:13,boxOffice:93},
+{titre:"As Good as It Gets",genre:"Comédie, Drame, Romance",realisateur:"James L. Brooks",acteurs:"Jack Nicholson; Helen Hunt; Greg Kinnear",annee:1997,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:50,boxOffice:314},
+{titre:"Moon",genre:"Drame, Mystère, Science-fiction",realisateur:"Duncan Jones",acteurs:"Sam Rockwell; Kevin Spacey; Dominique McElligott",annee:2009,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:5,boxOffice:10},
+{titre:"Le Fabuleux Destin d'Amélie Poulain",genre:"Comédie, Romance",realisateur:"Jean-Pierre Jeunet",acteurs:"Audrey Tautou; Mathieu Kassovitz; Rufus",annee:2001,imdb:112,notePerso:null,victor:null,lilyRose:null,julie:null,budget:10,boxOffice:174},
+{titre:"American Psycho",genre:"Crime, Drame, Horreur",realisateur:"Mary Harron",acteurs:"Christian Bale; Justin Theroux; Willem Dafoe",annee:2000,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:7,boxOffice:34},
+{titre:"The Golden Child",genre:"Action, Comédie, Fantastique",realisateur:"Michael Ritchie",acteurs:"Eddie Murphy; Charles Dance; Charlotte Lewis",annee:1986,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:25,boxOffice:80},
+{titre:"2001: A Space Odyssey",genre:"Aventure, Science-fiction",realisateur:"Stanley Kubrick",acteurs:"Keir Dullea; Gary Lockwood; William Sylvester",annee:1968,imdb:103,notePerso:null,victor:null,lilyRose:null,julie:null,budget:12,boxOffice:146},
+{titre:"Dinner Rush",genre:"Crime, Drame",realisateur:"Bob Giraldi",acteurs:"Danny Aiello; Edoardo Ballerini; John Rothman",annee:2000,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:5,boxOffice:1.5},
+{titre:"The Big Short",genre:"Biographie, Comédie, Drame",realisateur:"Adam McKay",acteurs:"Christian Bale; Steve Carell; Ryan Gosling",annee:2015,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:28,boxOffice:133},
+{titre:"Home Alone",genre:"Comédie, Famille",realisateur:"Chris Columbus",acteurs:"Macaulay Culkin; Joe Pesci; Daniel Stern",annee:1990,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:18,boxOffice:476},
+{titre:"Get Shorty",genre:"Comédie, Crime, Thriller",realisateur:"Barry Sonnenfeld",acteurs:"John Travolta; Gene Hackman; Rene Russo",annee:1995,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:30,boxOffice:115},
+{titre:"Ex Machina",genre:"Drame, Science-fiction, Thriller",realisateur:"Alex Garland",acteurs:"Alicia Vikander; Domhnall Gleeson; Oscar Isaac",annee:2014,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:15,boxOffice:36},
+{titre:"Source Code",genre:"Action, Drame, Mystère",realisateur:"Duncan Jones",acteurs:"Jake Gyllenhaal; Michelle Monaghan; Vera Farmiga",annee:2011,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:32,boxOffice:148},
+{titre:"Rounders",genre:"Crime, Drame",realisateur:"John Dahl",acteurs:"Matt Damon; Edward Norton; John Malkovich",annee:1998,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:12,boxOffice:23},
+{titre:"Jerry Maguire",genre:"Comédie, Drame, Romance",realisateur:"Cameron Crowe",acteurs:"Tom Cruise; Cuba Gooding Jr.; Renée Zellweger",annee:1996,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:50,boxOffice:274},
+{titre:"Black Rain",genre:"Action, Crime, Thriller",realisateur:"Ridley Scott",acteurs:"Michael Douglas; Andy Garcia; Ken Takakura",annee:1989,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:43,boxOffice:134},
+{titre:"Gaz Bar Blues",genre:"Comédie, Drame",realisateur:"Louis Bélanger",acteurs:"Serge Thériault; Gilles Renaud; Fanny Mallette",annee:2003,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:3.5,boxOffice:4},
+{titre:"Dune: Part Two",genre:"Action, Aventure, Drame, Sci-Fi",realisateur:"Denis Villeneuve",acteurs:"Timothée Chalamet; Zendaya; Austin Butler",annee:2024,imdb:null,notePerso:null,victor:null,lilyRose:null,julie:null,budget:190,boxOffice:711}
 ];
 
 /* ═══════════════════════════════════════════════════
    STATE
    ═══════════════════════════════════════════════════ */
-let films = [], log = [], showHidden = false, sortCol = null, sortDir = 'asc';
+let films = [], log = [], showHidden = false, sortCol = 'notePerso', sortDir = 'desc';
 let editCell = null; // {idx, key}
 
 function loadState() {
@@ -656,13 +726,14 @@ function render() {
     list.forEach((f, i) => ranks.set(f._idx, i + 1));
   }
 
-  let html = '<table><thead><tr><th style="width:32px"></th>';
+  let html = '<table><thead><tr><th class="col-frozen-del" style="width:32px"></th>';
   // Position column
-  html += '<th class="' + (sortCol ? 'sorted' : '') + '" style="text-align:center;min-width:40px;width:48px">#</th>';
+  html += '<th class="col-frozen-pos ' + (sortCol ? 'sorted' : '') + '" style="text-align:center;min-width:40px;width:48px">#</th>';
   COLS.forEach(c => {
     const cls = sortCol === c.key ? ' sorted' : '';
     const arrow = sortCol === c.key ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
-    html += `<th class="${cls}" onclick="doSort('${c.key}')" style="text-align:${c.align};min-width:${c.w}px">${c.label}${arrow}</th>`;
+    const frozenCls = c.key === 'titre' ? ' col-frozen-titre' : '';
+    html += `<th class="${cls}${frozenCls}" onclick="doSort('${c.key}')" style="text-align:${c.align};min-width:${c.w}px">${c.label}${arrow}</th>`;
   });
   if (showHidden) RATERS.forEach(r => {
     CRITERIA.forEach(c => {
@@ -676,11 +747,11 @@ function render() {
 
   list.forEach(f => {
     html += '<tr>';
-    html += `<td class="cell-num"><button class="del-btn" onclick="deleteFilm(${f._idx})" title="Supprimer">✕</button></td>`;
+    html += `<td class="cell-num col-frozen-del"><button class="del-btn" onclick="deleteFilm(${f._idx})" title="Supprimer">✕</button></td>`;
     // Position cell
     const rank = ranks.get(f._idx);
     const showRank = isNoteSort ? (f[sortCol] != null ? rank : null) : rank;
-    html += `<td class="cell-num" style="font-weight:700;color:var(--txt3);font-size:.8rem">${showRank != null ? showRank : '—'}</td>`;
+    html += `<td class="cell-num col-frozen-pos" style="font-weight:700;color:var(--txt3);font-size:.8rem">${showRank != null ? showRank : '—'}</td>`;
     COLS.forEach(col => {
       if (col.rater) {
         const rater = RATERS.find(r => r.key === col.key);
@@ -688,7 +759,7 @@ function render() {
         const display = v != null ? v.toFixed(2) : '<span class="hint">double-clic</span>';
         html += `<td class="${rater.css}" ondblclick="openRating(${f._idx},'${col.key}')">${display}</td>`;
       } else if (col.key === 'titre') {
-        html += `<td class="cell-titre editable" ondblclick="startEdit(${f._idx},'${col.key}',this)" title="${esc(f[col.key]||'')}">${esc(f[col.key]||'—')}</td>`;
+        html += `<td class="cell-titre editable col-frozen-titre" ondblclick="startEdit(${f._idx},'${col.key}',this)" title="${esc(f[col.key]||'')}">${esc(f[col.key]||'—')}</td>`;
       } else if (col.edit) {
         const v = f[col.key];
         const display = v != null ? (col.type==='num' && col.key==='annee' ? String(Math.round(v)) : (typeof v==='number' ? v.toLocaleString('fr-CA'):esc(v))) : '—';
@@ -736,7 +807,7 @@ function syncFrozenHeader() {
   const cloneTable = document.createElement('table');
   cloneTable.appendChild(sourceHead);
   cloneTable.style.width = sourceTable.offsetWidth + 'px';
-  cloneTable.style.transform = 'translateX(' + (-wrap.scrollLeft) + 'px)';
+  // No translateX — the floating header container is clipped to table width and scrolls via overflow:hidden
 
   const sourceThs = sourceTable.querySelectorAll('thead th');
   const cloneThs = cloneTable.querySelectorAll('thead th');
@@ -745,19 +816,29 @@ function syncFrozenHeader() {
     th.style.width = w + 'px';
     th.style.minWidth = w + 'px';
     th.style.maxWidth = w + 'px';
+    // Keep sticky classes functional in the clone
+    if (sourceThs[i].classList.contains('col-frozen-del')) th.classList.add('col-frozen-del');
+    if (sourceThs[i].classList.contains('col-frozen-pos')) th.classList.add('col-frozen-pos');
+    if (sourceThs[i].classList.contains('col-frozen-titre')) th.classList.add('col-frozen-titre');
   });
 
   host.innerHTML = '';
   host.appendChild(cloneTable);
   host.style.left = wrapRect.left + 'px';
   host.style.width = wrap.clientWidth + 'px';
+  // Sync horizontal scroll of floating header
+  host.scrollLeft = wrap.scrollLeft;
   host.classList.add('active');
 }
 
 function bindFrozenHeader() {
   const wrap = document.getElementById('tableWrap');
   if (wrap && !wrap.dataset.frozenBound) {
-    wrap.addEventListener('scroll', syncFrozenHeader, { passive: true });
+    wrap.addEventListener('scroll', () => {
+      syncFrozenHeader();
+      const host = document.getElementById('floatingHead');
+      if (host && host.classList.contains('active')) host.scrollLeft = wrap.scrollLeft;
+    }, { passive: true });
     wrap.dataset.frozenBound = '1';
   }
   window.addEventListener('scroll', syncFrozenHeader, { passive: true });
@@ -837,7 +918,7 @@ function doAddFilm() {
     annee: parseFloat(document.getElementById('addAnnee').value) || null,
     budget: parseFloat(document.getElementById('addBudget').value) || null,
     boxOffice: parseFloat(document.getElementById('addBO').value) || null,
-    imdb: null, notePerso: null, victor: null, lilyRose: null
+    imdb: null, notePerso: null, victor: null, lilyRose: null, julie: null
   };
   RATERS.forEach(r => { f[r.key] = null; });
   ensureCriteriaKeys(f);
@@ -951,13 +1032,30 @@ function ratingPrev() {
 function toggleLog() { document.getElementById('logPanel').classList.toggle('open'); renderLog(); }
 function renderLog() {
   const el = document.getElementById('logList');
-  if (!log.length) { el.innerHTML = '<div class="log-empty">Aucune activité enregistrée</div>'; return; }
-  el.innerHTML = log.map(e => {
+  const fc = document.getElementById('logFooterCount');
+  const q = (document.getElementById('logSearch')?.value || '').toLowerCase();
+  let entries = log;
+  if (q) entries = log.filter(e => e.msg.toLowerCase().includes(q) || (e.type||'').toLowerCase().includes(q));
+  if (!entries.length) {
+    el.innerHTML = '<div class="log-empty">' + (q ? 'Aucun résultat pour ce filtre' : 'Aucune activité enregistrée') + '</div>';
+    if (fc) fc.textContent = '';
+    return;
+  }
+  if (fc) fc.textContent = entries.length + ' entrée' + (entries.length > 1 ? 's' : '') + (q ? ' (filtrées)' : '');
+  el.innerHTML = entries.map(e => {
+    const realIdx = log.indexOf(e);
     const d = new Date(e.ts);
     const ts = d.toLocaleDateString('fr-CA') + ' ' + d.toLocaleTimeString('fr-CA', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
-    return `<div class="log-item ${e.type}"><div class="log-time">${ts}</div><div class="log-msg">${e.msg}</div></div>`;
+    return `<div class="log-item ${e.type}"><button class="log-del-btn" onclick="deleteLogEntry(${realIdx})" title="Supprimer cette entrée">✕</button><div class="log-time">${ts}</div><div class="log-msg">${e.msg}</div></div>`;
   }).join('');
 }
+function deleteLogEntry(idx) {
+  log.splice(idx, 1);
+  saveLog();
+  renderLog();
+  renderLogCount();
+}
+function clearLog() { log = []; saveLog(); renderLog(); renderLogCount(); toast('Journal vidé','info'); }
 function renderLogCount() {
   const el = document.getElementById('logCount');
   if (!el) return;
@@ -969,7 +1067,6 @@ function renderLogCount() {
     el.style.display = 'none';
   }
 }
-function clearLog() { log = []; saveLog(); renderLog(); renderLogCount(); toast('Journal vidé','info'); }
 
 /* ═══════════════════════════════════════════════════
    IMPORT / EXPORT
