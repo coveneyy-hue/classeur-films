@@ -805,7 +805,7 @@ function render() {
         const display = v != null ? v.toFixed(2) : '<span class="hint">double-clic</span>';
         html += `<td class="${rater.css}" ondblclick="openRating(${f._idx},'${col.key}')">${display}</td>`;
       } else if (col.key === 'titre') {
-        html += `<td class="cell-titre editable col-frozen-titre" style="min-width:${titleExpanded ? 'min(calc(100vw - 140px), 1000px)' : col.w + 'px'};width:${titleExpanded ? 'min(calc(100vw - 140px), 1000px)' : col.w + 'px'}" ondblclick="startEdit(${f._idx},'${col.key}',this)" title="${esc(f[col.key]||'')}">${esc(f[col.key]||'—')}</td>`;
+        html += `<td class="cell-titre col-frozen-titre" style="min-width:${titleExpanded ? 'min(calc(100vw - 140px), 1000px)' : col.w + 'px'};width:${titleExpanded ? 'min(calc(100vw - 140px), 1000px)' : col.w + 'px'}" ondblclick="openTitleBreakdown(${f._idx})" title="${esc(f[col.key]||'')}">${esc(f[col.key]||'—')}</td>`;
       } else if (col.edit) {
         const v = f[col.key];
         const display = v != null ? (col.type==='num' && col.key==='annee' ? String(Math.round(v)) : (typeof v==='number' ? v.toLocaleString('fr-CA'):esc(v))) : '—';
@@ -895,6 +895,60 @@ function esc(s) { const d=document.createElement('div'); d.textContent=s; return
 function doSort(key) { if (sortCol===key) sortDir = sortDir==='asc'?'desc':'asc'; else { sortCol=key; sortDir='asc'; } render(); }
 function toggleHidden() { showHidden=!showHidden; savePrefs(); render(); toast(showHidden?'Colonnes détaillées affichées':'Colonnes détaillées masquées','info'); }
 function toggleTitleWidth() { titleExpanded = !titleExpanded; applyLayoutVars(); savePrefs(); render(); toast(titleExpanded ? 'Colonne Titre agrandie' : 'Colonne Titre réduite', 'info'); }
+
+function getRaterByKey(raterKey) {
+  return RATERS.find(r => r.key === raterKey) || RATERS[0];
+}
+
+function getPreferredBreakdownRater(idx) {
+  const f = films[idx];
+  return RATERS.find(r => f[r.key] != null || CRITERIA.some(c => f[r.prefix + c.key] != null)) || RATERS[0];
+}
+
+function openTitleBreakdown(idx, selectedRaterKey) {
+  const rater = getRaterByKey(selectedRaterKey || getPreferredBreakdownRater(idx).key);
+  const f = films[idx];
+  const note = f[rater.key];
+  const rows = CRITERIA.map(c => {
+    const value = f[rater.prefix + c.key];
+    return `<tr>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--border);color:#fff">${c.label}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--border);text-align:right;font-weight:700;color:${rater.color}">${value != null ? value.toFixed(2) : '—'}</td>
+    </tr>`;
+  }).join('');
+  const options = RATERS.map(r => `<option value="${r.key}" ${r.key === rater.key ? 'selected' : ''}>${r.label}</option>`).join('');
+  const hasAnyData = note != null || CRITERIA.some(c => f[rater.prefix + c.key] != null);
+  const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()">
+    <div class="modal" style="max-width:620px">
+      <h2>${esc(f.titre || 'Film')}</h2>
+      <p class="desc">Ventilation des notes détaillées enregistrées dans les colonnes masquées.</p>
+      <label>Afficher la ventilation pour</label>
+      <select id="breakdownRater" onchange="openTitleBreakdown(${idx}, this.value)">
+        ${options}
+      </select>
+      <div style="margin-top:16px;padding:16px 18px;border-radius:12px;background:var(--bg);border:1px solid var(--border)">
+        <div style="font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--txt2);margin-bottom:6px">Note globale</div>
+        <div style="font-family:var(--font-display);font-size:2rem;font-weight:800;color:${rater.color}">${note != null ? note.toFixed(2) + '/10' : '—'}</div>
+      </div>
+      <div style="margin-top:16px;border:1px solid var(--border);border-radius:12px;overflow:hidden">
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding:10px;background:var(--bg3);color:var(--txt2)">Critère</th>
+              <th style="text-align:right;padding:10px;background:var(--bg3);color:${rater.color}">Valeur</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      ${hasAnyData ? '' : '<p class="desc" style="margin-top:14px;margin-bottom:0">Aucune ventilation enregistrée pour cette personne.</p>'}
+      <div class="modal-row">
+        <button class="btn" onclick="closeOverlay()">Fermer</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('overlay').innerHTML = html;
+}
 
 /* ═══════════════════════════════════════════════════
    INLINE EDIT
