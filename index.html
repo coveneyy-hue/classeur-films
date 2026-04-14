@@ -55,8 +55,8 @@ body::before {
 #app { position: relative; z-index: 1; max-width: 1920px; margin: 0 auto; padding: 20px 16px 80px; }
 
 .topbar {
-  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-  padding-bottom: 18px; border-bottom: 1px solid var(--border); margin-bottom: 18px;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding-bottom: 14px; border-bottom: 1px solid var(--border); margin-bottom: 16px;
 }
 .topbar h1 {
   font-family: var(--font-display); font-weight: 900; font-size: 1.7rem;
@@ -88,9 +88,38 @@ body::before {
 .btn.gold:hover { box-shadow: 0 4px 20px rgba(232,166,48,.3); }
 .btn.red { border-color: var(--red); color: var(--red); }
 .btn.red:hover { background: rgba(232,64,64,.1); }
-.count { font-size: .8rem; color: var(--txt3); margin-left: auto; font-weight: 500; }
+.count { font-size: .8rem; color: var(--txt3); margin-left: auto; font-weight: 700; white-space: nowrap; }
 
-.toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
+.topbar-actions {
+  display: inline-flex; align-items: center; gap: 8px;
+  flex-wrap: nowrap;
+}
+.btn-icon {
+  width: 36px; height: 36px; padding: 0;
+  justify-content: center; gap: 0; flex: 0 0 auto;
+  font-size: 1rem; line-height: 1;
+}
+.log-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: #000;
+  font-size: .62rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-icon-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.toolbar { display: none; }
 
 /* ─── TABLE ─────────────────────────────────────── */
 .table-wrap {
@@ -104,9 +133,41 @@ thead th {
   font-family: var(--font-display); font-weight: 700;
   font-size: .7rem; letter-spacing: .08em; text-transform: uppercase;
   color: var(--txt2); border-bottom: 2px solid var(--border);
-  position: sticky; top: 0; z-index: 5; cursor: pointer;
+  position: relative; z-index: 1; cursor: pointer;
   white-space: nowrap; user-select: none; transition: color .15s;
 }
+
+.floating-head {
+  position: fixed;
+  top: env(safe-area-inset-top, 0px);
+  left: 0;
+  z-index: 80;
+  display: none;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 0 0 var(--radius) var(--radius);
+  background: var(--bg2);
+  box-shadow: 0 10px 30px rgba(0,0,0,.45);
+}
+.floating-head.active { display: block; }
+.floating-head table { border-collapse: collapse; margin: 0; }
+.floating-head th {
+  padding: 11px 8px;
+  background: var(--bg3);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: .7rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--txt2);
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+  user-select: none;
+  cursor: pointer;
+  transition: color .15s;
+}
+.floating-head th:hover { color: var(--gold); }
+.floating-head th.sorted { color: var(--gold); }
 thead th:hover { color: var(--gold); }
 thead th.sorted { color: var(--gold); }
 tbody td {
@@ -246,9 +307,11 @@ tr:hover .del-btn { opacity: .7; }
 /* ─── RESPONSIVE ────────────────────────────────── */
 @media (max-width: 768px) {
   .topbar h1 { font-size: 1.3rem; }
-  .searchbox { max-width: 100%; }
-  .toolbar { gap: 6px; }
+  .searchbox { max-width: 100%; order: 3; width: 100%; }
+  .count { margin-left: 0; }
+  .topbar-actions { margin-left: auto; }
   .btn { padding: 8px 10px; font-size: .78rem; }
+  .btn-icon { width: 34px; height: 34px; }
   .log-panel { width: 100vw; max-width: 100vw; }
 }
 
@@ -288,22 +351,28 @@ td.editing input {
     <h1><span>🎬</span> Classeur Films</h1>
     <input type="text" class="searchbox" id="search" placeholder="Rechercher titre, genre, réalisateur…" oninput="render()">
     <span class="count" id="counter"></span>
+    <div class="topbar-actions">
+      <button class="btn btn-icon gold" onclick="openAddModal()" title="Ajouter un film" aria-label="Ajouter un film">＋</button>
+      <button class="btn btn-icon" onclick="toggleHidden()" title="Afficher ou masquer les critères" aria-label="Afficher ou masquer les critères">👁</button>
+      <button class="btn btn-icon" onclick="exportJSON()" title="Exporter JSON" aria-label="Exporter JSON">⬇</button>
+      <button class="btn btn-icon" onclick="document.getElementById('importFile').click()" title="Importer JSON" aria-label="Importer JSON">⬆</button>
+      <input type="file" id="importFile" class="file-input" accept=".json" onchange="importJSON(event)">
+      <span class="btn-icon-wrap">
+        <button class="btn btn-icon" onclick="toggleLog()" id="logBtn" title="Journal d'activité" aria-label="Journal d'activité">📋</button>
+        <span class="log-badge" id="logCount"></span>
+      </span>
+    </div>
   </div>
 
   <!-- Toolbar -->
-  <div class="toolbar">
-    <button class="btn gold" onclick="openAddModal()">＋ Ajouter un film</button>
-    <button class="btn" onclick="toggleHidden()">👁 Critères</button>
-    <button class="btn" onclick="exportJSON()">⬇ Exporter JSON</button>
-    <button class="btn" onclick="document.getElementById('importFile').click()">⬆ Importer JSON</button>
-    <input type="file" id="importFile" class="file-input" accept=".json" onchange="importJSON(event)">
-    <button class="btn" onclick="toggleLog()" id="logBtn">📋 Journal <span id="logCount"></span></button>
-  </div>
+  <div class="toolbar"></div>
 
   <!-- Table -->
   <div class="table-wrap" id="tableWrap"></div>
 
   <!-- Formula -->
+  <div class="floating-head" id="floatingHead" aria-hidden="true"></div>
+
   <div class="formula-box">
     <h3>📐 Calcul des notes (Note perso · Victor · Lily-Rose)</h3>
     <p>
@@ -614,6 +683,61 @@ function render() {
   });
   html += '</tbody></table>';
   document.getElementById('tableWrap').innerHTML = html;
+  requestAnimationFrame(syncFrozenHeader);
+}
+
+
+function syncFrozenHeader() {
+  const wrap = document.getElementById('tableWrap');
+  const host = document.getElementById('floatingHead');
+  const table = wrap ? wrap.querySelector('table') : null;
+  const thead = table ? table.querySelector('thead') : null;
+  if (!wrap || !host || !table || !thead) {
+    if (host) { host.classList.remove('active'); host.innerHTML = ''; }
+    return;
+  }
+
+  const wrapRect = wrap.getBoundingClientRect();
+  const headHeight = thead.offsetHeight;
+  const shouldShow = wrapRect.top < 0 && wrapRect.bottom - headHeight > 0;
+
+  if (!shouldShow) {
+    host.classList.remove('active');
+    host.innerHTML = '';
+    return;
+  }
+
+  const sourceTable = table;
+  const sourceHead = thead.cloneNode(true);
+  const cloneTable = document.createElement('table');
+  cloneTable.appendChild(sourceHead);
+  cloneTable.style.width = sourceTable.offsetWidth + 'px';
+  cloneTable.style.transform = 'translateX(' + (-wrap.scrollLeft) + 'px)';
+
+  const sourceThs = sourceTable.querySelectorAll('thead th');
+  const cloneThs = cloneTable.querySelectorAll('thead th');
+  cloneThs.forEach((th, i) => {
+    const w = sourceThs[i].getBoundingClientRect().width;
+    th.style.width = w + 'px';
+    th.style.minWidth = w + 'px';
+    th.style.maxWidth = w + 'px';
+  });
+
+  host.innerHTML = '';
+  host.appendChild(cloneTable);
+  host.style.left = wrapRect.left + 'px';
+  host.style.width = wrap.clientWidth + 'px';
+  host.classList.add('active');
+}
+
+function bindFrozenHeader() {
+  const wrap = document.getElementById('tableWrap');
+  if (wrap && !wrap.dataset.frozenBound) {
+    wrap.addEventListener('scroll', syncFrozenHeader, { passive: true });
+    wrap.dataset.frozenBound = '1';
+  }
+  window.addEventListener('scroll', syncFrozenHeader, { passive: true });
+  window.addEventListener('resize', syncFrozenHeader, { passive: true });
 }
 
 function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
@@ -812,7 +936,14 @@ function renderLog() {
 }
 function renderLogCount() {
   const el = document.getElementById('logCount');
-  if (log.length) el.textContent = '(' + log.length + ')'; else el.textContent = '';
+  if (!el) return;
+  if (log.length) {
+    el.textContent = log.length > 99 ? '99+' : String(log.length);
+    el.style.display = 'inline-flex';
+  } else {
+    el.textContent = '';
+    el.style.display = 'none';
+  }
 }
 function clearLog() { log = []; saveLog(); renderLog(); renderLogCount(); toast('Journal vidé','info'); }
 
@@ -858,6 +989,8 @@ function importJSON(e) {
 loadState();
 render();
 renderLogCount();
+bindFrozenHeader();
+syncFrozenHeader();
 
 // PWA Service Worker
 if ('serviceWorker' in navigator) {
