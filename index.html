@@ -343,7 +343,7 @@ tr:hover .del-btn { opacity: .7; }
 }
 .col-frozen-del  { left: 0;    min-width: 32px; width: 32px; }
 .col-frozen-pos  { left: 32px; min-width: 32px; width: 32px; }
-.col-frozen-titre{ left: 64px; min-width: var(--titre-col-width, 90px); width: var(--titre-col-width, 90px); max-width: min(100vw - 96px, 1000px); }
+.col-frozen-titre{ left: 64px; min-width: var(--titre-col-width, 90px); width: var(--titre-col-width, 90px); max-width: var(--titre-col-max, 90px); }
 
 thead .col-frozen-del,
 thead .col-frozen-pos,
@@ -568,6 +568,7 @@ td.editing input {
         <button class="btn btn-icon" onclick="toggleLog()" id="logBtn" title="Journal d'activité" aria-label="Journal d'activité">📋</button>
         <span class="log-badge" id="logCount"></span>
       </span>
+      <button class="btn btn-icon" onclick="openSettings()" title="Paramètres" aria-label="Paramètres">⚙</button>
     </div>
   </div>
 
@@ -763,7 +764,7 @@ const DEFAULT_FILMS=[
 /* ═══════════════════════════════════════════════════
    STATE
    ═══════════════════════════════════════════════════ */
-let films = [], log = [], showHidden = false, sortCol = 'notePerso', sortDir = 'desc', titleExpanded = false;
+let films = [], log = [], showHidden = false, sortCol = 'notePerso', sortDir = 'desc', titleExpanded = false, titreReducedWidth = 90;
 let editCell = null; // {idx, key}
 
 function loadState() {
@@ -775,6 +776,8 @@ function loadState() {
   try { log = JSON.parse(localStorage.getItem('cf_log') || '[]'); } catch(e) { log = []; }
   showHidden = localStorage.getItem('cf_showHidden') === '1';
   titleExpanded = localStorage.getItem('cf_titleExpanded') === '1';
+  const savedTRW = parseInt(localStorage.getItem('cf_titreReducedWidth'));
+  if (!isNaN(savedTRW) && savedTRW >= 50 && savedTRW <= 600) titreReducedWidth = savedTRW;
   applyLayoutVars();
 }
 
@@ -783,10 +786,13 @@ function saveLog() { localStorage.setItem('cf_log', JSON.stringify(log)); }
 function savePrefs() {
   localStorage.setItem('cf_showHidden', showHidden ? '1' : '0');
   localStorage.setItem('cf_titleExpanded', titleExpanded ? '1' : '0');
+  localStorage.setItem('cf_titreReducedWidth', String(titreReducedWidth));
 }
 function applyLayoutVars() {
-  const titreWidth = titleExpanded ? 'min(calc(100vw - 140px), 1000px)' : '90px';
+  const titreWidth = titleExpanded ? 'min(calc(100vw - 140px), 1000px)' : titreReducedWidth + 'px';
+  const titreMax = titleExpanded ? 'min(calc(100vw - 96px), 1000px)' : titreReducedWidth + 'px';
   document.documentElement.style.setProperty('--titre-col-width', titreWidth);
+  document.documentElement.style.setProperty('--titre-col-max', titreMax);
 }
 
 function normalizeDateVu(value) {
@@ -941,7 +947,9 @@ function render() {
     const arrow = sortCol === c.key ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
     const frozenCls = c.key === 'titre' ? ' col-frozen-titre' : '';
     const widthStyle = c.key === 'titre'
-      ? `min-width:${titleExpanded ? 'min(calc(100vw - 140px), 1000px)' : c.w + 'px'};width:${titleExpanded ? 'min(calc(100vw - 140px), 1000px)' : c.w + 'px'}`
+      ? (titleExpanded
+        ? `min-width:min(calc(100vw - 140px), 1000px);width:min(calc(100vw - 140px), 1000px)`
+        : `min-width:${titreReducedWidth}px;width:${titreReducedWidth}px;max-width:${titreReducedWidth}px`)
       : `min-width:${c.w}px`;
     const labelHtml = c.key === 'titre'
       ? `${c.label}${arrow}<button class="col-expand-btn" onclick="event.stopPropagation();toggleTitleWidth()" title="${titleExpanded ? 'Réduire la colonne Titre' : 'Agrandir la colonne Titre'}" aria-label="${titleExpanded ? 'Réduire la colonne Titre' : 'Agrandir la colonne Titre'}">⤢</button>`
@@ -976,7 +984,10 @@ function render() {
         const display = f[col.key] ? esc(displayDateVu(f[col.key])) : '<span class="hint">double-clic</span>';
         html += `<td class="cell-num editable" style="text-align:${col.align}" ondblclick="startDateVuEdit(${f._idx},this)">${display}</td>`;
       } else if (col.key === 'titre') {
-        html += `<td class="cell-titre col-frozen-titre" style="min-width:${titleExpanded ? 'min(calc(100vw - 140px), 1000px)' : col.w + 'px'};width:${titleExpanded ? 'min(calc(100vw - 140px), 1000px)' : col.w + 'px'}" ondblclick="openTitleBreakdown(${f._idx})" title="${esc(f[col.key]||'')}">${esc(f[col.key]||'—')}</td>`;
+        const titreStyle = titleExpanded
+          ? 'min-width:min(calc(100vw - 140px), 1000px);width:min(calc(100vw - 140px), 1000px)'
+          : `min-width:${titreReducedWidth}px;width:${titreReducedWidth}px;max-width:${titreReducedWidth}px`;
+        html += `<td class="cell-titre col-frozen-titre" style="${titreStyle}" ondblclick="openTitleBreakdown(${f._idx})" title="${esc(f[col.key]||'')}">${esc(f[col.key]||'—')}</td>`;
       } else if (col.edit) {
         const v = f[col.key];
         const display = v != null ? (col.type==='num' && col.key==='annee' ? String(Math.round(v)) : (typeof v==='number' ? v.toLocaleString('fr-CA'):esc(v))) : '—';
@@ -1456,6 +1467,40 @@ function deleteRating() {
 }
 
 /* ═══════════════════════════════════════════════════
+   SETTINGS
+   ═══════════════════════════════════════════════════ */
+function openSettings() {
+  const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()">
+    <div class="modal" style="max-width:400px">
+      <h2>⚙ Paramètres</h2>
+      <p class="desc">Ajustez les préférences d'affichage du classeur.</p>
+      <label>Largeur réduite de la colonne Titre (px)</label>
+      <input type="number" id="settingsTitreWidth" min="50" max="600" step="10" value="${titreReducedWidth}" placeholder="90">
+      <p style="font-size:.78rem;color:var(--txt3);margin-top:6px">Valeur par défaut : 90 px · Min 50 · Max 600</p>
+      <div class="modal-row">
+        <button class="btn" onclick="closeOverlay()">Annuler</button>
+        <button class="btn gold" onclick="saveSettings()">Enregistrer</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('overlay').innerHTML = html;
+  setTimeout(() => { const inp = document.getElementById('settingsTitreWidth'); inp.focus(); inp.select(); }, 100);
+}
+function saveSettings() {
+  const raw = parseInt(document.getElementById('settingsTitreWidth').value);
+  if (isNaN(raw) || raw < 50 || raw > 600) {
+    toast('La largeur doit être entre 50 et 600 px', 'error');
+    return;
+  }
+  titreReducedWidth = raw;
+  localStorage.setItem('cf_titreReducedWidth', String(titreReducedWidth));
+  applyLayoutVars();
+  closeOverlay();
+  render();
+  toast(`Largeur réduite du titre : ${titreReducedWidth}px`, 'success');
+}
+
+/* ═══════════════════════════════════════════════════
    LOG PANEL
    ═══════════════════════════════════════════════════ */
 function toggleLog() { document.getElementById('logPanel').classList.toggle('open'); renderLog(); }
@@ -1529,7 +1574,10 @@ function buildExcelRows() {
   ];
   const rows = films.map((film, index) => {
     const row = { '#': index + 1 };
-    baseCols.forEach(([key, label]) => { row[label] = film[key] ?? ''; });
+    baseCols.forEach(([key, label]) => {
+      if (key === 'dateVu') { row[label] = film[key] ? displayDateVu(film[key]) : ''; }
+      else { row[label] = film[key] ?? ''; }
+    });
     RATERS.forEach(r => {
       CRITERIA.forEach(c => {
         row[`${r.label} - ${c.label}`] = film[r.prefix + c.key] ?? '';
