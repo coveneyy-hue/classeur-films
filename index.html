@@ -224,13 +224,14 @@ tr:hover .del-btn { opacity: .7; }
 .modal h3 { font-family: var(--font-display); font-weight: 700; font-size: 1.15rem; color: #fff; margin: 12px 0 4px; }
 .modal p.desc { color: var(--txt2); font-size: .9rem; line-height: 1.5; margin-bottom: 16px; }
 .modal label { display: block; font-size: .8rem; font-weight: 600; color: var(--txt2); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .05em; }
-.modal input[type=text], .modal input[type=number], .modal select, .modal textarea {
+.modal input[type=text], .modal input[type=number], .modal input[type=date], .modal select, .modal textarea {
   width: 100%; padding: 11px 14px; border-radius: var(--radius-sm);
   border: 1px solid var(--border); background: var(--bg); color: #fff;
   font-family: var(--font-body); font-size: 1rem; outline: none;
   transition: border .2s;
 }
-.modal input:focus, .modal textarea:focus { border-color: var(--gold); }
+.modal input:focus, .modal textarea:focus, .modal input[type=date]:focus { border-color: var(--gold); }
+input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.7); cursor: pointer; }
 .modal textarea { resize: vertical; min-height: 60px; }
 .progress-bar { height: 4px; background: var(--bg4); border-radius: 4px; overflow: hidden; margin-bottom: 16px; }
 .progress-bar .fill { height: 100%; background: linear-gradient(90deg, var(--gold), var(--red)); border-radius: 4px; transition: width .35s ease; }
@@ -816,6 +817,14 @@ function isValidDateVu(value) {
 function displayDateVu(value) {
   return normalizeDateVu(value) || '—';
 }
+function todayIso() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function dateVuToIso(value) {
+  const n = normalizeDateVu(value);
+  return n ? n.replaceAll('/', '-') : '';
+}
 function dateVuInputToIso(value) {
   const normalized = normalizeDateVu(value);
   return normalized ? normalized.replaceAll('/', '-') : '';
@@ -1124,7 +1133,7 @@ function openTitleBreakdown(idx, selectedRaterKey) {
       <input type="text" id="breakdownTitle" value="${esc(f.titre || '')}" placeholder="Titre du film">
       <div style="margin-top:12px">
         <label>Date vu</label>
-        <input type="text" id="breakdownDateVu" value="${esc(f.dateVu || '')}" placeholder="2027/09/09" inputmode="numeric">
+        <input type="date" id="breakdownDateVu" value="${dateVuToIso(f.dateVu) || todayIso()}">
       </div>
       <div class="breakdown-top">
         <div>
@@ -1236,11 +1245,10 @@ function saveTitleBreakdown(idx) {
 }
 
 function startDateVuEdit(idx, td) {
-  const val = films[idx].dateVu || '';
+  const val = dateVuToIso(films[idx].dateVu) || todayIso();
   td.classList.add('editing');
-  td.innerHTML = `<input type="text" value="${esc(val)}" placeholder="2027/09/09" inputmode="numeric" onblur="finishDateVuEdit(${idx},this)" onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.dataset.cancel='1';this.blur();}">`;
+  td.innerHTML = `<input type="date" value="${val}" onblur="finishDateVuEdit(${idx},this)" onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.dataset.cancel='1';this.blur();}">`;
   td.querySelector('input').focus();
-  td.querySelector('input').select();
 }
 function finishDateVuEdit(idx, input) {
   if (input.dataset.cancel) { render(); return; }
