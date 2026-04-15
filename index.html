@@ -343,7 +343,7 @@ tr:hover .del-btn { opacity: .7; }
 }
 .col-frozen-del  { left: 0;    min-width: 32px; width: 32px; }
 .col-frozen-pos  { left: 32px; min-width: 32px; width: 32px; }
-.col-frozen-titre{ left: 64px; min-width: var(--titre-col-width, 132px); width: var(--titre-col-width, 132px); max-width: min(100vw - 96px, 1000px); }
+.col-frozen-titre{ left: 64px; min-width: var(--titre-col-width, 90px); width: var(--titre-col-width, 90px); max-width: min(100vw - 96px, 1000px); }
 
 thead .col-frozen-del,
 thead .col-frozen-pos,
@@ -647,7 +647,7 @@ function ensureFilmKeys(f) {
   f.dateVu = normalizeDateVu(f.dateVu);
 }
 const COLS = [
-  { key:'titre',       label:'Titre',           align:'left',   w:132, edit:true  },
+  { key:'titre',       label:'Titre',           align:'left',   w:90, edit:true  },
   { key:'genre',       label:'Genre',           align:'left',   w:170, edit:true  },
   { key:'realisateur', label:'Réalisateur',     align:'left',   w:155, edit:true  },
   { key:'acteurs',     label:'Acteurs principaux', align:'left',w:210, edit:true  },
@@ -785,7 +785,7 @@ function savePrefs() {
   localStorage.setItem('cf_titleExpanded', titleExpanded ? '1' : '0');
 }
 function applyLayoutVars() {
-  const titreWidth = titleExpanded ? 'min(calc(100vw - 140px), 1000px)' : '132px';
+  const titreWidth = titleExpanded ? 'min(calc(100vw - 140px), 1000px)' : '90px';
   document.documentElement.style.setProperty('--titre-col-width', titreWidth);
 }
 
