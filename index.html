@@ -334,6 +334,23 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.7); cursor
 .cell-julie:hover { background: rgba(160,110,234,.1); animation: pulseGlow 1.5s infinite; }
 .cell-julie .hint { font-size: .7rem; font-weight: 400; color: var(--txt3); font-style: italic; font-family: var(--font-body); }
 
+/* ─── TIERS CELL ──────────────────────────────────── */
+.cell-tiers {
+  text-align: center; font-weight: 800; font-family: var(--font-display);
+  font-size: 1.05rem; cursor: pointer; position: relative;
+  transition: background .15s;
+}
+.cell-tiers .hint { font-size: .7rem; font-weight: 400; color: var(--txt3); font-style: italic; font-family: var(--font-body); }
+.cell-tiers:hover { background: rgba(255,255,255,.05); }
+.tiers-G { color: var(--gold); background: rgba(232,166,48,.06); }
+.tiers-A { color: var(--green); background: rgba(64,200,144,.06); }
+.tiers-B { color: var(--blue); background: rgba(64,136,232,.06); }
+.tiers-C { color: var(--red); background: rgba(232,64,64,.06); }
+.tiers-G:hover { background: rgba(232,166,48,.12); }
+.tiers-A:hover { background: rgba(64,200,144,.12); }
+.tiers-B:hover { background: rgba(64,136,232,.12); }
+.tiers-C:hover { background: rgba(232,64,64,.12); }
+
 /* ─── FROZEN COLUMNS (pos + titre) ─────────────────── */
 .col-frozen-del,
 .col-frozen-pos,
@@ -646,6 +663,7 @@ function ensureCriteriaKeys(f) {
 function ensureFilmKeys(f) {
   ensureCriteriaKeys(f);
   if (!('dateVu' in f)) f.dateVu = null;
+  if (!('tiers' in f)) f.tiers = null;
   f.dateVu = normalizeDateVu(f.dateVu);
 }
 const COLS = [
@@ -659,6 +677,7 @@ const COLS = [
   { key:'imdb',        label:'IMDb Top 250',    align:'center', w:85,  edit:true, type:'num' },
   { key:'notePerso',   label:'Note perso',      align:'center', w:90,  rater:true },
   { key:'dateVu',      label:'Date vu',         align:'center', w:110, edit:false, isDate:true },
+  { key:'tiers',       label:'Tiers',           align:'center', w:55,  isTiers:true },
   { key:'victor',      label:'Victor',          align:'center', w:75,  rater:true },
   { key:'lilyRose',    label:'Lily-Rose',       align:'center', w:80,  rater:true },
   { key:'julie',       label:'Julie',           align:'center', w:75,  rater:true }
@@ -994,6 +1013,11 @@ function render() {
       } else if (col.isDate) {
         const display = f[col.key] ? esc(displayDateVu(f[col.key])) : '<span class="hint">double-clic</span>';
         html += `<td class="cell-num editable" style="text-align:${col.align}" ondblclick="startDateVuEdit(${f._idx},this)">${display}</td>`;
+      } else if (col.isTiers) {
+        const v = f[col.key];
+        const cls = v ? 'cell-tiers tiers-' + v : 'cell-tiers';
+        const display = v ? esc(v) : '<span class="hint">double-clic</span>';
+        html += `<td class="${cls}" ondblclick="startTiersEdit(${f._idx},this)">${display}</td>`;
       } else if (col.key === 'titre') {
         const titreStyle = titleExpanded
           ? 'min-width:min(calc(100vw - 140px), 1000px);width:min(calc(100vw - 140px), 1000px)'
@@ -1265,6 +1289,27 @@ function finishDateVuEdit(idx, input) {
   render();
 }
 
+const TIERS_VALUES = ['G', 'A', 'B', 'C'];
+function startTiersEdit(idx, td) {
+  const val = films[idx].tiers || '';
+  td.classList.add('editing');
+  const opts = '<option value="">—</option>' + TIERS_VALUES.map(t => `<option value="${t}" ${val===t?'selected':''}>${t}</option>`).join('');
+  td.innerHTML = `<select onchange="finishTiersEdit(${idx},this)" onblur="finishTiersEdit(${idx},this)" onkeydown="if(event.key==='Escape'){this.dataset.cancel='1';this.blur();}" style="width:100%;background:var(--bg);border:1px solid var(--gold);color:#fff;font:inherit;font-weight:800;text-align:center;outline:none;border-radius:4px;padding:4px 2px;cursor:pointer;">${opts}</select>`;
+  td.querySelector('select').focus();
+}
+function finishTiersEdit(idx, sel) {
+  if (sel.dataset.cancel) { render(); return; }
+  const oldVal = films[idx].tiers;
+  const newVal = sel.value || null;
+  if (newVal !== oldVal) {
+    films[idx].tiers = newVal;
+    saveFilms();
+    addLog('edit', `<strong>${films[idx].titre}</strong> — Tiers : ${oldVal ?? '—'} → ${newVal ?? '—'}`);
+    toast(`Tiers modifié pour ${films[idx].titre}`, 'success');
+  }
+  render();
+}
+
 /* ═══════════════════════════════════════════════════
    INLINE EDIT
    ═══════════════════════════════════════════════════ */
@@ -1334,7 +1379,7 @@ function doAddFilm() {
     annee: parseFloat(document.getElementById('addAnnee').value) || null,
     budget: parseFloat(document.getElementById('addBudget').value) || null,
     boxOffice: parseFloat(document.getElementById('addBO').value) || null,
-    imdb: null, notePerso: null, dateVu: null, victor: null, lilyRose: null, julie: null
+    imdb: null, notePerso: null, dateVu: null, tiers: null, victor: null, lilyRose: null, julie: null
   };
   RATERS.forEach(r => { f[r.key] = null; });
   ensureCriteriaKeys(f);
@@ -1578,6 +1623,7 @@ function buildExcelRows() {
     ['imdb', 'IMDb Top 250'],
     ['notePerso', 'Note perso'],
     ['dateVu', 'Date vu'],
+    ['tiers', 'Tiers'],
     ['victor', 'Victor'],
     ['lilyRose', 'Lily-Rose'],
     ['julie', 'Julie']
