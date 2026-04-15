@@ -889,7 +889,6 @@ function toast(msg, type='info') {
 function render() {
   const q = document.getElementById('search').value.toLowerCase();
   let list = films.map((f, i) => ({ ...f, _idx: i }));
-  if (q) list = list.filter(f => (f.titre+f.genre+f.realisateur+f.acteurs).toLowerCase().includes(q));
 
   // Determine if sort column is a "note" column (rater or criteria)
   const raterKeys = RATERS.map(r => r.key);
@@ -913,7 +912,6 @@ function render() {
       if (typeof va === 'string') return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
       const diff = sortDir === 'asc' ? va - vb : vb - va;
       if (diff !== 0) return diff;
-      // Tiebreaker: lower position100 = better film = comes first
       if (tiebreakerKey) {
         const pa = a[tiebreakerKey], pb = b[tiebreakerKey];
         if (pa == null) return 1; if (pb == null) return -1;
@@ -922,9 +920,8 @@ function render() {
       return 0;
     });
   }
-  document.getElementById('counter').textContent = list.length + ' / ' + films.length + ' films';
 
-  // Compute ranks: rank 1 = best (highest value) always, tiebreaker on position100
+  // Compute ranks on ALL films BEFORE filtering
   const ranks = new Map();
   if (sortCol) {
     if (isNoteSort) {
@@ -946,6 +943,11 @@ function render() {
   } else {
     list.forEach((f, i) => ranks.set(f._idx, i + 1));
   }
+
+  // Apply search filter AFTER ranks are computed
+  if (q) list = list.filter(f => (f.titre+f.genre+f.realisateur+f.acteurs).toLowerCase().includes(q));
+
+  document.getElementById('counter').textContent = list.length + ' / ' + films.length + ' films';
 
   const hiddenBaseCols = new Set(['genre','realisateur','acteurs','annee','budget','boxOffice','imdb']);
   let html = '<table><thead><tr><th class="col-frozen-del" style="width:32px"></th>';
