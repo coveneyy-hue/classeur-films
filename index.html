@@ -343,12 +343,12 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.7); cursor
 .cell-tiers .hint { font-size: .7rem; font-weight: 400; color: var(--txt3); font-style: italic; font-family: var(--font-body); }
 .cell-tiers:hover { background: rgba(255,255,255,.05); }
 .tiers-G { color: var(--gold); background: rgba(232,166,48,.06); }
-.tiers-Aplus { color: #50e8a0; background: rgba(80,232,160,.06); }
+.tiers-S { color: #c060e8; background: rgba(192,96,232,.06); }
 .tiers-A { color: var(--green); background: rgba(64,200,144,.06); }
 .tiers-B { color: var(--blue); background: rgba(64,136,232,.06); }
 .tiers-C { color: var(--red); background: rgba(232,64,64,.06); }
 .tiers-G:hover { background: rgba(232,166,48,.12); }
-.tiers-Aplus:hover { background: rgba(80,232,160,.12); }
+.tiers-S:hover { background: rgba(192,96,232,.12); }
 .tiers-A:hover { background: rgba(64,200,144,.12); }
 .tiers-B:hover { background: rgba(64,136,232,.12); }
 .tiers-C:hover { background: rgba(232,64,64,.12); }
@@ -668,6 +668,13 @@ function ensureFilmKeys(f) {
   if (!('dateVu' in f)) f.dateVu = null;
   if (!('tiers' in f)) f.tiers = null;
   f.dateVu = normalizeDateVu(f.dateVu);
+  // Migration: scenario=0 placeholders → null (criterion added later)
+  RATERS.forEach(r => {
+    const k = r.prefix + 'scenario';
+    if (f[k] === 0) f[k] = null;
+  });
+  // Migration: tiers A+ → S
+  if (f.tiers === 'A+') f.tiers = 'S';
 }
 const COLS = [
   { key:'titre',       label:'Titre',           align:'left',   w:90, edit:true  },
@@ -1017,7 +1024,7 @@ function render() {
         html += `<td class="cell-num editable" style="text-align:${col.align}" ondblclick="startDateVuEdit(${f._idx},this)">${display}</td>`;
       } else if (col.isTiers) {
         const v = f[col.key];
-        const tiersCls = v ? 'tiers-' + v.replace('+','plus') : '';
+        const tiersCls = v ? 'tiers-' + v : '';
         const cls = 'cell-tiers' + (tiersCls ? ' ' + tiersCls : '');
         const display = v ? esc(v) : '<span class="hint">double-clic</span>';
         html += `<td class="${cls}" ondblclick="startTiersEdit(${f._idx},this)">${display}</td>`;
@@ -1294,7 +1301,7 @@ function finishDateVuEdit(idx, input) {
   render();
 }
 
-const TIERS_VALUES = ['G', 'A+', 'A', 'B', 'C'];
+const TIERS_VALUES = ['G', 'S', 'A', 'B', 'C'];
 function startTiersEdit(idx, td) {
   const val = films[idx].tiers || '';
   td.classList.add('editing');
