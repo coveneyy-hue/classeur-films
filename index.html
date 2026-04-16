@@ -675,6 +675,8 @@ function ensureFilmKeys(f) {
   });
   // Migration: tiers A+ → S
   if (f.tiers === 'A+') f.tiers = 'S';
+  // One-shot cleanup: dateVu incorrectly set to 2026/04/16
+  if (f.dateVu === '2026/04/16') f.dateVu = null;
 }
 const COLS = [
   { key:'titre',       label:'Titre',           align:'left',   w:90, edit:true  },
@@ -1169,7 +1171,7 @@ function openTitleBreakdown(idx, selectedRaterKey) {
       <input type="text" id="breakdownTitle" value="${esc(f.titre || '')}" placeholder="Titre du film">
       <div style="margin-top:12px">
         <label>Date vu</label>
-        <input type="date" id="breakdownDateVu" value="${dateVuToIso(f.dateVu) || todayIso()}">
+        <input type="date" id="breakdownDateVu" value="${dateVuToIso(f.dateVu)}">
       </div>
       <div class="breakdown-top">
         <div>
