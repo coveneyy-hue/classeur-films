@@ -1742,7 +1742,7 @@ function showSuggestModal(f, idx, count, reason) {
         <div style="font-family:var(--font-display);font-weight:800;font-size:1.15rem;color:#fff;margin-bottom:4px">${esc(f.titre)}</div>
         <div style="font-size:.85rem;color:var(--txt2);line-height:1.5">${esc(info)}</div>
         ${f.acteurs ? '<div style="font-size:.8rem;color:var(--txt3);margin-top:4px">'+esc(f.acteurs)+'</div>' : ''}
-        ${reason === 'incomplete' ? '<div style="font-size:.85rem;color:var(--gold);margin-top:8px">Note actuelle : <strong>'+f.notePerso.toFixed(2)+'/10</strong></div>' : ''}
+        ${reason === 'incomplete' && f.notePerso != null ? '<div style="font-size:.85rem;color:var(--gold);margin-top:8px">Note actuelle : <strong>'+Number(f.notePerso).toFixed(2)+'/10</strong></div>' : ''}
       </div>
       <p style="color:var(--txt2);font-size:.9rem;margin-bottom:18px">${question}</p>
       <div class="modal-row" style="margin-top:0">
@@ -1764,7 +1764,7 @@ render();
 renderLogCount();
 bindFrozenHeader();
 syncFrozenHeader();
-setTimeout(suggestRating, 600);
+setTimeout(() => { try { suggestRating(); } catch(e) { console.error('suggestRating error:', e); } }, 600);
 
 // PWA Service Worker
 if ('serviceWorker' in navigator) {
