@@ -643,7 +643,7 @@ const CRITERIA = [
   { key:'antagoniste', label:'Antagoniste', desc:'Mémorabilité, menace et complexité du vilain ou opposant.', min:0, max:10, suffix:'/10' },
   { key:'trameSonore', label:'Trame sonore', desc:'Musique, bande originale, design sonore — ça donne des frissons ?', min:0, max:10, suffix:'/10' },
   { key:'fluidite', label:'Fluidité narrative', desc:'Le film coule sans temps mort, sans rupture de rythme ni incohérence.', min:0, max:10, suffix:'/10' },
-  { key:'scenario', label:'Scénario', desc:'Qualité de l\'histoire, originalité, dialogues, construction dramatique.', min:0, max:10, suffix:'/10', defaultValue:0 },
+  { key:'scenario', label:'Scénario', desc:'Qualité de l\'histoire, originalité, dialogues, construction dramatique.', min:0, max:10, suffix:'/10' },
   { key:'realisation', label:'Réalisation', desc:'Mise en scène, photographie, direction artistique, plans mémorables.', min:0, max:10, suffix:'/10' },
   { key:'fin', label:'La fin', desc:'Satisfaction de la conclusion — émotion, surprise, cohérence.', min:0, max:10, suffix:'/10' }
 ];
@@ -661,10 +661,7 @@ function allCriteriaKeys() {
   return keys;
 }
 function ensureCriteriaKeys(f) {
-  RATERS.forEach(r => CRITERIA.forEach(c => {
-    const k = r.prefix + c.key;
-    if (!(k in f)) f[k] = ('defaultValue' in c) ? c.defaultValue : null;
-  }));
+  RATERS.forEach(r => CRITERIA.forEach(c => { const k = r.prefix + c.key; if (!(k in f)) f[k] = null; }));
 }
 function ensureFilmKeys(f) {
   ensureCriteriaKeys(f);
@@ -891,8 +888,7 @@ function computeNote(f, prefix) {
   const pos = f[prefix + 'position100'];
   if (pos == null) return null;
   const posNote = 10 - (pos / 100) * 10;
-  const others = CRITERIA.filter(c => !c.isPos).map(c => f[prefix + c.key]);
-  if (others.some(v => v == null)) return null;
+  const others = CRITERIA.filter(c => !c.isPos).map(c => f[prefix + c.key] ?? 0);
   const avg = others.reduce((a,b) => a + b, 0) / others.length;
   return Math.round((posNote * 0.33 + avg * 0.67) * 100) / 100;
 }
@@ -1215,8 +1211,10 @@ function computeDraftNote(draft) {
   const pos = draft.position100;
   if (pos == null || isNaN(pos)) return null;
   const posNote = 10 - (pos / 100) * 10;
-  const others = CRITERIA.filter(c => !c.isPos).map(c => draft[c.key]);
-  if (others.some(v => v == null || isNaN(v))) return null;
+  const others = CRITERIA.filter(c => !c.isPos).map(c => {
+    const v = draft[c.key];
+    return (v == null || isNaN(v)) ? 0 : v;
+  });
   const avg = others.reduce((a, b) => a + b, 0) / others.length;
   return Math.round((posNote * 0.33 + avg * 0.67) * 100) / 100;
 }
@@ -1695,37 +1693,62 @@ function importJSON(e) {
 }
 
 /* ═══════════════════════════════════════════════════
-   STARTUP — Suggest rating an unrated film
+   STARTUP — Suggest rating an unrated/incomplete film
    ═══════════════════════════════════════════════════ */
+function filmNeedsNotePerso(f) {
+  // No note at all
+  if (f.notePerso == null) return 'unrated';
+  // Has a note but some criteria are missing (null)
+  const missing = CRITERIA.filter(c => f[c.key] == null);
+  if (missing.length) return 'incomplete';
+  return false;
+}
+function getFilmsToRate() {
+  return films.map((f, i) => ({ f, i, reason: filmNeedsNotePerso(f) })).filter(x => x.reason);
+}
 function suggestRating() {
-  const unrated = films.map((f, i) => ({ f, i })).filter(x => x.f.notePerso == null);
-  if (!unrated.length) return;
-  const pick = unrated[Math.floor(Math.random() * unrated.length)];
-  showSuggestModal(pick.f, pick.i, unrated.length);
+  const toRate = getFilmsToRate();
+  if (!toRate.length) return;
+  const pick = toRate[Math.floor(Math.random() * toRate.length)];
+  showSuggestModal(pick.f, pick.i, toRate.length, pick.reason);
 }
 function suggestAnother(skipIdx) {
-  const unrated = films.map((f, i) => ({ f, i })).filter(x => x.f.notePerso == null && x.i !== skipIdx);
-  if (!unrated.length) { suggestRating(); return; }
-  const pick = unrated[Math.floor(Math.random() * unrated.length)];
-  showSuggestModal(pick.f, pick.i, films.filter(x => x.notePerso == null).length);
+  const toRate = getFilmsToRate().filter(x => x.i !== skipIdx);
+  if (!toRate.length) { suggestRating(); return; }
+  const pick = toRate[Math.floor(Math.random() * toRate.length)];
+  showSuggestModal(pick.f, pick.i, getFilmsToRate().length, pick.reason);
 }
-function showSuggestModal(f, idx, count) {
+function showSuggestModal(f, idx, count, reason) {
   const info = [f.genre, f.annee ? Math.round(f.annee) : null, f.realisateur].filter(Boolean).join(' · ');
+  let subtitle, question;
+  if (reason === 'incomplete') {
+    const missing = CRITERIA.filter(c => f[c.key] == null).map(c => c.label);
+    subtitle = `${count} film${count>1?'s':''} à noter ou compléter dans ton classeur.`;
+    question = `Critère${missing.length>1?'s':''} manquant${missing.length>1?'s':''} : <strong style="color:var(--gold)">${missing.join(', ')}</strong>.<br>Compléter la ventilation ?`;
+  } else {
+    subtitle = `${count} film${count>1?'s':''} sans note perso dans ton classeur.`;
+    question = `Envie de noter ce film maintenant ?`;
+  }
+  const actionLabel = reason === 'incomplete' ? 'Compléter 🎯' : 'Allons-y ! 🎯';
+  const actionFn = reason === 'incomplete'
+    ? `closeOverlay();openTitleBreakdown(${idx});`
+    : `closeOverlay();openRating(${idx},'notePerso');`;
   const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay();">
     <div class="modal" style="max-width:420px;text-align:center">
-      <div style="font-size:2.8rem;margin-bottom:10px">🎬</div>
-      <h2 style="margin-bottom:2px">Un film t'attend !</h2>
-      <p class="desc" style="margin-bottom:14px">${count} film${count>1?'s':''} sans note perso dans ton classeur.</p>
+      <div style="font-size:2.8rem;margin-bottom:10px">${reason === 'incomplete' ? '🔧' : '🎬'}</div>
+      <h2 style="margin-bottom:2px">${reason === 'incomplete' ? 'Un film à compléter !' : 'Un film t\'attend !'}</h2>
+      <p class="desc" style="margin-bottom:14px">${subtitle}</p>
       <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;margin-bottom:18px;text-align:left">
         <div style="font-family:var(--font-display);font-weight:800;font-size:1.15rem;color:#fff;margin-bottom:4px">${esc(f.titre)}</div>
         <div style="font-size:.85rem;color:var(--txt2);line-height:1.5">${esc(info)}</div>
         ${f.acteurs ? '<div style="font-size:.8rem;color:var(--txt3);margin-top:4px">'+esc(f.acteurs)+'</div>' : ''}
+        ${reason === 'incomplete' ? '<div style="font-size:.85rem;color:var(--gold);margin-top:8px">Note actuelle : <strong>'+f.notePerso.toFixed(2)+'/10</strong></div>' : ''}
       </div>
-      <p style="color:var(--txt2);font-size:.9rem;margin-bottom:18px">Envie de noter ce film maintenant ?</p>
+      <p style="color:var(--txt2);font-size:.9rem;margin-bottom:18px">${question}</p>
       <div class="modal-row" style="margin-top:0">
         <button class="btn" onclick="closeOverlay();" style="flex:1">Plus tard</button>
         <button class="btn" onclick="closeOverlay();suggestAnother(${idx});" style="flex:1">Autre film 🎲</button>
-        <button class="btn gold" onclick="closeOverlay();openRating(${idx},'notePerso');" style="flex:1.3">Allons-y ! 🎯</button>
+        <button class="btn gold" onclick="${actionFn}" style="flex:1.3">${actionLabel}</button>
       </div>
     </div>
   </div>`;
