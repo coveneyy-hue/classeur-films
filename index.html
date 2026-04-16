@@ -668,6 +668,8 @@ function ensureFilmKeys(f) {
   if (!('dateVu' in f)) f.dateVu = null;
   if (!('tiers' in f)) f.tiers = null;
   f.dateVu = normalizeDateVu(f.dateVu);
+  // One-shot cleanup: dateVu incorrectly set to 2026/04/16
+  if (f.dateVu === '2026/04/16') f.dateVu = null;
 }
 const COLS = [
   { key:'titre',       label:'Titre',           align:'left',   w:90, edit:true  },
@@ -795,8 +797,13 @@ function loadState() {
     const d = localStorage.getItem('cf_films');
     films = d ? JSON.parse(d) : JSON.parse(JSON.stringify(DEFAULT_FILMS));
     films.forEach(f => ensureFilmKeys(f));
+    saveFilms(); // persist one-shot cleanups
   } catch(e) { films = JSON.parse(JSON.stringify(DEFAULT_FILMS)); films.forEach(f => ensureFilmKeys(f)); }
   try { log = JSON.parse(localStorage.getItem('cf_log') || '[]'); } catch(e) { log = []; }
+  // One-shot cleanup: remove log entries about dateVu 2026/04/16
+  const logBefore = log.length;
+  log = log.filter(e => !(e.msg && e.msg.includes('Date vu') && e.msg.includes('2026/04/16')));
+  if (log.length < logBefore) saveLog();
   showHidden = localStorage.getItem('cf_showHidden') === '1';
   titleExpanded = localStorage.getItem('cf_titleExpanded') === '1';
   const savedTRW = parseInt(localStorage.getItem('cf_titreReducedWidth'));
