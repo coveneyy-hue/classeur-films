@@ -668,15 +668,6 @@ function ensureFilmKeys(f) {
   if (!('dateVu' in f)) f.dateVu = null;
   if (!('tiers' in f)) f.tiers = null;
   f.dateVu = normalizeDateVu(f.dateVu);
-  // Migration: scenario=0 placeholders → null (criterion added later)
-  RATERS.forEach(r => {
-    const k = r.prefix + 'scenario';
-    if (f[k] === 0) f[k] = null;
-  });
-  // Migration: tiers A+ → S
-  if (f.tiers === 'A+') f.tiers = 'S';
-  // One-shot cleanup: dateVu incorrectly set to 2026/04/16
-  if (f.dateVu === '2026/04/16') f.dateVu = null;
 }
 const COLS = [
   { key:'titre',       label:'Titre',           align:'left',   w:90, edit:true  },
