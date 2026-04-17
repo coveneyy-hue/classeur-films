@@ -417,6 +417,62 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.7); cursor
   font-style: italic;
 }
 
+/* ─── BATCH ENRICHMENT ──────────────────────────────── */
+.batch-progress {
+  height: 10px; background: var(--bg4); border-radius: 5px;
+  overflow: hidden; margin: 14px 0 8px;
+}
+.batch-progress .fill {
+  height: 100%; background: linear-gradient(90deg, var(--gold), var(--green));
+  transition: width .3s ease; border-radius: 5px;
+}
+.batch-stats {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  margin: 14px 0; font-size: .85rem;
+}
+.batch-stat {
+  padding: 8px; background: var(--bg); border-radius: 6px;
+  text-align: center; border: 1px solid var(--border);
+}
+.batch-stat-num {
+  font-size: 1.4rem; font-weight: 800; font-family: var(--font-display);
+  line-height: 1.1;
+}
+.batch-stat-label {
+  font-size: .7rem; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--txt2); margin-top: 2px;
+}
+.batch-current {
+  padding: 10px 12px; background: var(--bg); border-radius: 6px;
+  font-size: .85rem; color: var(--txt); margin-bottom: 10px;
+  border-left: 3px solid var(--gold);
+}
+.batch-current strong { color: #fff; }
+.batch-log {
+  max-height: 200px; overflow-y: auto; padding: 8px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  font-size: .78rem; font-family: monospace;
+}
+.batch-log-item { padding: 3px 0; line-height: 1.4; }
+.batch-log-item.ok { color: var(--green); }
+.batch-log-item.err { color: var(--red); }
+.batch-log-item.skip { color: var(--txt3); }
+.batch-log-item.ambig { color: var(--gold); }
+.ambig-choice {
+  display: flex; gap: 8px; padding: 8px; margin-top: 6px;
+  background: var(--bg3); border-radius: 4px; align-items: center;
+}
+.ambig-poster {
+  width: 36px; height: 54px; border-radius: 3px;
+  background-size: cover; background-position: center; background-color: var(--bg4);
+  flex-shrink: 0;
+}
+.ambig-info { flex: 1; font-family: var(--font-body); font-size: .8rem; }
+.ambig-info-title { color: #fff; font-weight: 700; }
+.ambig-info-meta { color: var(--txt2); font-size: .72rem; }
+.ambig-btns { display: flex; flex-direction: column; gap: 4px; }
+.ambig-btns .btn { padding: 4px 8px; font-size: .72rem; min-width: 60px; }
+
 .title-poster {
   display: inline-block; width: 22px; height: 33px;
   border-radius: 3px; background-size: cover; background-position: center;
@@ -1797,6 +1853,240 @@ function removeTmdbAssoc(filmIdx) {
 }
 
 /* ═══════════════════════════════════════════════════
+   BATCH ENRICHMENT
+   ═══════════════════════════════════════════════════ */
+let batchState = null;
+
+function startBatchEnrich() {
+  if (!hasTmdbKey()) {
+    toast('Configurez votre clé API TMDb d\'abord', 'warn');
+    return;
+  }
+  const pending = films
+    .map((f, i) => ({ f, i }))
+    .filter(x => !x.f.tmdbId && x.f.titre);
+  if (!pending.length) {
+    toast('Tous les films sont déjà associés à TMDb', 'info');
+    return;
+  }
+  batchState = {
+    pending, pos: 0, ok: 0, err: 0, skip: 0,
+    logs: [], cancelled: false, waitingChoice: false,
+  };
+  showBatchModal();
+  processBatchNext();
+}
+
+function showBatchModal() {
+  const s = batchState;
+  const total = s.pending.length;
+  const done = s.ok + s.err + s.skip;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const currentFilm = s.pending[s.pos]?.f;
+  const logsHtml = s.logs.slice(-50).map(l =>
+    `<div class="batch-log-item ${l.type}">${l.msg}</div>`
+  ).join('') || '<div class="batch-log-item skip">En attente…</div>';
+  const finished = done >= total || s.cancelled;
+  const html = `<div class="overlay">
+    <div class="modal" style="max-width:560px">
+      <h2>${finished ? (s.cancelled ? '⏹ Arrêté' : '✅ Terminé') : '🔄 Enrichissement TMDb'}</h2>
+      <p class="desc">${finished
+        ? `Résumé du traitement de ${total} film${total>1?'s':''}.`
+        : `Recherche automatique des affiches via TMDb...`}</p>
+      <div class="batch-progress"><div class="fill" style="width:${pct}%"></div></div>
+      <div style="font-size:.78rem;color:var(--txt3);text-align:center">${done} / ${total} (${pct}%)</div>
+      <div class="batch-stats">
+        <div class="batch-stat"><div class="batch-stat-num" style="color:var(--green)">${s.ok}</div><div class="batch-stat-label">Réussis</div></div>
+        <div class="batch-stat"><div class="batch-stat-num" style="color:var(--gold)">${s.skip}</div><div class="batch-stat-label">Ignorés</div></div>
+        <div class="batch-stat"><div class="batch-stat-num" style="color:var(--red)">${s.err}</div><div class="batch-stat-label">Erreurs</div></div>
+      </div>
+      ${!finished && currentFilm ? `<div class="batch-current">En cours : <strong>${esc(currentFilm.titre)}</strong>${currentFilm.annee?` (${Math.round(currentFilm.annee)})`:''}</div>` : ''}
+      <div id="batchLog" class="batch-log">${logsHtml}</div>
+      <div class="modal-row">
+        ${finished
+          ? `<button class="btn gold" onclick="closeOverlay();batchState=null" style="flex:1">Fermer</button>`
+          : `<button class="btn red" onclick="cancelBatchEnrich()" style="flex:1">Arrêter</button>`
+        }
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('overlay').innerHTML = html;
+}
+
+function updateBatchLog() {
+  const box = document.getElementById('batchLog');
+  if (!box) return;
+  const s = batchState;
+  box.innerHTML = s.logs.slice(-50).map(l =>
+    `<div class="batch-log-item ${l.type}">${l.msg}</div>`
+  ).join('') || '<div class="batch-log-item skip">En attente…</div>';
+  box.scrollTop = box.scrollHeight;
+}
+
+function batchAddLog(type, msg) {
+  batchState.logs.push({ type, msg });
+  updateBatchLog();
+}
+
+async function processBatchNext() {
+  const s = batchState;
+  if (!s || s.cancelled) return;
+  if (s.pos >= s.pending.length) {
+    saveFilms();
+    render();
+    showBatchModal();
+    addLog('backup', `Enrichissement TMDb terminé : ${s.ok} réussi${s.ok>1?'s':''}, ${s.skip} ignoré${s.skip>1?'s':''}, ${s.err} erreur${s.err>1?'s':''}`);
+    toast(`Enrichissement terminé : ${s.ok}/${s.pending.length}`, 'success');
+    return;
+  }
+  const { f, i } = s.pending[s.pos];
+  showBatchModal();
+  try {
+    const results = await tmdbSearch(f.titre);
+    if (!results.length) {
+      s.skip++;
+      batchAddLog('skip', `⚪ ${esc(f.titre)} — aucun résultat`);
+      s.pos++;
+      setTimeout(processBatchNext, 260);
+      return;
+    }
+    let chosen = null;
+    // Try exact match by year first
+    if (f.annee) {
+      const year = Math.round(f.annee);
+      chosen = results.find(r => r.release_date && r.release_date.startsWith(String(year)));
+      if (!chosen) chosen = results.find(r => {
+        if (!r.release_date) return false;
+        const ry = parseInt(r.release_date.slice(0,4));
+        return Math.abs(ry - year) <= 1;
+      });
+    }
+    if (!chosen && results.length === 1) chosen = results[0];
+    // Exact title match
+    if (!chosen) {
+      const exact = results.filter(r =>
+        (r.title || '').toLowerCase() === f.titre.toLowerCase() ||
+        (r.original_title || '').toLowerCase() === f.titre.toLowerCase()
+      );
+      if (exact.length === 1) chosen = exact[0];
+    }
+    if (!chosen) {
+      batchAddLog('ambig', `🟡 ${esc(f.titre)} — ${results.length} résultats, choix requis`);
+      s.waitingChoice = true;
+      showBatchAmbigChoice(i, results.slice(0, 5));
+      return;
+    }
+    const d = await tmdbDetails(chosen.id);
+    // Only fill tmdb-specific fields + missing fields (non-destructive)
+    f.tmdbId = d.id;
+    f.posterPath = d.poster_path || f.posterPath || null;
+    f.runtime = d.runtime || f.runtime || null;
+    f.tmdbVote = d.vote_average || f.tmdbVote || null;
+    // Fill empty editable fields only
+    if (!f.genre && d.genres?.length) f.genre = d.genres.map(g => g.name).join(', ');
+    if (!f.realisateur && d.credits?.crew) {
+      const dirs = d.credits.crew.filter(c => c.job === 'Director').map(c => c.name);
+      if (dirs.length) f.realisateur = dirs.join(', ');
+    }
+    if (!f.acteurs && d.credits?.cast?.length) {
+      f.acteurs = d.credits.cast.slice(0, 3).map(c => c.name).join('; ');
+    }
+    if (!f.annee && d.release_date) f.annee = parseFloat(d.release_date.slice(0,4));
+    if (!f.budget && d.budget) f.budget = parseFloat((d.budget / 1_000_000).toFixed(1));
+    if (!f.boxOffice && d.revenue) f.boxOffice = parseFloat((d.revenue / 1_000_000).toFixed(1));
+    s.ok++;
+    batchAddLog('ok', `✅ ${esc(f.titre)} → ${esc(d.title)}`);
+  } catch (err) {
+    s.err++;
+    batchAddLog('err', `❌ ${esc(f.titre)} — ${esc(err.message)}`);
+  }
+  s.pos++;
+  if (s.pos % 10 === 0) saveFilms();
+  setTimeout(processBatchNext, 260);
+}
+
+function showBatchAmbigChoice(filmIdx, candidates) {
+  const f = films[filmIdx];
+  const choicesHtml = candidates.map(c => {
+    const poster = c.poster_path ? `background-image:url('${TMDB_IMG}${c.poster_path}')` : '';
+    const year = c.release_date ? c.release_date.slice(0,4) : '—';
+    return `<div class="ambig-choice">
+      <div class="ambig-poster" style="${poster}"></div>
+      <div class="ambig-info">
+        <div class="ambig-info-title">${esc(c.title || c.original_title || '')}</div>
+        <div class="ambig-info-meta">${year} · ⭐ ${c.vote_average ? c.vote_average.toFixed(1) : '—'}</div>
+      </div>
+      <div class="ambig-btns">
+        <button class="btn gold" onclick="resolveBatchAmbig(${filmIdx}, ${c.id})">Choisir</button>
+      </div>
+    </div>`;
+  }).join('');
+  const html = `<div class="overlay">
+    <div class="modal" style="max-width:560px">
+      <h2>🟡 Choix requis</h2>
+      <p class="desc">Plusieurs résultats pour <strong>${esc(f.titre)}</strong>${f.annee?` (${Math.round(f.annee)})`:''} — sélectionnez le bon film.</p>
+      ${choicesHtml}
+      <div class="modal-row">
+        <button class="btn" onclick="skipBatchAmbig()" style="flex:1">Ignorer ce film</button>
+        <button class="btn red" onclick="cancelBatchEnrich()" style="flex:1">Arrêter le lot</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('overlay').innerHTML = html;
+}
+
+async function resolveBatchAmbig(filmIdx, tmdbId) {
+  const s = batchState;
+  const f = films[filmIdx];
+  try {
+    const d = await tmdbDetails(tmdbId);
+    f.tmdbId = d.id;
+    f.posterPath = d.poster_path || f.posterPath || null;
+    f.runtime = d.runtime || f.runtime || null;
+    f.tmdbVote = d.vote_average || f.tmdbVote || null;
+    if (!f.genre && d.genres?.length) f.genre = d.genres.map(g => g.name).join(', ');
+    if (!f.realisateur && d.credits?.crew) {
+      const dirs = d.credits.crew.filter(c => c.job === 'Director').map(c => c.name);
+      if (dirs.length) f.realisateur = dirs.join(', ');
+    }
+    if (!f.acteurs && d.credits?.cast?.length) {
+      f.acteurs = d.credits.cast.slice(0, 3).map(c => c.name).join('; ');
+    }
+    if (!f.annee && d.release_date) f.annee = parseFloat(d.release_date.slice(0,4));
+    if (!f.budget && d.budget) f.budget = parseFloat((d.budget / 1_000_000).toFixed(1));
+    if (!f.boxOffice && d.revenue) f.boxOffice = parseFloat((d.revenue / 1_000_000).toFixed(1));
+    s.ok++;
+    batchAddLog('ok', `✅ ${esc(f.titre)} → ${esc(d.title)} (choix manuel)`);
+  } catch (err) {
+    s.err++;
+    batchAddLog('err', `❌ ${esc(f.titre)} — ${esc(err.message)}`);
+  }
+  s.waitingChoice = false;
+  s.pos++;
+  saveFilms();
+  setTimeout(processBatchNext, 260);
+}
+
+function skipBatchAmbig() {
+  const s = batchState;
+  const f = s.pending[s.pos].f;
+  s.skip++;
+  batchAddLog('skip', `⚪ ${esc(f.titre)} — ignoré (choix requis)`);
+  s.waitingChoice = false;
+  s.pos++;
+  setTimeout(processBatchNext, 50);
+}
+
+function cancelBatchEnrich() {
+  if (!batchState) return;
+  batchState.cancelled = true;
+  saveFilms();
+  render();
+  showBatchModal();
+  toast('Enrichissement arrêté', 'warn');
+}
+
+/* ═══════════════════════════════════════════════════
    ADD / DELETE FILM
    ═══════════════════════════════════════════════════ */
 function openAddModal() {
@@ -2093,6 +2383,16 @@ function openSettings() {
         <option value="en-US" ${lang==='en-US'?'selected':''}>Anglais (en-US)</option>
         <option value="fr-CA" ${lang==='fr-CA'?'selected':''}>Français Canada (fr-CA)</option>
       </select>
+      ${hasTmdbKey() ? `<div style="margin-top:18px;padding:12px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)">
+        <div style="font-size:.85rem;font-weight:700;color:#fff;margin-bottom:4px">🔄 Enrichissement batch TMDb</div>
+        <div style="font-size:.78rem;color:var(--txt2);margin-bottom:10px">Associer automatiquement toutes les affiches manquantes (${films.filter(f=>!f.tmdbId).length} film${films.filter(f=>!f.tmdbId).length>1?'s':''} à enrichir).</div>
+        <button class="btn" onclick="closeOverlay();startBatchEnrich()" style="width:100%">Lancer l'enrichissement</button>
+      </div>` : ''}
+      <div style="margin-top:12px;padding:12px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)">
+        <div style="font-size:.85rem;font-weight:700;color:#fff;margin-bottom:4px">📦 Cache PWA</div>
+        <div style="font-size:.78rem;color:var(--txt2);margin-bottom:10px">Vider le cache des affiches TMDb (libère de l'espace).</div>
+        <button class="btn" onclick="clearImageCache()" style="width:100%">Vider le cache des affiches</button>
+      </div>
       <div class="modal-row">
         <button class="btn" onclick="closeOverlay()">Annuler</button>
         <button class="btn gold" onclick="saveSettings()">Enregistrer</button>
@@ -2120,6 +2420,23 @@ function saveSettings() {
   closeOverlay();
   render();
   toast('Paramètres enregistrés', 'success');
+}
+
+async function clearImageCache() {
+  try {
+    if (!('caches' in window)) {
+      toast('Cache non disponible dans ce navigateur', 'warn');
+      return;
+    }
+    const deleted = await caches.delete('classeur-films-tmdb-v1');
+    if (deleted) {
+      toast('Cache des affiches vidé', 'success');
+    } else {
+      toast('Aucun cache à vider', 'info');
+    }
+  } catch (err) {
+    toast('Erreur : ' + err.message, 'error');
+  }
 }
 
 /* ═══════════════════════════════════════════════════
@@ -2185,9 +2502,11 @@ function buildExcelRows() {
     ['realisateur', 'Réalisateur'],
     ['acteurs', 'Acteurs principaux'],
     ['annee', 'Année'],
+    ['runtime', 'Durée (min)'],
     ['budget', 'Budget (M$)'],
     ['boxOffice', 'Box office'],
     ['tmdbVote', 'TMDb ⭐'],
+    ['tmdbId', 'TMDb ID'],
     ['notePerso', 'Note perso'],
     ['tiers', 'Tiers'],
     ['dateVu', 'Date vu'],
@@ -2330,7 +2649,21 @@ setTimeout(() => { try { suggestRating(); } catch(e) { console.error('suggestRat
 
 // PWA Service Worker
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js').catch(() => {});
+  navigator.serviceWorker.register('./sw.js').then((reg) => {
+    // Check for updates on load
+    reg.update();
+    // Listen for updates (ex: new index.html on GitHub Pages)
+    reg.addEventListener('updatefound', () => {
+      const newWorker = reg.installing;
+      if (!newWorker) return;
+      newWorker.addEventListener('statechange', () => {
+        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          // New version available — notify user
+          toast('Nouvelle version disponible — rechargez la page', 'info');
+        }
+      });
+    });
+  }).catch(() => {});
 }
 </script>
 </body>
