@@ -472,6 +472,27 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.7); cursor
 .ambig-info-meta { color: var(--txt2); font-size: .72rem; }
 .ambig-btns { display: flex; flex-direction: column; gap: 4px; }
 .ambig-btns .btn { padding: 4px 8px; font-size: .72rem; min-width: 60px; }
+.batch-fields-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px 12px;
+  margin-top: 6px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.batch-field-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: .85rem; cursor: pointer;
+  padding: 4px 0;
+}
+.batch-field-row input[type=checkbox] {
+  width: 18px; height: 18px; margin: 0; accent-color: var(--gold); cursor: pointer;
+}
+@media (max-width: 500px) {
+  .batch-fields-grid { grid-template-columns: 1fr; }
+}
 
 .title-poster {
   display: inline-block; width: 22px; height: 33px;
@@ -1994,24 +2015,145 @@ function removeTmdbAssoc(filmIdx) {
    ═══════════════════════════════════════════════════ */
 let batchState = null;
 
+// Fields available for batch enrichment
+const BATCH_FIELDS = [
+  { key: 'posterPath', label: 'Affiche',          defaultOn: true,  alwaysFill: true },
+  { key: 'runtime',    label: 'Durée (min)',      defaultOn: true,  alwaysFill: true },
+  { key: 'tmdbVote',   label: 'Note TMDb ⭐',      defaultOn: true,  alwaysFill: true },
+  { key: 'titre',      label: 'Titre',            defaultOn: false, alwaysFill: false },
+  { key: 'genre',      label: 'Genre',            defaultOn: true,  alwaysFill: false },
+  { key: 'realisateur',label: 'Réalisateur',      defaultOn: true,  alwaysFill: false },
+  { key: 'acteurs',    label: 'Acteurs',          defaultOn: true,  alwaysFill: false },
+  { key: 'annee',      label: 'Année',            defaultOn: true,  alwaysFill: false },
+  { key: 'budget',     label: 'Budget (M$)',      defaultOn: true,  alwaysFill: false },
+  { key: 'boxOffice',  label: 'Box Office (M$)',  defaultOn: true,  alwaysFill: false },
+];
+
 function startBatchEnrich() {
   if (!hasTmdbKey()) {
     toast('Configurez votre clé API TMDb d\'abord', 'warn');
     return;
   }
+  showBatchConfigModal();
+}
+
+function showBatchConfigModal() {
+  const unassociatedCount = films.filter(f => !f.tmdbId && f.titre).length;
+  const totalCount = films.filter(f => f.titre).length;
+  const fieldsHtml = BATCH_FIELDS.map(fd =>
+    `<label class="batch-field-row">
+      <input type="checkbox" id="batch_field_${fd.key}" data-key="${fd.key}" ${fd.defaultOn ? 'checked' : ''}>
+      <span>${fd.label}</span>
+    </label>`
+  ).join('');
+  const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()">
+    <div class="modal" style="max-width:540px">
+      <h2>🔄 Enrichissement batch TMDb</h2>
+      <p class="desc">Configurez l'enrichissement automatique de vos films via TMDb.</p>
+
+      <label>Films à traiter</label>
+      <select id="batchScope">
+        <option value="unassoc" selected>Films non associés seulement (${unassociatedCount})</option>
+        <option value="all">Tous les films (${totalCount}) — réassocie les existants</option>
+      </select>
+
+      <label style="margin-top:14px">Mode de remplissage</label>
+      <select id="batchMode">
+        <option value="fillEmpty" selected>Remplir uniquement les champs vides (non destructif)</option>
+        <option value="overwrite">Écraser toutes les valeurs existantes</option>
+      </select>
+
+      <label style="margin-top:14px">Champs à enrichir</label>
+      <div class="batch-fields-grid">${fieldsHtml}</div>
+      <div class="tmdb-compare-actions" style="margin-top:8px">
+        <button class="btn" onclick="batchFieldsToggleAll(true)">Tout cocher</button>
+        <button class="btn" onclick="batchFieldsToggleAll(false)">Tout décocher</button>
+      </div>
+
+      <p style="font-size:.78rem;color:var(--txt3);margin-top:14px">💡 Affiche, durée et note TMDb sont toujours mis à jour (indépendamment du mode) car ils n'ont pas d'équivalent manuel.</p>
+
+      <div class="modal-row">
+        <button class="btn" onclick="closeOverlay()">Annuler</button>
+        <button class="btn gold" onclick="launchBatchEnrich()">Lancer l'enrichissement</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('overlay').innerHTML = html;
+}
+
+function batchFieldsToggleAll(checked) {
+  document.querySelectorAll('[id^="batch_field_"]').forEach(cb => { cb.checked = checked; });
+}
+
+function launchBatchEnrich() {
+  const scope = document.getElementById('batchScope').value;
+  const mode = document.getElementById('batchMode').value;
+  const selectedFields = new Set();
+  BATCH_FIELDS.forEach(fd => {
+    const cb = document.getElementById('batch_field_' + fd.key);
+    if (cb && cb.checked) selectedFields.add(fd.key);
+  });
+  if (!selectedFields.size) {
+    toast('Sélectionnez au moins un champ', 'warn');
+    return;
+  }
   const pending = films
     .map((f, i) => ({ f, i }))
-    .filter(x => !x.f.tmdbId && x.f.titre);
+    .filter(x => {
+      if (!x.f.titre) return false;
+      if (scope === 'unassoc') return !x.f.tmdbId;
+      return true;
+    });
   if (!pending.length) {
-    toast('Tous les films sont déjà associés à TMDb', 'info');
+    toast('Aucun film à traiter avec ces critères', 'info');
     return;
   }
   batchState = {
     pending, pos: 0, ok: 0, err: 0, skip: 0,
     logs: [], cancelled: false, waitingChoice: false,
+    selectedFields, mode,
   };
   showBatchModal();
   processBatchNext();
+}
+
+// Apply TMDb data d to film f using selectedFields + mode
+function applyBatchFields(f, d, selectedFields, mode) {
+  const directors = (d.credits?.crew || []).filter(c => c.job === 'Director').map(c => c.name).join(', ') || null;
+  const actors = (d.credits?.cast || []).slice(0, 3).map(c => c.name).join('; ') || null;
+  const genres = (d.genres || []).map(g => g.name).join(', ') || null;
+  const annee = d.release_date ? parseFloat(d.release_date.slice(0,4)) : null;
+  const budget = d.budget ? parseFloat((d.budget / 1_000_000).toFixed(1)) : null;
+  const boxOffice = d.revenue ? parseFloat((d.revenue / 1_000_000).toFixed(1)) : null;
+  const tmdbValues = {
+    posterPath: d.poster_path || null,
+    runtime: d.runtime || null,
+    tmdbVote: d.vote_average || null,
+    titre: d.title || d.original_title || null,
+    genre: genres,
+    realisateur: directors,
+    acteurs: actors,
+    annee: annee,
+    budget: budget,
+    boxOffice: boxOffice,
+  };
+  // Always store tmdbId (the association anchor)
+  f.tmdbId = d.id;
+  let changedCount = 0;
+  BATCH_FIELDS.forEach(fd => {
+    if (!selectedFields.has(fd.key)) return;
+    const newVal = tmdbValues[fd.key];
+    if (newVal == null) return; // Nothing from TMDb → don't change
+    const oldVal = f[fd.key];
+    const isEmpty = oldVal == null || oldVal === '';
+    // fillEmpty mode → only write if currently empty
+    if (mode === 'fillEmpty' && !isEmpty) return;
+    if (oldVal !== newVal) {
+      f[fd.key] = newVal;
+      changedCount++;
+    }
+  });
+  return changedCount;
 }
 
 function showBatchModal() {
@@ -2029,7 +2171,7 @@ function showBatchModal() {
       <h2>${finished ? (s.cancelled ? '⏹ Arrêté' : '✅ Terminé') : '🔄 Enrichissement TMDb'}</h2>
       <p class="desc">${finished
         ? `Résumé du traitement de ${total} film${total>1?'s':''}.`
-        : `Recherche automatique des affiches via TMDb...`}</p>
+        : `Mode : ${s.mode === 'overwrite' ? 'écrasement' : 'remplissage des vides'} · ${s.selectedFields.size} champ${s.selectedFields.size>1?'s':''}`}</p>
       <div class="batch-progress"><div class="fill" style="width:${pct}%"></div></div>
       <div style="font-size:.78rem;color:var(--txt3);text-align:center">${done} / ${total} (${pct}%)</div>
       <div class="batch-stats">
@@ -2079,60 +2221,48 @@ async function processBatchNext() {
   const { f, i } = s.pending[s.pos];
   showBatchModal();
   try {
-    const results = await tmdbSearch(f.titre);
-    if (!results.length) {
-      s.skip++;
-      batchAddLog('skip', `⚪ ${esc(f.titre)} — aucun résultat`);
-      s.pos++;
-      setTimeout(processBatchNext, 260);
-      return;
+    // If film already has tmdbId, skip search and fetch details directly
+    let chosenId = f.tmdbId;
+    if (!chosenId) {
+      const results = await tmdbSearch(f.titre);
+      if (!results.length) {
+        s.skip++;
+        batchAddLog('skip', `⚪ ${esc(f.titre)} — aucun résultat`);
+        s.pos++;
+        setTimeout(processBatchNext, 260);
+        return;
+      }
+      let chosen = null;
+      if (f.annee) {
+        const year = Math.round(f.annee);
+        chosen = results.find(r => r.release_date && r.release_date.startsWith(String(year)));
+        if (!chosen) chosen = results.find(r => {
+          if (!r.release_date) return false;
+          const ry = parseInt(r.release_date.slice(0,4));
+          return Math.abs(ry - year) <= 1;
+        });
+      }
+      if (!chosen && results.length === 1) chosen = results[0];
+      if (!chosen) {
+        const exact = results.filter(r =>
+          (r.title || '').toLowerCase() === f.titre.toLowerCase() ||
+          (r.original_title || '').toLowerCase() === f.titre.toLowerCase()
+        );
+        if (exact.length === 1) chosen = exact[0];
+      }
+      if (!chosen) {
+        batchAddLog('ambig', `🟡 ${esc(f.titre)} — ${results.length} résultats, choix requis`);
+        s.waitingChoice = true;
+        showBatchAmbigChoice(i, results.slice(0, 5));
+        return;
+      }
+      chosenId = chosen.id;
     }
-    let chosen = null;
-    // Try exact match by year first
-    if (f.annee) {
-      const year = Math.round(f.annee);
-      chosen = results.find(r => r.release_date && r.release_date.startsWith(String(year)));
-      if (!chosen) chosen = results.find(r => {
-        if (!r.release_date) return false;
-        const ry = parseInt(r.release_date.slice(0,4));
-        return Math.abs(ry - year) <= 1;
-      });
-    }
-    if (!chosen && results.length === 1) chosen = results[0];
-    // Exact title match
-    if (!chosen) {
-      const exact = results.filter(r =>
-        (r.title || '').toLowerCase() === f.titre.toLowerCase() ||
-        (r.original_title || '').toLowerCase() === f.titre.toLowerCase()
-      );
-      if (exact.length === 1) chosen = exact[0];
-    }
-    if (!chosen) {
-      batchAddLog('ambig', `🟡 ${esc(f.titre)} — ${results.length} résultats, choix requis`);
-      s.waitingChoice = true;
-      showBatchAmbigChoice(i, results.slice(0, 5));
-      return;
-    }
-    const d = await tmdbDetails(chosen.id);
-    // Only fill tmdb-specific fields + missing fields (non-destructive)
-    f.tmdbId = d.id;
-    f.posterPath = d.poster_path || f.posterPath || null;
-    f.runtime = d.runtime || f.runtime || null;
-    f.tmdbVote = d.vote_average || f.tmdbVote || null;
-    // Fill empty editable fields only
-    if (!f.genre && d.genres?.length) f.genre = d.genres.map(g => g.name).join(', ');
-    if (!f.realisateur && d.credits?.crew) {
-      const dirs = d.credits.crew.filter(c => c.job === 'Director').map(c => c.name);
-      if (dirs.length) f.realisateur = dirs.join(', ');
-    }
-    if (!f.acteurs && d.credits?.cast?.length) {
-      f.acteurs = d.credits.cast.slice(0, 3).map(c => c.name).join('; ');
-    }
-    if (!f.annee && d.release_date) f.annee = parseFloat(d.release_date.slice(0,4));
-    if (!f.budget && d.budget) f.budget = parseFloat((d.budget / 1_000_000).toFixed(1));
-    if (!f.boxOffice && d.revenue) f.boxOffice = parseFloat((d.revenue / 1_000_000).toFixed(1));
+    const d = await tmdbDetails(chosenId);
+    const changedCount = applyBatchFields(f, d, s.selectedFields, s.mode);
     s.ok++;
-    batchAddLog('ok', `✅ ${esc(f.titre)} → ${esc(d.title)}`);
+    const suffix = changedCount > 0 ? ` (${changedCount} champ${changedCount>1?'s':''})` : ' (aucun changement)';
+    batchAddLog('ok', `✅ ${esc(f.titre)} → ${esc(d.title)}${suffix}`);
   } catch (err) {
     s.err++;
     batchAddLog('err', `❌ ${esc(f.titre)} — ${esc(err.message)}`);
@@ -2177,23 +2307,10 @@ async function resolveBatchAmbig(filmIdx, tmdbId) {
   const f = films[filmIdx];
   try {
     const d = await tmdbDetails(tmdbId);
-    f.tmdbId = d.id;
-    f.posterPath = d.poster_path || f.posterPath || null;
-    f.runtime = d.runtime || f.runtime || null;
-    f.tmdbVote = d.vote_average || f.tmdbVote || null;
-    if (!f.genre && d.genres?.length) f.genre = d.genres.map(g => g.name).join(', ');
-    if (!f.realisateur && d.credits?.crew) {
-      const dirs = d.credits.crew.filter(c => c.job === 'Director').map(c => c.name);
-      if (dirs.length) f.realisateur = dirs.join(', ');
-    }
-    if (!f.acteurs && d.credits?.cast?.length) {
-      f.acteurs = d.credits.cast.slice(0, 3).map(c => c.name).join('; ');
-    }
-    if (!f.annee && d.release_date) f.annee = parseFloat(d.release_date.slice(0,4));
-    if (!f.budget && d.budget) f.budget = parseFloat((d.budget / 1_000_000).toFixed(1));
-    if (!f.boxOffice && d.revenue) f.boxOffice = parseFloat((d.revenue / 1_000_000).toFixed(1));
+    const changedCount = applyBatchFields(f, d, s.selectedFields, s.mode);
     s.ok++;
-    batchAddLog('ok', `✅ ${esc(f.titre)} → ${esc(d.title)} (choix manuel)`);
+    const suffix = changedCount > 0 ? ` (${changedCount} champ${changedCount>1?'s':''})` : '';
+    batchAddLog('ok', `✅ ${esc(f.titre)} → ${esc(d.title)} (choix manuel${suffix ? ',' + suffix : ''})`);
   } catch (err) {
     s.err++;
     batchAddLog('err', `❌ ${esc(f.titre)} — ${esc(err.message)}`);
@@ -2423,8 +2540,8 @@ function openSettings() {
       </select>
       ${hasTmdbKey() ? `<div style="margin-top:18px;padding:12px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)">
         <div style="font-size:.85rem;font-weight:700;color:#fff;margin-bottom:4px">🔄 Enrichissement batch TMDb</div>
-        <div style="font-size:.78rem;color:var(--txt2);margin-bottom:10px">Associer automatiquement toutes les affiches manquantes (${films.filter(f=>!f.tmdbId).length} film${films.filter(f=>!f.tmdbId).length>1?'s':''} à enrichir).</div>
-        <button class="btn" onclick="closeOverlay();startBatchEnrich()" style="width:100%">Lancer l'enrichissement</button>
+        <div style="font-size:.78rem;color:var(--txt2);margin-bottom:10px">Charger massivement les données TMDb (affiches, casting, genres, etc.). Vous choisirez les champs à remplir.</div>
+        <button class="btn" onclick="closeOverlay();startBatchEnrich()" style="width:100%">Configurer et lancer</button>
       </div>` : ''}
       <div style="margin-top:12px;padding:12px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)">
         <div style="font-size:.85rem;font-weight:700;color:#fff;margin-bottom:4px">📦 Cache PWA</div>
