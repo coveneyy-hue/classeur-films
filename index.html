@@ -580,6 +580,171 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.7); cursor
   font-size: .85rem; flex-wrap: wrap;
 }
 
+/* ─── STATS PANEL ─────────────────────────────────── */
+.stats-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  background: var(--bg); overflow-y: auto;
+  padding: 20px;
+}
+.stats-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px; padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.stats-header h1 {
+  font-family: var(--font-display); font-weight: 900; font-size: 1.7rem;
+  background: linear-gradient(135deg, var(--gold), var(--red));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  letter-spacing: -.02em;
+}
+.stats-grid {
+  display: grid; gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+.stats-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.2);
+}
+.stats-card h3 {
+  font-family: var(--font-display); font-weight: 700; font-size: 1rem;
+  color: var(--gold); margin-bottom: 10px;
+  display: flex; align-items: center; gap: 6px;
+}
+.stats-card.wide { grid-column: 1 / -1; }
+.stats-card.collapsed .stats-card-body { display: none; }
+.stats-card-toggle {
+  margin-left: auto; cursor: pointer; color: var(--txt3);
+  font-size: .85rem; user-select: none;
+}
+.stats-card-toggle:hover { color: var(--gold); }
+
+.kpi-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+.kpi {
+  padding: 12px; background: var(--bg); border-radius: var(--radius-sm);
+  text-align: center; border: 1px solid var(--border);
+}
+.kpi-value {
+  font-family: var(--font-display); font-weight: 800;
+  font-size: 1.7rem; line-height: 1.1;
+}
+.kpi-label {
+  font-size: .72rem; color: var(--txt2);
+  text-transform: uppercase; letter-spacing: .05em; margin-top: 4px;
+}
+.kpi-sub { font-size: .75rem; color: var(--txt3); margin-top: 2px; }
+
+.stats-list { font-size: .85rem; }
+.stats-list-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0; border-bottom: 1px solid var(--border);
+}
+.stats-list-row:last-child { border-bottom: none; }
+.stats-list-label {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 1; min-width: 0; padding-right: 10px;
+}
+.stats-list-value {
+  color: var(--gold); font-weight: 700;
+  white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.stats-list-bar {
+  display: block; height: 4px; background: var(--bg4);
+  border-radius: 2px; overflow: hidden; margin-top: 2px;
+}
+.stats-list-bar-fill {
+  display: block; height: 100%;
+  background: linear-gradient(90deg, var(--gold), var(--red));
+}
+
+.stats-heatmap {
+  display: grid; gap: 2px; margin: 10px 0;
+  font-size: .78rem;
+}
+.heatmap-row {
+  display: grid; grid-template-columns: 90px repeat(4, 1fr);
+  gap: 2px; align-items: center;
+}
+.heatmap-row.header { font-weight: 700; color: var(--txt2); font-size: .7rem; }
+.heatmap-cell {
+  padding: 8px 4px; text-align: center; border-radius: 3px;
+  font-variant-numeric: tabular-nums; font-weight: 700;
+  cursor: pointer; transition: transform .1s;
+}
+.heatmap-cell:hover { transform: scale(1.05); outline: 2px solid var(--gold); }
+.heatmap-cell.diag { opacity: .35; cursor: default; }
+.heatmap-cell.diag:hover { transform: none; outline: none; }
+.heatmap-label {
+  font-weight: 600; color: var(--txt);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.chart-container {
+  position: relative; height: 280px; margin-top: 8px;
+}
+.chart-container.tall { height: 340px; }
+
+.tier-strip {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px; border-radius: var(--radius-sm);
+  margin-bottom: 8px; overflow: hidden;
+}
+.tier-strip-label {
+  font-family: var(--font-display); font-weight: 900; font-size: 1.5rem;
+  width: 48px; text-align: center; flex-shrink: 0;
+}
+.tier-strip-films {
+  display: flex; gap: 6px; overflow-x: auto; flex: 1; padding-bottom: 4px;
+}
+.tier-strip-films::-webkit-scrollbar { height: 4px; }
+.tier-film {
+  width: 48px; height: 72px; border-radius: 4px;
+  background-size: cover; background-position: center;
+  background-color: var(--bg4); flex-shrink: 0;
+  cursor: pointer; position: relative;
+  transition: transform .15s;
+}
+.tier-film:hover { transform: scale(1.1); z-index: 2; }
+.tier-film.empty::after {
+  content: '🎬'; position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.2rem; opacity: .4;
+}
+
+.stats-tabs {
+  display: flex; gap: 6px; margin-bottom: 14px;
+  flex-wrap: wrap; overflow-x: auto;
+  border-bottom: 1px solid var(--border); padding-bottom: 8px;
+}
+.stats-tab {
+  padding: 6px 12px; border-radius: 6px; cursor: pointer;
+  background: var(--bg3); color: var(--txt2);
+  border: 1px solid var(--border); font-size: .85rem;
+  font-family: var(--font-body); white-space: nowrap;
+}
+.stats-tab:hover { color: var(--gold); }
+.stats-tab.active {
+  background: var(--gold); color: #000; font-weight: 700;
+  border-color: var(--gold);
+}
+
+.scatter-tooltip {
+  background: var(--bg2); border: 1px solid var(--gold);
+  padding: 8px; border-radius: 6px; font-size: .8rem;
+  pointer-events: none; position: absolute;
+}
+
+@media (max-width: 600px) {
+  .stats-overlay { padding: 12px; }
+  .stats-header h1 { font-size: 1.3rem; }
+  .kpi-value { font-size: 1.35rem; }
+  .heatmap-row { grid-template-columns: 70px repeat(4, 1fr); }
+  .chart-container { height: 220px; }
+}
+
 .batch-fields-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -972,6 +1137,7 @@ td.editing input {
 
 </style>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -992,6 +1158,7 @@ td.editing input {
         <button class="btn btn-icon" onclick="toggleLog()" id="logBtn" title="Journal d'activité" aria-label="Journal d'activité">📋</button>
         <span class="log-badge" id="logCount"></span>
       </span>
+      <button class="btn btn-icon" onclick="openStats()" title="Statistiques" aria-label="Statistiques">📊</button>
       <button class="btn btn-icon" onclick="openSettings()" title="Paramètres" aria-label="Paramètres">⚙</button>
     </div>
   </div>
@@ -2812,6 +2979,931 @@ function openRating(idx, raterKey) {
 /* ═══════════════════════════════════════════════════
    SETTINGS
    ═══════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════
+   STATS / ANALYTICS
+   ═══════════════════════════════════════════════════ */
+let statsActiveTab = 'overview';
+let statsCharts = {}; // keep Chart instances for destroy on rebuild
+
+function openStats() {
+  const overlay = document.createElement('div');
+  overlay.className = 'stats-overlay';
+  overlay.id = 'statsOverlay';
+  overlay.innerHTML = `
+    <div class="stats-header">
+      <h1>📊 Statistiques</h1>
+      <button class="btn" onclick="closeStats()">✕ Fermer</button>
+    </div>
+    <div class="stats-tabs" id="statsTabs">
+      <div class="stats-tab" data-tab="overview">Vue d'ensemble</div>
+      <div class="stats-tab" data-tab="notes">Distribution des notes</div>
+      <div class="stats-tab" data-tab="criteria">Analyse par critère</div>
+      <div class="stats-tab" data-tab="correlations">Corrélations</div>
+      <div class="stats-tab" data-tab="tierlist">Tier List</div>
+      <div class="stats-tab" data-tab="temporal">Temporel</div>
+      <div class="stats-tab" data-tab="top">Top & Flop</div>
+      <div class="stats-tab" data-tab="money">Budget vs Note</div>
+      <div class="stats-tab" data-tab="tmdb">TMDb vs Ma note</div>
+      <div class="stats-tab" data-tab="tags">Analyse tags</div>
+      <div class="stats-tab" data-tab="profile">Profils évaluateurs</div>
+      <div class="stats-tab" data-tab="stats">Stats de notation</div>
+    </div>
+    <div id="statsContent"></div>
+  `;
+  document.body.appendChild(overlay);
+  // Bind tabs
+  overlay.querySelectorAll('.stats-tab').forEach(t => {
+    t.addEventListener('click', () => setStatsTab(t.dataset.tab));
+  });
+  setStatsTab(statsActiveTab);
+}
+
+function closeStats() {
+  destroyStatsCharts();
+  const o = document.getElementById('statsOverlay');
+  if (o) o.remove();
+}
+
+function destroyStatsCharts() {
+  Object.values(statsCharts).forEach(c => { try { c.destroy(); } catch(e) {} });
+  statsCharts = {};
+}
+
+function setStatsTab(tab) {
+  statsActiveTab = tab;
+  destroyStatsCharts();
+  document.querySelectorAll('.stats-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  const content = document.getElementById('statsContent');
+  const builders = {
+    overview: buildStatsOverview,
+    notes: buildStatsNotes,
+    criteria: buildStatsCriteria,
+    correlations: buildStatsCorrelations,
+    tierlist: buildStatsTierList,
+    temporal: buildStatsTemporal,
+    top: buildStatsTop,
+    money: buildStatsMoney,
+    tmdb: buildStatsTmdb,
+    tags: buildStatsTags,
+    profile: buildStatsProfile,
+    stats: buildStatsStats,
+  };
+  content.innerHTML = '';
+  try {
+    (builders[tab] || buildStatsOverview)();
+  } catch (err) {
+    content.innerHTML = `<div class="stats-card"><p>Erreur lors du calcul : ${esc(err.message)}</p></div>`;
+    console.error(err);
+  }
+}
+
+/* ─── Helpers ─────────────────────────────────────── */
+const CHART_COLORS = {
+  gold: '#e8a630', green: '#40c890', pink: '#e860a0', purple: '#a06eea',
+  red: '#e84040', blue: '#4088e8', orange: '#f0894a',
+  grid: 'rgba(255,255,255,0.05)', text: '#808098'
+};
+function chartBaseOptions() {
+  return {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { labels: { color: CHART_COLORS.text, font: { family: "'Barlow'" } } },
+      tooltip: {
+        backgroundColor: '#10101f', titleColor: '#fff', bodyColor: '#d0d0e0',
+        borderColor: CHART_COLORS.gold, borderWidth: 1
+      }
+    },
+    scales: {
+      x: { ticks: { color: CHART_COLORS.text }, grid: { color: CHART_COLORS.grid } },
+      y: { ticks: { color: CHART_COLORS.text }, grid: { color: CHART_COLORS.grid } }
+    }
+  };
+}
+function ratedFilms(raterKey) {
+  return films.filter(f => f[raterKey] != null);
+}
+function mean(arr) { return arr.length ? arr.reduce((a,b) => a+b, 0) / arr.length : null; }
+function stdDev(arr) {
+  if (arr.length < 2) return 0;
+  const m = mean(arr);
+  return Math.sqrt(arr.reduce((a,v) => a + (v-m)**2, 0) / arr.length);
+}
+function pearson(xs, ys) {
+  const n = Math.min(xs.length, ys.length);
+  if (n < 2) return 0;
+  const mx = mean(xs), my = mean(ys);
+  let num = 0, dx = 0, dy = 0;
+  for (let i = 0; i < n; i++) {
+    num += (xs[i] - mx) * (ys[i] - my);
+    dx += (xs[i] - mx) ** 2;
+    dy += (ys[i] - my) ** 2;
+  }
+  const denom = Math.sqrt(dx * dy);
+  return denom === 0 ? 0 : num / denom;
+}
+
+/* ─── TAB 1: OVERVIEW / KPIs ──────────────────────── */
+function buildStatsOverview() {
+  const content = document.getElementById('statsContent');
+  const total = films.length;
+  const rated = films.filter(f => f.notePerso != null).length;
+  const pending = total - rated;
+  const notes = films.filter(f => f.notePerso != null).map(f => f.notePerso);
+  const avg = mean(notes);
+  const bestFilm = notes.length ? films.filter(f => f.notePerso != null).sort((a,b) => b.notePerso - a.notePerso)[0] : null;
+  const worstFilm = notes.length ? films.filter(f => f.notePerso != null).sort((a,b) => a.notePerso - b.notePerso)[0] : null;
+
+  // Total runtime (vus = dateVu exists)
+  const watched = films.filter(f => f.dateVu && f.runtime);
+  const totalMinutes = watched.reduce((a, f) => a + (f.runtime || 0), 0);
+  const totalHours = Math.round(totalMinutes / 60);
+  const totalDays = (totalMinutes / 60 / 24).toFixed(1);
+
+  // Tiers
+  const tierOrder = ['G', 'S', 'A', 'B', 'C'];
+  const tierCounts = {};
+  tierOrder.forEach(t => { tierCounts[t] = films.filter(f => f.tiers === t).length; });
+  const noTier = films.filter(f => !f.tiers).length;
+
+  // Tags stats
+  const totalTagAssign = films.reduce((a,f) => a + (f.tags?.length || 0), 0);
+  const filmsWithPrimary = films.filter(f => f.primaryTag).length;
+
+  // TMDb coverage
+  const withPoster = films.filter(f => f.posterPath).length;
+
+  const html = `
+    <div class="stats-card wide">
+      <h3>🎬 Vue d'ensemble</h3>
+      <div class="kpi-grid">
+        <div class="kpi"><div class="kpi-value">${total}</div><div class="kpi-label">Films</div></div>
+        <div class="kpi"><div class="kpi-value" style="color:var(--green)">${rated}</div><div class="kpi-label">Notés</div><div class="kpi-sub">${total? Math.round(rated/total*100) : 0}%</div></div>
+        <div class="kpi"><div class="kpi-value" style="color:var(--gold)">${pending}</div><div class="kpi-label">À noter</div></div>
+        <div class="kpi"><div class="kpi-value" style="color:var(--gold)">${avg != null ? avg.toFixed(2) : '—'}</div><div class="kpi-label">Moyenne</div></div>
+        <div class="kpi"><div class="kpi-value" style="color:var(--blue)">${totalHours}h</div><div class="kpi-label">Visionnés</div><div class="kpi-sub">${totalDays} j</div></div>
+        <div class="kpi"><div class="kpi-value">${withPoster}</div><div class="kpi-label">Affiches TMDb</div></div>
+      </div>
+    </div>
+
+    ${bestFilm || worstFilm ? `
+    <div class="stats-grid" style="margin-top:14px">
+      ${bestFilm ? `<div class="stats-card">
+        <h3>🏆 Meilleur film</h3>
+        <div style="display:flex;gap:10px;align-items:center">
+          ${bestFilm.posterPath ? `<div style="width:60px;height:90px;background:url('${TMDB_IMG}${bestFilm.posterPath}') center/cover;border-radius:4px;flex-shrink:0"></div>` : ''}
+          <div style="min-width:0;flex:1">
+            <div style="font-weight:700;color:#fff">${esc(bestFilm.titre)}</div>
+            <div style="color:var(--gold);font-family:var(--font-display);font-size:1.8rem;font-weight:800">${bestFilm.notePerso.toFixed(2)}/10</div>
+            <div style="font-size:.8rem;color:var(--txt2)">${bestFilm.annee ? Math.round(bestFilm.annee) : ''} · ${esc(bestFilm.realisateur || '')}</div>
+          </div>
+        </div>
+      </div>` : ''}
+      ${worstFilm && worstFilm !== bestFilm ? `<div class="stats-card">
+        <h3>💤 Note la plus basse</h3>
+        <div style="display:flex;gap:10px;align-items:center">
+          ${worstFilm.posterPath ? `<div style="width:60px;height:90px;background:url('${TMDB_IMG}${worstFilm.posterPath}') center/cover;border-radius:4px;flex-shrink:0"></div>` : ''}
+          <div style="min-width:0;flex:1">
+            <div style="font-weight:700;color:#fff">${esc(worstFilm.titre)}</div>
+            <div style="color:var(--red);font-family:var(--font-display);font-size:1.8rem;font-weight:800">${worstFilm.notePerso.toFixed(2)}/10</div>
+            <div style="font-size:.8rem;color:var(--txt2)">${worstFilm.annee ? Math.round(worstFilm.annee) : ''} · ${esc(worstFilm.realisateur || '')}</div>
+          </div>
+        </div>
+      </div>` : ''}
+    </div>` : ''}
+
+    <div class="stats-grid" style="margin-top:14px">
+      <div class="stats-card">
+        <h3>🎖 Distribution Tiers</h3>
+        <div class="stats-list">
+          ${tierOrder.map(t => {
+            const n = tierCounts[t];
+            const pct = total ? (n/total*100) : 0;
+            return `<div class="stats-list-row">
+              <span class="tiers-${t}" style="font-weight:800;font-family:var(--font-display);padding:2px 8px;border-radius:4px;margin-right:8px;min-width:26px;text-align:center;display:inline-block">${t}</span>
+              <span class="stats-list-label" style="flex:1">${n} film${n>1?'s':''}</span>
+              <span class="stats-list-value">${pct.toFixed(0)}%</span>
+            </div>`;
+          }).join('')}
+          <div class="stats-list-row">
+            <span style="color:var(--txt3)">Sans tier</span>
+            <span class="stats-list-value">${noTier}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-card">
+        <h3>🏷 Tags</h3>
+        <div class="kpi-grid" style="grid-template-columns:repeat(2,1fr)">
+          <div class="kpi"><div class="kpi-value">${tags.length}</div><div class="kpi-label">Tags définis</div></div>
+          <div class="kpi"><div class="kpi-value" style="color:var(--gold)">${totalTagAssign}</div><div class="kpi-label">Assignations</div></div>
+          <div class="kpi"><div class="kpi-value" style="color:var(--green)">${filmsWithPrimary}</div><div class="kpi-label">Avec tag principal</div></div>
+          <div class="kpi"><div class="kpi-value">${films.filter(f => f.tags?.length).length}</div><div class="kpi-label">Films taggés</div></div>
+        </div>
+      </div>
+    </div>
+  `;
+  content.innerHTML = html;
+}
+
+/* ─── TAB 2: NOTE DISTRIBUTION ─────────────────────── */
+function buildStatsNotes() {
+  const content = document.getElementById('statsContent');
+  content.innerHTML = `
+    <div class="stats-card wide">
+      <h3>📊 Distribution des notes (histogramme)</h3>
+      <p style="color:var(--txt2);font-size:.85rem">Répartition par tranche de 0.5 point — comparaison entre évaluateurs.</p>
+      <div class="chart-container tall"><canvas id="chartNotesDist"></canvas></div>
+    </div>
+  `;
+  // Buckets 0-0.5, 0.5-1, ... 9.5-10 => 20 bins
+  const bins = 20;
+  const labels = Array.from({length: bins}, (_, i) => `${(i*0.5).toFixed(1)}`);
+  const datasets = RATERS.map(r => {
+    const notes = films.map(f => f[r.key]).filter(v => v != null);
+    const counts = Array(bins).fill(0);
+    notes.forEach(n => {
+      let idx = Math.floor(n / 0.5);
+      if (idx >= bins) idx = bins - 1;
+      counts[idx]++;
+    });
+    return {
+      label: r.label, data: counts,
+      backgroundColor: r.color + '88', borderColor: r.color, borderWidth: 1
+    };
+  });
+  const ctx = document.getElementById('chartNotesDist').getContext('2d');
+  statsCharts.notesDist = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets },
+    options: {
+      ...chartBaseOptions(),
+      scales: {
+        x: { ticks: { color: CHART_COLORS.text }, grid: { color: CHART_COLORS.grid }, title: { display: true, text: 'Note', color: CHART_COLORS.text } },
+        y: { ticks: { color: CHART_COLORS.text }, grid: { color: CHART_COLORS.grid }, title: { display: true, text: 'Nombre de films', color: CHART_COLORS.text }, beginAtZero: true }
+      }
+    }
+  });
+}
+
+/* ─── TAB 3: CRITERIA RADAR ───────────────────────── */
+function buildStatsCriteria() {
+  const content = document.getElementById('statsContent');
+  content.innerHTML = `
+    <div class="stats-card wide">
+      <h3>🕸 Radar des critères (moyennes)</h3>
+      <p style="color:var(--txt2);font-size:.85rem">Valeur moyenne de chaque critère sur les films notés — révèle ce que chaque évaluateur privilégie.</p>
+      <div class="chart-container tall"><canvas id="chartCriteria"></canvas></div>
+    </div>
+  `;
+  const labels = CRITERIA.filter(c => !c.isPos).map(c => c.label);
+  const datasets = RATERS.map(r => {
+    const data = CRITERIA.filter(c => !c.isPos).map(c => {
+      const vals = films.map(f => f[r.prefix + c.key]).filter(v => v != null);
+      return vals.length ? parseFloat(mean(vals).toFixed(2)) : 0;
+    });
+    return {
+      label: r.label, data,
+      backgroundColor: r.color + '33', borderColor: r.color, borderWidth: 2,
+      pointBackgroundColor: r.color
+    };
+  });
+  const ctx = document.getElementById('chartCriteria').getContext('2d');
+  statsCharts.criteria = new Chart(ctx, {
+    type: 'radar',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: CHART_COLORS.text } },
+        tooltip: { backgroundColor: '#10101f', borderColor: CHART_COLORS.gold, borderWidth: 1 }
+      },
+      scales: {
+        r: {
+          beginAtZero: true, max: 10,
+          ticks: { color: CHART_COLORS.text, backdropColor: 'transparent' },
+          grid: { color: CHART_COLORS.grid },
+          angleLines: { color: CHART_COLORS.grid },
+          pointLabels: { color: CHART_COLORS.text, font: { size: 11 } }
+        }
+      }
+    }
+  });
+}
+
+/* ─── TAB 4: CORRELATIONS ────────────────────────── */
+function buildStatsCorrelations() {
+  const content = document.getElementById('statsContent');
+  // Heatmap of correlations between raters
+  const matrix = RATERS.map(r1 => RATERS.map(r2 => {
+    if (r1.key === r2.key) return 1;
+    const pairs = films.filter(f => f[r1.key] != null && f[r2.key] != null);
+    if (pairs.length < 3) return null;
+    return pearson(pairs.map(f => f[r1.key]), pairs.map(f => f[r2.key]));
+  }));
+
+  let heatmapHtml = `<div class="stats-heatmap">
+    <div class="heatmap-row header">
+      <div></div>
+      ${RATERS.map(r => `<div style="color:${r.color}">${r.label.substring(0,7)}</div>`).join('')}
+    </div>`;
+  RATERS.forEach((r1, i) => {
+    heatmapHtml += `<div class="heatmap-row">
+      <div class="heatmap-label" style="color:${r1.color}">${r1.label}</div>
+      ${RATERS.map((r2, j) => {
+        const c = matrix[i][j];
+        if (i === j) return `<div class="heatmap-cell diag" style="background:${r1.color}22">—</div>`;
+        if (c == null) return `<div class="heatmap-cell" style="background:var(--bg3);color:var(--txt3)">n/a</div>`;
+        const intensity = Math.abs(c);
+        const bg = c >= 0 ? `rgba(64,200,144,${intensity})` : `rgba(232,64,64,${intensity})`;
+        return `<div class="heatmap-cell" style="background:${bg};color:#fff" onclick="showScatterPair('${r1.key}','${r2.key}')" title="Cliquer pour voir le scatter plot">${c.toFixed(2)}</div>`;
+      }).join('')}
+    </div>`;
+  });
+  heatmapHtml += `</div>`;
+
+  // Largest disagreements between Ma note and others
+  const disagreements = [];
+  films.forEach(f => {
+    if (f.notePerso == null) return;
+    RATERS.slice(1).forEach(r => {
+      if (f[r.key] == null) return;
+      disagreements.push({ f, rater: r, delta: Math.abs(f.notePerso - f[r.key]), v1: f.notePerso, v2: f[r.key] });
+    });
+  });
+  disagreements.sort((a,b) => b.delta - a.delta);
+  const top10 = disagreements.slice(0, 10);
+
+  content.innerHTML = `
+    <div class="stats-card wide">
+      <h3>🔗 Matrice de corrélation (Pearson)</h3>
+      <p style="color:var(--txt2);font-size:.85rem">Vert = accord · Rouge = désaccord · Cliquez sur une cellule pour voir le scatter plot.</p>
+      ${heatmapHtml}
+    </div>
+    <div class="stats-card wide" style="margin-top:14px">
+      <h3>⚡ Plus gros désaccords (vous vs autres)</h3>
+      <div class="stats-list">
+        ${top10.length ? top10.map(d => `<div class="stats-list-row">
+          <span class="stats-list-label"><strong>${esc(d.f.titre)}</strong> <span style="color:${d.rater.color}">(${d.rater.label})</span></span>
+          <span class="stats-list-value">${d.v1.toFixed(1)} vs ${d.v2.toFixed(1)} · Δ ${d.delta.toFixed(2)}</span>
+        </div>`).join('') : '<div style="color:var(--txt3)">Pas assez de données</div>'}
+      </div>
+    </div>
+    <div class="stats-card wide" style="margin-top:14px" id="scatterContainer" style="display:none"></div>
+  `;
+}
+
+function showScatterPair(r1Key, r2Key) {
+  const r1 = getRaterByKey(r1Key), r2 = getRaterByKey(r2Key);
+  const pairs = films.filter(f => f[r1Key] != null && f[r2Key] != null);
+  const container = document.getElementById('scatterContainer');
+  container.style.display = 'block';
+  container.innerHTML = `
+    <h3>Scatter : ${r1.label} vs ${r2.label} (${pairs.length} films)</h3>
+    <div class="chart-container tall"><canvas id="scatterChart"></canvas></div>
+  `;
+  if (statsCharts.scatter) statsCharts.scatter.destroy();
+  const data = pairs.map(f => ({ x: f[r1Key], y: f[r2Key], title: f.titre }));
+  const ctx = document.getElementById('scatterChart').getContext('2d');
+  statsCharts.scatter = new Chart(ctx, {
+    type: 'scatter',
+    data: {
+      datasets: [{
+        label: `${r1.label} (x) vs ${r2.label} (y)`,
+        data,
+        backgroundColor: CHART_COLORS.gold + 'aa',
+        borderColor: CHART_COLORS.gold,
+        pointRadius: 5
+      }, {
+        label: 'Ligne d\'accord parfait',
+        type: 'line', data: [{x:0,y:0},{x:10,y:10}],
+        borderColor: CHART_COLORS.text, borderDash: [4,4], pointRadius: 0, borderWidth: 1
+      }]
+    },
+    options: {
+      ...chartBaseOptions(),
+      plugins: {
+        legend: { labels: { color: CHART_COLORS.text } },
+        tooltip: {
+          backgroundColor: '#10101f', borderColor: CHART_COLORS.gold, borderWidth: 1,
+          callbacks: {
+            label: (c) => {
+              const d = c.raw;
+              return d.title ? `${d.title}: ${d.x}/10 vs ${d.y}/10` : `x=${d.x} y=${d.y}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { min: 0, max: 10, title: { display: true, text: r1.label, color: r1.color }, ticks: { color: CHART_COLORS.text }, grid: { color: CHART_COLORS.grid } },
+        y: { min: 0, max: 10, title: { display: true, text: r2.label, color: r2.color }, ticks: { color: CHART_COLORS.text }, grid: { color: CHART_COLORS.grid } }
+      }
+    }
+  });
+  container.scrollIntoView({ behavior: 'smooth' });
+}
+
+/* ─── TAB 5: TIER LIST ────────────────────────────── */
+function buildStatsTierList() {
+  const content = document.getElementById('statsContent');
+  const tierOrder = ['G', 'S', 'A', 'B', 'C'];
+  let html = '<div class="stats-card wide"><h3>🎖 Tier List visuelle</h3><p style="color:var(--txt2);font-size:.85rem">Triés par note dans chaque tier. Cliquez sur une affiche pour ouvrir le film.</p>';
+  tierOrder.forEach(t => {
+    const tierFilms = films.filter(f => f.tiers === t)
+      .sort((a,b) => (b.notePerso ?? -1) - (a.notePerso ?? -1));
+    if (!tierFilms.length) return;
+    html += `<div class="tier-strip tiers-${t}" style="background:rgba(255,255,255,.02)">
+      <div class="tier-strip-label tiers-${t}">${t}</div>
+      <div class="tier-strip-films">
+        ${tierFilms.map(f => {
+          const idx = films.indexOf(f);
+          const poster = f.posterPath ? `background-image:url('${TMDB_IMG}${f.posterPath}')` : '';
+          const cls = f.posterPath ? '' : 'empty';
+          return `<div class="tier-film ${cls}" style="${poster}" onclick="closeStats();openTitleBreakdown(${idx})" title="${esc(f.titre)}${f.notePerso ? ' · ' + f.notePerso.toFixed(2) : ''}"></div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  });
+  const untiered = films.filter(f => !f.tiers);
+  if (untiered.length) {
+    html += `<p style="color:var(--txt3);font-size:.8rem;margin-top:10px">${untiered.length} film${untiered.length>1?'s':''} sans tier attribué.</p>`;
+  }
+  html += '</div>';
+  content.innerHTML = html;
+}
+
+/* ─── TAB 6: TEMPORAL ─────────────────────────────── */
+function buildStatsTemporal() {
+  const content = document.getElementById('statsContent');
+  content.innerHTML = `
+    <div class="stats-grid">
+      <div class="stats-card wide">
+        <h3>📅 Films par décennie</h3>
+        <div class="chart-container"><canvas id="chartDecades"></canvas></div>
+      </div>
+      <div class="stats-card wide">
+        <h3>⭐ Note moyenne par décennie (Ma note)</h3>
+        <div class="chart-container"><canvas id="chartDecadesAvg"></canvas></div>
+      </div>
+      <div class="stats-card wide">
+        <h3>📆 Films vus dans le temps</h3>
+        <p style="color:var(--txt2);font-size:.85rem">Basé sur la date de visionnage.</p>
+        <div class="chart-container"><canvas id="chartWatched"></canvas></div>
+      </div>
+    </div>
+  `;
+  // Decades
+  const decadeBuckets = {};
+  const decadeNotes = {};
+  films.forEach(f => {
+    if (!f.annee) return;
+    const dec = Math.floor(Math.round(f.annee) / 10) * 10;
+    decadeBuckets[dec] = (decadeBuckets[dec] || 0) + 1;
+    if (f.notePerso != null) {
+      if (!decadeNotes[dec]) decadeNotes[dec] = [];
+      decadeNotes[dec].push(f.notePerso);
+    }
+  });
+  const decades = Object.keys(decadeBuckets).map(Number).sort((a,b) => a-b);
+  const decadeLabels = decades.map(d => `${d}s`);
+
+  const ctx1 = document.getElementById('chartDecades').getContext('2d');
+  statsCharts.decades = new Chart(ctx1, {
+    type: 'bar',
+    data: {
+      labels: decadeLabels,
+      datasets: [{
+        label: 'Nombre de films',
+        data: decades.map(d => decadeBuckets[d]),
+        backgroundColor: CHART_COLORS.gold + 'aa',
+        borderColor: CHART_COLORS.gold, borderWidth: 1
+      }]
+    },
+    options: { ...chartBaseOptions(), plugins: { legend: { display: false } } }
+  });
+
+  const ctx2 = document.getElementById('chartDecadesAvg').getContext('2d');
+  statsCharts.decadesAvg = new Chart(ctx2, {
+    type: 'line',
+    data: {
+      labels: decadeLabels,
+      datasets: [{
+        label: 'Note moyenne',
+        data: decades.map(d => decadeNotes[d] ? parseFloat(mean(decadeNotes[d]).toFixed(2)) : null),
+        borderColor: CHART_COLORS.gold, backgroundColor: CHART_COLORS.gold + '33',
+        tension: 0.3, pointBackgroundColor: CHART_COLORS.gold, spanGaps: true
+      }]
+    },
+    options: {
+      ...chartBaseOptions(),
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: CHART_COLORS.text }, grid: { color: CHART_COLORS.grid } },
+        y: { min: 0, max: 10, ticks: { color: CHART_COLORS.text }, grid: { color: CHART_COLORS.grid } }
+      }
+    }
+  });
+
+  // Watched over time (by month)
+  const watched = films.filter(f => f.dateVu).map(f => normalizeDateVu(f.dateVu)).filter(Boolean);
+  const monthBuckets = {};
+  watched.forEach(d => {
+    const ym = d.slice(0, 7); // YYYY/MM
+    monthBuckets[ym] = (monthBuckets[ym] || 0) + 1;
+  });
+  const months = Object.keys(monthBuckets).sort();
+  const ctx3 = document.getElementById('chartWatched').getContext('2d');
+  statsCharts.watched = new Chart(ctx3, {
+    type: 'bar',
+    data: {
+      labels: months,
+      datasets: [{
+        label: 'Films vus',
+        data: months.map(m => monthBuckets[m]),
+        backgroundColor: CHART_COLORS.green + 'aa', borderColor: CHART_COLORS.green, borderWidth: 1
+      }]
+    },
+    options: { ...chartBaseOptions(), plugins: { legend: { display: false } } }
+  });
+}
+
+/* ─── TAB 7: TOP & FLOP ───────────────────────────── */
+function buildStatsTop() {
+  const content = document.getElementById('statsContent');
+  // Helper to split a multi-valued field
+  const splitList = (v) => (v || '').split(/[,;]/).map(s => s.trim()).filter(Boolean);
+
+  // Top réalisateurs (avg note)
+  const byDir = {};
+  films.forEach(f => {
+    if (f.notePerso == null || !f.realisateur) return;
+    splitList(f.realisateur).forEach(d => {
+      byDir[d] = byDir[d] || [];
+      byDir[d].push(f.notePerso);
+    });
+  });
+  const dirRows = Object.entries(byDir)
+    .filter(([, arr]) => arr.length >= 1)
+    .map(([name, arr]) => ({ name, avg: mean(arr), count: arr.length }))
+    .sort((a,b) => b.avg - a.avg);
+
+  // Top acteurs (avg note)
+  const byActor = {};
+  films.forEach(f => {
+    if (f.notePerso == null || !f.acteurs) return;
+    splitList(f.acteurs).forEach(a => {
+      byActor[a] = byActor[a] || [];
+      byActor[a].push(f.notePerso);
+    });
+  });
+  const actorRows = Object.entries(byActor)
+    .filter(([, arr]) => arr.length >= 2)
+    .map(([name, arr]) => ({ name, avg: mean(arr), count: arr.length }))
+    .sort((a,b) => b.avg - a.avg);
+
+  // Top genres
+  const byGenre = {};
+  films.forEach(f => {
+    if (f.notePerso == null || !f.genre) return;
+    splitList(f.genre).forEach(g => {
+      byGenre[g] = byGenre[g] || [];
+      byGenre[g].push(f.notePerso);
+    });
+  });
+  const genreRows = Object.entries(byGenre)
+    .filter(([, arr]) => arr.length >= 2)
+    .map(([name, arr]) => ({ name, avg: mean(arr), count: arr.length }))
+    .sort((a,b) => b.avg - a.avg);
+
+  const listHtml = (rows, max) => rows.slice(0, max).map(r =>
+    `<div class="stats-list-row">
+      <span class="stats-list-label">${esc(r.name)} <span style="color:var(--txt3)">(${r.count})</span></span>
+      <span class="stats-list-value">${r.avg.toFixed(2)}</span>
+    </div>`
+  ).join('') || '<div style="color:var(--txt3)">Pas assez de données</div>';
+
+  // Forgotten gems (note ≥ 8 et dateVu > 2 ans)
+  const twoYearsAgo = new Date(); twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+  const forgotten = films.filter(f => {
+    if (f.notePerso == null || f.notePerso < 8) return false;
+    if (!f.dateVu) return false;
+    const d = new Date(normalizeDateVu(f.dateVu)?.replaceAll('/', '-'));
+    return d < twoYearsAgo;
+  }).sort((a,b) => b.notePerso - a.notePerso).slice(0, 10);
+
+  content.innerHTML = `
+    <div class="stats-grid">
+      <div class="stats-card">
+        <h3>🎬 Top réalisateurs</h3>
+        <p style="color:var(--txt3);font-size:.75rem">Moyenne de vos notes, classés du meilleur au moins bon.</p>
+        <div class="stats-list">${listHtml(dirRows, 15)}</div>
+      </div>
+      <div class="stats-card">
+        <h3>🎭 Acteurs récurrents</h3>
+        <p style="color:var(--txt3);font-size:.75rem">≥ 2 films notés, triés par moyenne.</p>
+        <div class="stats-list">${listHtml(actorRows, 15)}</div>
+      </div>
+      <div class="stats-card">
+        <h3>🎞 Genres préférés</h3>
+        <p style="color:var(--txt3);font-size:.75rem">≥ 2 films notés, triés par moyenne.</p>
+        <div class="stats-list">${listHtml(genreRows, 15)}</div>
+      </div>
+      <div class="stats-card">
+        <h3>⏳ Films oubliés</h3>
+        <p style="color:var(--txt3);font-size:.75rem">Note ≥ 8 et vus il y a +2 ans. À revoir ?</p>
+        <div class="stats-list">
+          ${forgotten.length ? forgotten.map(f => `<div class="stats-list-row">
+            <span class="stats-list-label">${esc(f.titre)} <span style="color:var(--txt3)">(${f.annee ? Math.round(f.annee) : ''})</span></span>
+            <span class="stats-list-value">${f.notePerso.toFixed(2)}</span>
+          </div>`).join('') : '<div style="color:var(--txt3)">Aucun film ne correspond</div>'}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* ─── TAB 8: MONEY (Budget/Box Office vs Note) ────── */
+function buildStatsMoney() {
+  const content = document.getElementById('statsContent');
+  content.innerHTML = `
+    <div class="stats-card wide">
+      <h3>💰 Budget vs Ma note</h3>
+      <p style="color:var(--txt2);font-size:.85rem">Chaque point = un film. Survol pour voir le titre.</p>
+      <div class="chart-container tall"><canvas id="chartBudget"></canvas></div>
+    </div>
+    <div class="stats-card wide" style="margin-top:14px">
+      <h3>💎 Pépites à petit budget (≤ 20 M$)</h3>
+      <div id="pepitesList"></div>
+    </div>
+    <div class="stats-card wide" style="margin-top:14px">
+      <h3>💸 Chefs-d'œuvre ignorés (Box office bas)</h3>
+      <div id="flopList"></div>
+    </div>
+  `;
+  const points = films.filter(f => f.budget && f.notePerso != null).map(f => ({
+    x: f.budget, y: f.notePerso, title: f.titre
+  }));
+  const ctx = document.getElementById('chartBudget').getContext('2d');
+  statsCharts.budget = new Chart(ctx, {
+    type: 'scatter',
+    data: {
+      datasets: [{
+        label: 'Films',
+        data: points,
+        backgroundColor: CHART_COLORS.gold + 'aa',
+        pointRadius: 5
+      }]
+    },
+    options: {
+      ...chartBaseOptions(),
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#10101f', borderColor: CHART_COLORS.gold, borderWidth: 1,
+          callbacks: { label: (c) => `${c.raw.title}: ${c.raw.x}M$ · ${c.raw.y}/10` }
+        }
+      },
+      scales: {
+        x: { type: 'logarithmic', title: { display: true, text: 'Budget (M$, log)', color: CHART_COLORS.text }, ticks: { color: CHART_COLORS.text }, grid: { color: CHART_COLORS.grid } },
+        y: { min: 0, max: 10, title: { display: true, text: 'Ma note', color: CHART_COLORS.text }, ticks: { color: CHART_COLORS.text }, grid: { color: CHART_COLORS.grid } }
+      }
+    }
+  });
+
+  const pepites = films.filter(f => f.budget && f.budget <= 20 && f.notePerso >= 8)
+    .sort((a,b) => b.notePerso - a.notePerso).slice(0, 10);
+  document.getElementById('pepitesList').innerHTML = `<div class="stats-list">
+    ${pepites.length ? pepites.map(f => `<div class="stats-list-row">
+      <span class="stats-list-label">${esc(f.titre)} <span style="color:var(--txt3)">· ${f.budget}M$</span></span>
+      <span class="stats-list-value">${f.notePerso.toFixed(2)}</span>
+    </div>`).join('') : '<div style="color:var(--txt3)">Aucun</div>'}
+  </div>`;
+
+  const flops = films.filter(f => f.boxOffice != null && f.notePerso >= 8 && f.budget && f.boxOffice < f.budget)
+    .sort((a,b) => (a.boxOffice/a.budget) - (b.boxOffice/b.budget)).slice(0, 10);
+  document.getElementById('flopList').innerHTML = `<div class="stats-list">
+    ${flops.length ? flops.map(f => `<div class="stats-list-row">
+      <span class="stats-list-label">${esc(f.titre)} <span style="color:var(--txt3)">· ${f.boxOffice}M$ / ${f.budget}M$</span></span>
+      <span class="stats-list-value">${f.notePerso.toFixed(2)}</span>
+    </div>`).join('') : '<div style="color:var(--txt3)">Aucun</div>'}
+  </div>`;
+}
+
+/* ─── TAB 9: TMDB vs MA NOTE ──────────────────────── */
+function buildStatsTmdb() {
+  const content = document.getElementById('statsContent');
+  const pairs = films.filter(f => f.notePerso != null && f.tmdbVote != null);
+  const deltas = pairs.map(f => ({ f, delta: f.notePerso - f.tmdbVote }));
+  const iHigher = [...deltas].sort((a,b) => b.delta - a.delta).slice(0, 10);
+  const iLower = [...deltas].sort((a,b) => a.delta - b.delta).slice(0, 10);
+
+  content.innerHTML = `
+    <div class="stats-card wide">
+      <h3>⚖ TMDb vs Ma note</h3>
+      <p style="color:var(--txt2);font-size:.85rem">Coefficient de corrélation : <strong style="color:var(--gold)">${pairs.length ? pearson(pairs.map(f=>f.notePerso), pairs.map(f=>f.tmdbVote)).toFixed(3) : 'n/a'}</strong></p>
+      <div class="chart-container tall"><canvas id="chartTmdb"></canvas></div>
+    </div>
+    <div class="stats-grid" style="margin-top:14px">
+      <div class="stats-card">
+        <h3>👑 Je suis plus enthousiaste que TMDb</h3>
+        <p style="color:var(--txt3);font-size:.75rem">Vos pépites sous-estimées par le monde.</p>
+        <div class="stats-list">
+          ${iHigher.map(d => `<div class="stats-list-row">
+            <span class="stats-list-label">${esc(d.f.titre)}</span>
+            <span class="stats-list-value">${d.f.notePerso.toFixed(1)} vs ⭐${d.f.tmdbVote.toFixed(1)}</span>
+          </div>`).join('')}
+        </div>
+      </div>
+      <div class="stats-card">
+        <h3>🤔 Le monde aime, pas moi</h3>
+        <p style="color:var(--txt3);font-size:.75rem">Films appréciés mondialement mais pas par vous.</p>
+        <div class="stats-list">
+          ${iLower.map(d => `<div class="stats-list-row">
+            <span class="stats-list-label">${esc(d.f.titre)}</span>
+            <span class="stats-list-value">${d.f.notePerso.toFixed(1)} vs ⭐${d.f.tmdbVote.toFixed(1)}</span>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+  const ctx = document.getElementById('chartTmdb').getContext('2d');
+  statsCharts.tmdb = new Chart(ctx, {
+    type: 'scatter',
+    data: {
+      datasets: [{
+        label: 'Films',
+        data: pairs.map(f => ({ x: f.tmdbVote, y: f.notePerso, title: f.titre })),
+        backgroundColor: CHART_COLORS.gold + 'aa', pointRadius: 5
+      }, {
+        label: 'Accord parfait',
+        type: 'line', data: [{x:0,y:0},{x:10,y:10}],
+        borderColor: CHART_COLORS.text, borderDash: [4,4], pointRadius: 0, borderWidth: 1
+      }]
+    },
+    options: {
+      ...chartBaseOptions(),
+      plugins: {
+        legend: { labels: { color: CHART_COLORS.text } },
+        tooltip: {
+          backgroundColor: '#10101f', borderColor: CHART_COLORS.gold, borderWidth: 1,
+          callbacks: { label: (c) => c.raw.title ? `${c.raw.title}: vous=${c.raw.y} TMDb=${c.raw.x}` : '' }
+        }
+      },
+      scales: {
+        x: { min: 0, max: 10, title: { display: true, text: 'TMDb ⭐', color: CHART_COLORS.text }, ticks: { color: CHART_COLORS.text }, grid: { color: CHART_COLORS.grid } },
+        y: { min: 0, max: 10, title: { display: true, text: 'Ma note', color: CHART_COLORS.gold }, ticks: { color: CHART_COLORS.text }, grid: { color: CHART_COLORS.grid } }
+      }
+    }
+  });
+}
+
+/* ─── TAB 10: TAGS ANALYSIS ───────────────────────── */
+function buildStatsTags() {
+  const content = document.getElementById('statsContent');
+  if (!tags.length) {
+    content.innerHTML = '<div class="stats-card"><p>Aucun tag défini. Gérez vos tags dans les Paramètres.</p></div>';
+    return;
+  }
+  const tagStats = tags.map(t => {
+    const filmsWithTag = films.filter(f => (f.tags || []).includes(t.id));
+    const notes = filmsWithTag.map(f => f.notePerso).filter(v => v != null);
+    const tierS = filmsWithTag.filter(f => f.tiers === 'S' || f.tiers === 'G').length;
+    return {
+      tag: t, count: filmsWithTag.length,
+      avg: notes.length ? mean(notes) : null,
+      tierTop: tierS,
+      asPrimary: films.filter(f => f.primaryTag === t.id).length
+    };
+  }).sort((a,b) => b.count - a.count);
+
+  content.innerHTML = `
+    <div class="stats-card wide">
+      <h3>🏷 Usage des tags</h3>
+      <div class="stats-list">
+        ${tagStats.map(s => `<div class="stats-list-row">
+          <span class="stats-list-label">
+            <span class="tag-chip" style="--tag-color:${s.tag.color}"><span class="emoji">${s.tag.emoji||'🏷'}</span>${esc(s.tag.name)}</span>
+          </span>
+          <span class="stats-list-value">
+            ${s.count} film${s.count>1?'s':''}
+            ${s.avg != null ? ` · ⌀ ${s.avg.toFixed(2)}` : ''}
+            ${s.asPrimary ? ` · ★${s.asPrimary}` : ''}
+          </span>
+        </div>`).join('')}
+      </div>
+    </div>
+  `;
+}
+
+/* ─── TAB 11: PROFIL ÉVALUATEURS ───────────────────── */
+function buildStatsProfile() {
+  const content = document.getElementById('statsContent');
+  const cards = RATERS.map(r => {
+    const rated = films.filter(f => f[r.key] != null);
+    if (!rated.length) return `<div class="stats-card">
+      <h3 style="color:${r.color}">${r.label}</h3>
+      <p style="color:var(--txt3)">Aucune note enregistrée.</p>
+    </div>`;
+    const notes = rated.map(f => f[r.key]);
+    const avg = mean(notes);
+    const sd = stdDev(notes);
+
+    const splitList = (v) => (v || '').split(/[,;]/).map(s => s.trim()).filter(Boolean);
+    // Favorite directors (>=1 film, avg)
+    const dirs = {};
+    rated.forEach(f => { splitList(f.realisateur).forEach(d => { dirs[d] = dirs[d] || []; dirs[d].push(f[r.key]); }); });
+    const topDirs = Object.entries(dirs).map(([n, arr]) => ({n, avg: mean(arr), count: arr.length}))
+      .filter(d => d.count >= 1).sort((a,b) => b.avg - a.avg).slice(0, 5);
+    // Favorite genres
+    const gen = {};
+    rated.forEach(f => { splitList(f.genre).forEach(g => { gen[g] = gen[g] || []; gen[g].push(f[r.key]); }); });
+    const topGen = Object.entries(gen).map(([n, arr]) => ({n, avg: mean(arr), count: arr.length}))
+      .filter(d => d.count >= 2).sort((a,b) => b.avg - a.avg).slice(0, 5);
+
+    return `<div class="stats-card">
+      <h3 style="color:${r.color}">${r.label}</h3>
+      <div class="kpi-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:10px">
+        <div class="kpi"><div class="kpi-value" style="color:${r.color}">${rated.length}</div><div class="kpi-label">Films notés</div></div>
+        <div class="kpi"><div class="kpi-value" style="color:${r.color}">${avg.toFixed(2)}</div><div class="kpi-label">Moyenne</div></div>
+        <div class="kpi"><div class="kpi-value">${sd.toFixed(2)}</div><div class="kpi-label">Écart-type</div></div>
+        <div class="kpi"><div class="kpi-value">${Math.max(...notes).toFixed(1)} / ${Math.min(...notes).toFixed(1)}</div><div class="kpi-label">Max / Min</div></div>
+      </div>
+      <strong style="font-size:.8rem;color:var(--txt2)">🎬 Réalisateurs préférés</strong>
+      <div class="stats-list">
+        ${topDirs.length ? topDirs.map(d => `<div class="stats-list-row"><span class="stats-list-label">${esc(d.n)} <span style="color:var(--txt3)">(${d.count})</span></span><span class="stats-list-value">${d.avg.toFixed(2)}</span></div>`).join('') : '<div style="color:var(--txt3)">—</div>'}
+      </div>
+      <strong style="font-size:.8rem;color:var(--txt2);display:block;margin-top:10px">🎞 Genres préférés</strong>
+      <div class="stats-list">
+        ${topGen.length ? topGen.map(d => `<div class="stats-list-row"><span class="stats-list-label">${esc(d.n)} <span style="color:var(--txt3)">(${d.count})</span></span><span class="stats-list-value">${d.avg.toFixed(2)}</span></div>`).join('') : '<div style="color:var(--txt3)">—</div>'}
+      </div>
+    </div>`;
+  }).join('');
+  content.innerHTML = `<div class="stats-grid">${cards}</div>`;
+}
+
+/* ─── TAB 12: STATS DE NOTATION ───────────────────── */
+function buildStatsStats() {
+  const content = document.getElementById('statsContent');
+  const ratersData = RATERS.map(r => {
+    const notes = films.map(f => f[r.key]).filter(v => v != null);
+    return {
+      r,
+      n: notes.length,
+      avg: notes.length ? mean(notes) : null,
+      sd: stdDev(notes),
+      min: notes.length ? Math.min(...notes) : null,
+      max: notes.length ? Math.max(...notes) : null,
+      range: notes.length ? Math.max(...notes) - Math.min(...notes) : null,
+    };
+  });
+
+  // Variance by criterion (per rater)
+  const critStats = CRITERIA.filter(c => !c.isPos).map(c => {
+    return {
+      label: c.label,
+      byRater: RATERS.map(r => {
+        const vals = films.map(f => f[r.prefix + c.key]).filter(v => v != null);
+        return vals.length ? { avg: mean(vals), sd: stdDev(vals), n: vals.length } : null;
+      })
+    };
+  });
+
+  content.innerHTML = `
+    <div class="stats-card wide">
+      <h3>📏 Style de notation des évaluateurs</h3>
+      <div class="stats-list">
+        <div class="stats-list-row" style="font-weight:700;color:var(--txt2);font-size:.75rem">
+          <span class="stats-list-label">Évaluateur</span>
+          <span class="stats-list-value">N · Moy · Écart-type · Min-Max · Étendue</span>
+        </div>
+        ${ratersData.map(d => d.n ? `<div class="stats-list-row">
+          <span class="stats-list-label" style="color:${d.r.color};font-weight:700">${d.r.label}</span>
+          <span class="stats-list-value">${d.n} · ${d.avg.toFixed(2)} · ±${d.sd.toFixed(2)} · ${d.min.toFixed(1)}–${d.max.toFixed(1)} · ${d.range.toFixed(2)}</span>
+        </div>` : `<div class="stats-list-row"><span style="color:${d.r.color}">${d.r.label}</span><span style="color:var(--txt3)">Aucune note</span></div>`).join('')}
+      </div>
+      <p style="color:var(--txt3);font-size:.78rem;margin-top:10px">💡 Écart-type élevé = notes étalées · faible = notes concentrées</p>
+    </div>
+
+    <div class="stats-card wide" style="margin-top:14px">
+      <h3>🎯 Variance par critère</h3>
+      <p style="color:var(--txt2);font-size:.85rem">Moyenne ± écart-type pour chaque critère et évaluateur.</p>
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.8rem;margin-top:8px">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border)">
+            <th style="text-align:left;padding:6px;color:var(--txt2)">Critère</th>
+            ${RATERS.map(r => `<th style="padding:6px;color:${r.color};white-space:nowrap">${r.label}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${critStats.map(c => `<tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:6px;color:#fff">${c.label}</td>
+            ${c.byRater.map(b => b ? `<td style="padding:6px;text-align:center">${b.avg.toFixed(1)} <span style="color:var(--txt3);font-size:.75rem">±${b.sd.toFixed(1)}</span></td>` : `<td style="padding:6px;text-align:center;color:var(--txt3)">—</td>`).join('')}
+          </tr>`).join('')}
+        </tbody>
+      </table></div>
+    </div>
+  `;
+}
+
 function openSettings() {
   const apiKey = localStorage.getItem('cf_tmdbKey') || '';
   const lang = localStorage.getItem('cf_tmdbLang') || 'fr-FR';
