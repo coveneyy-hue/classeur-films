@@ -229,8 +229,7 @@ tr:hover .del-btn { opacity: .7; }
   border: 1px solid var(--border); background: var(--bg); color: #fff;
   font-family: var(--font-body); font-size: 1rem; outline: none;
   transition: border .2s;
-}
-.modal input:focus, .modal textarea:focus, .modal input[type=date]:focus { border-color: var(--gold); }
+}.modal input:focus, .modal textarea:focus, .modal input[type=date]:focus { border-color: var(--gold); }
 input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.7); cursor: pointer; }
 .modal textarea { resize: vertical; min-height: 60px; }
 .progress-bar { height: 4px; background: var(--bg4); border-radius: 4px; overflow: hidden; margin-bottom: 16px; }
@@ -334,7 +333,41 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.7); cursor
 .cell-julie:hover { background: rgba(160,110,234,.1); animation: pulseGlow 1.5s infinite; }
 .cell-julie .hint { font-size: .7rem; font-weight: 400; color: var(--txt3); font-style: italic; font-family: var(--font-body); }
 
-/* ─── TIERS CELL ──────────────────────────────────── */
+/* ─── TMDB SEARCH ──────────────────────────────────── */
+.tmdb-results {
+  margin-top: 10px; max-height: 340px; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+.tmdb-result {
+  display: flex; gap: 12px; padding: 10px 12px;
+  border-bottom: 1px solid var(--border); cursor: pointer;
+  transition: background .15s;
+}
+.tmdb-result:last-child { border-bottom: none; }
+.tmdb-result:hover { background: var(--bg3); }
+.tmdb-result.selected { background: rgba(232,166,48,.1); border-left: 3px solid var(--gold); }
+.tmdb-poster {
+  width: 48px; height: 72px; flex-shrink: 0; border-radius: 4px;
+  background: var(--bg4); background-size: cover; background-position: center;
+}
+.tmdb-result-info { flex: 1; min-width: 0; }
+.tmdb-result-title { font-weight: 700; color: #fff; font-size: .95rem; line-height: 1.25; }
+.tmdb-result-meta { font-size: .78rem; color: var(--txt2); margin-top: 3px; line-height: 1.35; }
+.tmdb-status {
+  padding: 10px 12px; font-size: .85rem; color: var(--txt2);
+  text-align: center; font-style: italic;
+}
+.tmdb-status.error { color: var(--red); font-style: normal; }
+.tmdb-fields {
+  margin-top: 12px; padding: 14px; border-radius: var(--radius-sm);
+  background: var(--bg); border: 1px solid var(--gold-dim);
+  animation: slideUp .25s ease-out;
+}
+.tmdb-fields label { margin-top: 8px; }
+.tmdb-fields label:first-child { margin-top: 0; }
+
+
 .cell-tiers {
   text-align: center; font-weight: 800; font-family: var(--font-display);
   font-size: 1.05rem; cursor: pointer; position: relative;
@@ -667,9 +700,11 @@ function ensureFilmKeys(f) {
   ensureCriteriaKeys(f);
   if (!('dateVu' in f)) f.dateVu = null;
   if (!('tiers' in f)) f.tiers = null;
+  if (!('tmdbId' in f)) f.tmdbId = null;
+  if (!('posterPath' in f)) f.posterPath = null;
+  if (!('runtime' in f)) f.runtime = null;
+  if (!('tmdbVote' in f)) f.tmdbVote = null;
   f.dateVu = normalizeDateVu(f.dateVu);
-  // One-shot cleanup: dateVu incorrectly set to 2026/04/16
-  if (f.dateVu === '2026/04/16') f.dateVu = null;
 }
 const COLS = [
   { key:'titre',       label:'Titre',           align:'left',   w:90, edit:true  },
@@ -797,13 +832,8 @@ function loadState() {
     const d = localStorage.getItem('cf_films');
     films = d ? JSON.parse(d) : JSON.parse(JSON.stringify(DEFAULT_FILMS));
     films.forEach(f => ensureFilmKeys(f));
-    saveFilms(); // persist one-shot cleanups
   } catch(e) { films = JSON.parse(JSON.stringify(DEFAULT_FILMS)); films.forEach(f => ensureFilmKeys(f)); }
   try { log = JSON.parse(localStorage.getItem('cf_log') || '[]'); } catch(e) { log = []; }
-  // One-shot cleanup: remove log entries about dateVu 2026/04/16
-  const logBefore = log.length;
-  log = log.filter(e => !(e.msg && e.msg.includes('Date vu') && e.msg.includes('2026/04/16')));
-  if (log.length < logBefore) saveLog();
   showHidden = localStorage.getItem('cf_showHidden') === '1';
   titleExpanded = localStorage.getItem('cf_titleExpanded') === '1';
   const savedTRW = parseInt(localStorage.getItem('cf_titreReducedWidth'));
@@ -1355,22 +1385,61 @@ function finishEdit(idx, key, input) {
 }
 
 /* ═══════════════════════════════════════════════════
+   TMDB HELPERS
+   ═══════════════════════════════════════════════════ */
+const TMDB_BASE = 'https://api.themoviedb.org/3';
+const TMDB_IMG = 'https://image.tmdb.org/t/p/w92';
+let tmdbSearchTimer = null;
+let tmdbSelected = null;
+
+function tmdbKey() { return localStorage.getItem('cf_tmdbKey') || ''; }
+function tmdbLang() { return localStorage.getItem('cf_tmdbLang') || 'fr-FR'; }
+function hasTmdbKey() { return !!tmdbKey(); }
+
+async function tmdbSearch(query) {
+  if (!query || !hasTmdbKey()) return [];
+  const url = `${TMDB_BASE}/search/movie?api_key=${encodeURIComponent(tmdbKey())}&language=${tmdbLang()}&query=${encodeURIComponent(query)}&include_adult=false`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('TMDb recherche : ' + r.status);
+  const data = await r.json();
+  return data.results || [];
+}
+
+async function tmdbDetails(id) {
+  const url = `${TMDB_BASE}/movie/${id}?api_key=${encodeURIComponent(tmdbKey())}&language=${tmdbLang()}&append_to_response=credits`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('TMDb détails : ' + r.status);
+  return r.json();
+}
+
+/* ═══════════════════════════════════════════════════
    ADD / DELETE FILM
    ═══════════════════════════════════════════════════ */
 function openAddModal() {
+  tmdbSelected = null;
+  const hasKey = hasTmdbKey();
   const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()">
-    <div class="modal">
+    <div class="modal" style="max-width:560px">
       <h2>Ajouter un film</h2>
-      <p class="desc">Remplissez les informations de base. Vous pourrez compléter les détails ensuite.</p>
-      <label>Titre *</label><input type="text" id="addTitre" placeholder="Ex: Blade Runner 2049"><br><br>
-      <label>Genre</label><input type="text" id="addGenre" placeholder="Ex: Science-fiction, Drame"><br><br>
-      <label>Réalisateur</label><input type="text" id="addReal" placeholder="Ex: Denis Villeneuve"><br><br>
-      <label>Acteurs principaux</label><input type="text" id="addActeurs" placeholder="Séparés par des ;"><br><br>
-      <label>Année</label><input type="number" id="addAnnee" placeholder="Ex: 2017"><br><br>
-      <div style="display:flex;gap:10px">
-        <div style="flex:1"><label>Budget (M$)</label><input type="number" id="addBudget" step="0.1"></div>
-        <div style="flex:1"><label>Box Office (M$)</label><input type="number" id="addBO" step="0.1"></div>
-      </div><br>
+      ${hasKey
+        ? `<p class="desc">Cherchez sur TMDb ou saisissez manuellement.</p>`
+        : `<p class="desc" style="color:var(--gold)">💡 Ajoutez une clé API TMDb dans les Paramètres ⚙ pour une recherche automatique.</p>`}
+      ${hasKey ? `
+      <label>Recherche TMDb</label>
+      <input type="text" id="tmdbSearch" placeholder="Tapez un titre de film..." oninput="onTmdbSearchInput(this.value)" autocomplete="off">
+      <div id="tmdbResults" class="tmdb-results" style="display:none"></div>
+      ` : ''}
+      <div id="addManualFields" style="margin-top:14px">
+        <label>Titre *</label><input type="text" id="addTitre" placeholder="Ex: Blade Runner 2049">
+        <label style="margin-top:10px">Genre</label><input type="text" id="addGenre" placeholder="Ex: Science-fiction, Drame">
+        <label style="margin-top:10px">Réalisateur</label><input type="text" id="addReal" placeholder="Ex: Denis Villeneuve">
+        <label style="margin-top:10px">Acteurs principaux</label><input type="text" id="addActeurs" placeholder="Séparés par des ;">
+        <label style="margin-top:10px">Année</label><input type="number" id="addAnnee" placeholder="Ex: 2017">
+        <div style="display:flex;gap:10px;margin-top:10px">
+          <div style="flex:1"><label>Budget (M$)</label><input type="number" id="addBudget" step="0.1"></div>
+          <div style="flex:1"><label>Box Office (M$)</label><input type="number" id="addBO" step="0.1"></div>
+        </div>
+      </div>
       <div class="modal-row">
         <button class="btn" onclick="closeOverlay()">Annuler</button>
         <button class="btn gold" onclick="doAddFilm()">Ajouter le film</button>
@@ -1378,11 +1447,85 @@ function openAddModal() {
     </div>
   </div>`;
   document.getElementById('overlay').innerHTML = html;
-  setTimeout(() => document.getElementById('addTitre').focus(), 100);
+  setTimeout(() => {
+    const el = document.getElementById(hasKey ? 'tmdbSearch' : 'addTitre');
+    if (el) el.focus();
+  }, 100);
 }
+
+function onTmdbSearchInput(q) {
+  clearTimeout(tmdbSearchTimer);
+  const box = document.getElementById('tmdbResults');
+  if (!q || q.trim().length < 2) {
+    box.style.display = 'none';
+    box.innerHTML = '';
+    return;
+  }
+  box.style.display = 'block';
+  box.innerHTML = '<div class="tmdb-status">🔎 Recherche…</div>';
+  tmdbSearchTimer = setTimeout(async () => {
+    try {
+      const results = await tmdbSearch(q.trim());
+      if (!results.length) {
+        box.innerHTML = '<div class="tmdb-status">Aucun résultat. Saisissez manuellement ci-dessous.</div>';
+        return;
+      }
+      box.innerHTML = results.slice(0, 10).map(r => {
+        const poster = r.poster_path ? `background-image:url('${TMDB_IMG}${r.poster_path}')` : '';
+        const year = r.release_date ? r.release_date.slice(0,4) : '—';
+        const title = esc(r.title || r.original_title || '');
+        const orig = r.original_title && r.original_title !== r.title ? ` <span style="color:var(--txt3)">(${esc(r.original_title)})</span>` : '';
+        const overview = r.overview ? esc(r.overview.slice(0, 90)) + (r.overview.length > 90 ? '…' : '') : '';
+        return `<div class="tmdb-result" onclick="selectTmdbResult(${r.id}, this)">
+          <div class="tmdb-poster" style="${poster}"></div>
+          <div class="tmdb-result-info">
+            <div class="tmdb-result-title">${title}${orig}</div>
+            <div class="tmdb-result-meta">${year} · ⭐ ${r.vote_average ? r.vote_average.toFixed(1) : '—'}</div>
+            ${overview ? `<div class="tmdb-result-meta">${overview}</div>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+    } catch (err) {
+      box.innerHTML = `<div class="tmdb-status error">Erreur : ${esc(err.message)}</div>`;
+    }
+  }, 350);
+}
+
+async function selectTmdbResult(id, element) {
+  const box = document.getElementById('tmdbResults');
+  box.querySelectorAll('.tmdb-result').forEach(el => el.classList.remove('selected'));
+  element.classList.add('selected');
+  box.innerHTML = '<div class="tmdb-status">⏳ Chargement des détails…</div>' + box.innerHTML;
+  try {
+    const d = await tmdbDetails(id);
+    tmdbSelected = d;
+    // Populate manual fields
+    document.getElementById('addTitre').value = d.title || d.original_title || '';
+    document.getElementById('addGenre').value = (d.genres || []).map(g => g.name).join(', ');
+    const directors = (d.credits?.crew || []).filter(c => c.job === 'Director').map(c => c.name);
+    document.getElementById('addReal').value = directors.join(', ');
+    const actors = (d.credits?.cast || []).slice(0, 3).map(c => c.name);
+    document.getElementById('addActeurs').value = actors.join('; ');
+    document.getElementById('addAnnee').value = d.release_date ? d.release_date.slice(0,4) : '';
+    document.getElementById('addBudget').value = d.budget ? (d.budget / 1_000_000).toFixed(1) : '';
+    document.getElementById('addBO').value = d.revenue ? (d.revenue / 1_000_000).toFixed(1) : '';
+    // Replace status with confirmation
+    box.innerHTML = `<div class="tmdb-status" style="color:var(--green)">✓ Champs pré-remplis depuis TMDb — vérifiez et ajoutez.</div>`;
+    toast(`Données TMDb chargées : ${d.title}`, 'success');
+  } catch (err) {
+    box.querySelector('.tmdb-status')?.remove();
+    toast('Erreur TMDb : ' + err.message, 'error');
+  }
+}
+
 function doAddFilm() {
   const t = document.getElementById('addTitre').value.trim();
   if (!t) { toast('Le titre est requis','error'); return; }
+  // Check for duplicate by tmdbId
+  if (tmdbSelected && films.some(f => f.tmdbId === tmdbSelected.id)) {
+    toast(`${t} existe déjà dans votre classeur`, 'warn');
+    return;
+  }
   const f = {
     titre: t,
     genre: document.getElementById('addGenre').value.trim() || null,
@@ -1391,14 +1534,20 @@ function doAddFilm() {
     annee: parseFloat(document.getElementById('addAnnee').value) || null,
     budget: parseFloat(document.getElementById('addBudget').value) || null,
     boxOffice: parseFloat(document.getElementById('addBO').value) || null,
-    imdb: null, notePerso: null, dateVu: null, tiers: null, victor: null, lilyRose: null, julie: null
+    imdb: null, notePerso: null, dateVu: null, tiers: null, victor: null, lilyRose: null, julie: null,
+    tmdbId: tmdbSelected?.id ?? null,
+    posterPath: tmdbSelected?.poster_path ?? null,
+    runtime: tmdbSelected?.runtime ?? null,
+    tmdbVote: tmdbSelected?.vote_average ?? null
   };
   RATERS.forEach(r => { f[r.key] = null; });
   ensureCriteriaKeys(f);
   films.push(f);
   saveFilms();
-  addLog('add', `Film ajouté : <strong>${t}</strong>`);
+  const source = tmdbSelected ? ' (via TMDb)' : '';
+  addLog('add', `Film ajouté${source} : <strong>${t}</strong>`);
   toast(`${t} ajouté avec succès`, 'success');
+  tmdbSelected = null;
   closeOverlay();
   render();
 }
@@ -1537,13 +1686,24 @@ function deleteRating() {
    SETTINGS
    ═══════════════════════════════════════════════════ */
 function openSettings() {
+  const apiKey = localStorage.getItem('cf_tmdbKey') || '';
+  const lang = localStorage.getItem('cf_tmdbLang') || 'fr-FR';
   const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()">
-    <div class="modal" style="max-width:400px">
+    <div class="modal" style="max-width:460px">
       <h2>⚙ Paramètres</h2>
       <p class="desc">Ajustez les préférences d'affichage du classeur.</p>
       <label>Largeur réduite de la colonne Titre (px)</label>
       <input type="number" id="settingsTitreWidth" min="50" max="600" step="10" value="${titreReducedWidth}" placeholder="90">
-      <p style="font-size:.78rem;color:var(--txt3);margin-top:6px">Valeur par défaut : 90 px · Min 50 · Max 600</p>
+      <p style="font-size:.78rem;color:var(--txt3);margin-top:6px;margin-bottom:14px">Valeur par défaut : 90 px · Min 50 · Max 600</p>
+      <label>Clé API TMDb (v3)</label>
+      <input type="text" id="settingsTmdbKey" value="${esc(apiKey)}" placeholder="Votre clé API TMDb">
+      <p style="font-size:.78rem;color:var(--txt3);margin-top:6px;margin-bottom:14px">Gratuite sur <span style="color:var(--gold)">themoviedb.org</span> · Utilisée pour chercher films et affiches</p>
+      <label>Langue TMDb</label>
+      <select id="settingsTmdbLang">
+        <option value="fr-FR" ${lang==='fr-FR'?'selected':''}>Français (fr-FR)</option>
+        <option value="en-US" ${lang==='en-US'?'selected':''}>Anglais (en-US)</option>
+        <option value="fr-CA" ${lang==='fr-CA'?'selected':''}>Français Canada (fr-CA)</option>
+      </select>
       <div class="modal-row">
         <button class="btn" onclick="closeOverlay()">Annuler</button>
         <button class="btn gold" onclick="saveSettings()">Enregistrer</button>
@@ -1561,10 +1721,14 @@ function saveSettings() {
   }
   titreReducedWidth = raw;
   localStorage.setItem('cf_titreReducedWidth', String(titreReducedWidth));
+  const tmdbKey = document.getElementById('settingsTmdbKey').value.trim();
+  const tmdbLang = document.getElementById('settingsTmdbLang').value;
+  localStorage.setItem('cf_tmdbKey', tmdbKey);
+  localStorage.setItem('cf_tmdbLang', tmdbLang);
   applyLayoutVars();
   closeOverlay();
   render();
-  toast(`Largeur réduite du titre : ${titreReducedWidth}px`, 'success');
+  toast('Paramètres enregistrés', 'success');
 }
 
 /* ═══════════════════════════════════════════════════
