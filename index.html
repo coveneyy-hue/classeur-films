@@ -496,8 +496,7 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.7); cursor
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
 }
 
-/* ─── BREAKDOWN MODAL POSTER ──────────────────────── */
-.breakdown-header {
+/* ─── BREAKDOWN MODAL POSTER ──────────────────────── */.breakdown-header {
   display: flex; gap: 16px; margin-bottom: 16px;
   padding-bottom: 16px; border-bottom: 1px solid var(--border);
 }
@@ -534,6 +533,43 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.7); cursor
 @media (max-width: 500px) {
   .breakdown-header { flex-direction: column; align-items: center; text-align: center; }
   .breakdown-header-poster { width: 140px; height: 210px; }
+}
+
+/* ─── NOTES SUMMARY GRID (in details modal) ───────── */
+.note-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 16px 0 6px;
+}
+.note-summary-item {
+  padding: 10px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--gold);
+  border-radius: 6px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform .15s, box-shadow .15s, background .15s;
+}
+.note-summary-item:hover {
+  transform: translateY(-2px);
+  background: var(--bg3);
+}
+.note-summary-label {
+  font-size: .7rem;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.note-summary-value {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+@media (max-width: 500px) {
+  .note-summary-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
 
@@ -1365,114 +1401,133 @@ function getRaterByKey(raterKey) {
   return RATERS.find(r => r.key === raterKey) || RATERS[0];
 }
 
-function getPreferredBreakdownRater(idx) {
+function openTitleBreakdown(idx) {
   const f = films[idx];
-  return RATERS.find(r => f[r.key] != null || CRITERIA.some(c => f[r.prefix + c.key] != null)) || RATERS[0];
-}
-
-function openTitleBreakdown(idx, selectedRaterKey) {
-  const rater = getRaterByKey(selectedRaterKey || getPreferredBreakdownRater(idx).key);
-  const f = films[idx];
-  const note = f[rater.key];
-  const rows = CRITERIA.map(c => {
-    const value = f[rater.prefix + c.key];
-    return `<div class="breakdown-row">
-      <div class="breakdown-meta">
-        <div class="breakdown-label">${c.label}</div>
-        <div class="breakdown-desc">${c.desc}</div>
-      </div>
-      <div class="breakdown-value-wrap">
-        <input
-          type="text"
-          inputmode="decimal"
-          id="breakdown_${c.key}"
-          data-min="${c.min}"
-          data-max="${c.max}"
-          value="${value != null ? value : ''}"
-          placeholder="${c.min} à ${c.max}"
-          oninput="updateTitleBreakdownPreview()"
-          class="breakdown-input"
-        >
-        <div class="breakdown-suffix" style="color:${rater.color}">${c.suffix}</div>
-      </div>
-    </div>`;
-  }).join('');
-  const options = RATERS.map(r => `<option value="${r.key}" ${r.key === rater.key ? 'selected' : ''}>${r.label}</option>`).join('');
-  const hasAnyData = note != null || CRITERIA.some(c => f[rater.prefix + c.key] != null);
   const pUrl = posterUrl(f, 'large');
   const hasKey = hasTmdbKey();
   const posterHtml = pUrl
     ? `<div class="breakdown-header-poster" style="background-image:url('${pUrl}')" onclick="openTmdbAssociate(${idx})"><div class="hover-label">Remplacer l'affiche</div></div>`
     : `<div class="breakdown-header-poster empty" onclick="openTmdbAssociate(${idx})" title="${hasKey ? 'Associer à TMDb' : 'Configurez votre clé API TMDb dans les Paramètres'}">🎬<div style="font-size:.7rem;color:var(--gold)">Associer TMDb</div></div>`;
   const info = [f.genre, f.annee ? Math.round(f.annee) : null, f.realisateur].filter(Boolean).join(' · ');
-  const runtime = f.runtime ? `${f.runtime} min` : null;
+  const runtimeStr = f.runtime ? `${f.runtime} min` : null;
   const tmdbVote = f.tmdbVote ? `⭐ TMDb ${f.tmdbVote.toFixed(1)}` : null;
-  const extras = [runtime, tmdbVote].filter(Boolean).join(' · ');
+  const extras = [runtimeStr, tmdbVote].filter(Boolean).join(' · ');
   const tmdbLink = f.tmdbId ? `<a href="https://www.themoviedb.org/movie/${f.tmdbId}" target="_blank" class="breakdown-tmdb-link">Voir sur TMDb ↗</a>` : '';
+  // Notes summary for all raters (quick glance)
+  const notesHtml = RATERS.map(r => {
+    const n = f[r.key];
+    const val = n != null ? n.toFixed(2) : '—';
+    return `<div class="note-summary-item" onclick="closeOverlay();openRatingBreakdown(${idx},'${r.key}')" style="border-left-color:${r.color}">
+      <div class="note-summary-label" style="color:${r.color}">${r.label}</div>
+      <div class="note-summary-value" style="color:${r.color}">${val}</div>
+    </div>`;
+  }).join('');
   const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()">
-    <div class="modal breakdown-modal" style="max-width:760px">
+    <div class="modal breakdown-modal" style="max-width:720px">
       <div class="breakdown-modal-body">
         <div class="breakdown-header">
           ${posterHtml}
           <div class="breakdown-header-info">
-            <h2 style="margin-bottom:4px">Modifier le film</h2>
-            <p class="desc" style="margin-bottom:10px">Modifiez le titre, l'affiche et la ventilation des notes.</p>
+            <h2 style="margin-bottom:4px">Détails du film</h2>
+            <p class="desc" style="margin-bottom:10px">Modifiez les informations du film.</p>
             ${info ? `<div class="breakdown-header-meta">${esc(info)}</div>` : ''}
             ${extras ? `<div class="breakdown-header-meta" style="color:var(--txt3)">${extras}</div>` : ''}
             ${tmdbLink}
           </div>
         </div>
-        <label>Titre</label>
-        <input type="text" id="breakdownTitle" value="${esc(f.titre || '')}" placeholder="Titre du film">
-        <div style="margin-top:12px">
-          <label>Date vu</label>
-          <input type="date" id="breakdownDateVu" value="${dateVuToIso(f.dateVu)}">
-        </div>
-        <div class="breakdown-top">
-          <div>
-            <label>Afficher la ventilation pour</label>
-            <select id="breakdownRater" onchange="openTitleBreakdown(${idx}, this.value)">
-              ${options}
-            </select>
+        <div class="note-summary-grid">${notesHtml}</div>
+        <p class="desc" style="margin-top:4px;margin-bottom:14px;font-size:.78rem">💡 Cliquez sur une note ci-dessus pour modifier la ventilation.</p>
+
+        <label>Titre *</label>
+        <input type="text" id="detailsTitre" value="${esc(f.titre || '')}" placeholder="Titre du film">
+
+        <div style="display:flex;gap:10px;margin-top:10px">
+          <div style="flex:2">
+            <label>Genre</label>
+            <input type="text" id="detailsGenre" value="${esc(f.genre || '')}" placeholder="Ex: Science-fiction, Drame">
           </div>
-          <div class="breakdown-note-card">
-            <div class="breakdown-note-label">Note globale</div>
-            <div id="breakdownNotePreview" class="breakdown-note-value" style="color:${rater.color}">${note != null ? note.toFixed(2) + '/10' : 'n/a'}</div>
+          <div style="flex:1">
+            <label>Année</label>
+            <input type="number" id="detailsAnnee" value="${f.annee != null ? Math.round(f.annee) : ''}" placeholder="Ex: 2017">
           </div>
         </div>
-        <div class="breakdown-list">
-          <div class="breakdown-head">
-            <div>Critère</div>
-            <div style="color:${rater.color}">Valeur</div>
+
+        <label style="margin-top:10px">Réalisateur</label>
+        <input type="text" id="detailsReal" value="${esc(f.realisateur || '')}" placeholder="Ex: Denis Villeneuve">
+
+        <label style="margin-top:10px">Acteurs principaux</label>
+        <input type="text" id="detailsActeurs" value="${esc(f.acteurs || '')}" placeholder="Séparés par des ;">
+
+        <div style="display:flex;gap:10px;margin-top:10px">
+          <div style="flex:1">
+            <label>Budget (M$)</label>
+            <input type="number" id="detailsBudget" step="0.1" value="${f.budget != null ? f.budget : ''}">
           </div>
-          ${rows}
+          <div style="flex:1">
+            <label>Box Office (M$)</label>
+            <input type="number" id="detailsBO" step="0.1" value="${f.boxOffice != null ? f.boxOffice : ''}">
+          </div>
+          <div style="flex:1">
+            <label>Durée (min)</label>
+            <input type="number" id="detailsRuntime" step="1" value="${f.runtime != null ? f.runtime : ''}">
+          </div>
         </div>
-        ${hasAnyData ? '' : '<p class="desc" style="margin-top:14px;margin-bottom:20px">Aucune ventilation enregistrée pour cette personne.</p>'}
+
+        <label style="margin-top:10px">Date vu</label>
+        <input type="date" id="detailsDateVu" value="${dateVuToIso(f.dateVu)}">
+
         <div style="height:20px"></div>
       </div>
       <div class="breakdown-modal-footer">
         <div class="modal-row">
           <button class="btn" onclick="closeOverlay()">Annuler</button>
-          <button class="btn gold" onclick="saveTitleBreakdown(${idx})">Enregistrer</button>
+          <button class="btn gold" onclick="saveFilmDetails(${idx})">Enregistrer</button>
         </div>
       </div>
     </div>
   </div>`;
   document.getElementById('overlay').innerHTML = html;
-  requestAnimationFrame(() => {
-    updateTitleBreakdownPreview();
-  });
 }
 
-function getTitleBreakdownDraft() {
-  const rater = getRaterByKey(document.getElementById('breakdownRater')?.value || RATERS[0].key);
-  const draft = {};
-  CRITERIA.forEach(c => {
-    const raw = document.getElementById('breakdown_' + c.key)?.value ?? '';
-    const trimmed = String(raw).trim();
-    draft[c.key] = trimmed === '' ? null : parseFloat(trimmed);
+function saveFilmDetails(idx) {
+  const f = films[idx];
+  const oldTitle = f.titre;
+  const newTitle = (document.getElementById('detailsTitre').value || '').trim();
+  if (!newTitle) { toast('Le titre est requis', 'error'); return; }
+  const rawDateVu = (document.getElementById('detailsDateVu').value || '').trim();
+  if (rawDateVu !== '' && !isValidDateVu(rawDateVu)) {
+    toast('Format de date invalide. Utilisez AAAA/MM/JJ', 'error');
+    return;
+  }
+  const fields = [
+    { id: 'detailsTitre',   key: 'titre',       label: 'Titre',       type: 'text' },
+    { id: 'detailsGenre',   key: 'genre',       label: 'Genre',       type: 'text' },
+    { id: 'detailsAnnee',   key: 'annee',       label: 'Année',       type: 'num' },
+    { id: 'detailsReal',    key: 'realisateur', label: 'Réalisateur', type: 'text' },
+    { id: 'detailsActeurs', key: 'acteurs',     label: 'Acteurs',     type: 'text' },
+    { id: 'detailsBudget',  key: 'budget',      label: 'Budget',      type: 'num' },
+    { id: 'detailsBO',      key: 'boxOffice',   label: 'Box Office',  type: 'num' },
+    { id: 'detailsRuntime', key: 'runtime',     label: 'Durée',       type: 'num' },
+  ];
+  const changes = [];
+  fields.forEach(fd => {
+    const raw = document.getElementById(fd.id).value.trim();
+    let newVal = raw === '' ? null : (fd.type === 'num' ? parseFloat(raw) : raw);
+    if (fd.type === 'num' && newVal !== null && isNaN(newVal)) newVal = null;
+    const oldVal = f[fd.key];
+    if (oldVal !== newVal) {
+      changes.push(`${fd.label}: ${oldVal ?? '—'} → ${newVal ?? '—'}`);
+      f[fd.key] = newVal;
+    }
   });
-  return { rater, draft };
+  updateDateVu(idx, rawDateVu, '(détails)');
+  saveFilms();
+  if (changes.length) {
+    addLog('edit', `<strong>${newTitle}</strong> — ${changes.length} champ${changes.length>1?'s':''} modifié${changes.length>1?'s':''}`);
+  }
+  toast(`Détails enregistrés pour ${newTitle}`, 'success');
+  closeOverlay();
+  render();
 }
 
 function computeDraftNote(draft) {
@@ -1487,39 +1542,97 @@ function computeDraftNote(draft) {
   return Math.round((posNote * 0.33 + avg * 0.67) * 100) / 100;
 }
 
-function updateTitleBreakdownPreview() {
-  const noteEl = document.getElementById('breakdownNotePreview');
+/* ═══════════════════════════════════════════════════
+   RATING BREAKDOWN (per rater — opened from rater column)
+   ═══════════════════════════════════════════════════ */
+function openRatingBreakdown(idx, raterKey) {
+  const rater = getRaterByKey(raterKey);
+  const f = films[idx];
+  const note = f[rater.key];
+  const hasAnyData = note != null || CRITERIA.some(c => f[rater.prefix + c.key] != null);
+  const rows = CRITERIA.map(c => {
+    const value = f[rater.prefix + c.key];
+    return `<div class="breakdown-row">
+      <div class="breakdown-meta">
+        <div class="breakdown-label">${c.label}</div>
+        <div class="breakdown-desc">${c.desc}</div>
+      </div>
+      <div class="breakdown-value-wrap">
+        <input
+          type="text"
+          inputmode="decimal"
+          id="rbreakdown_${c.key}"
+          data-min="${c.min}"
+          data-max="${c.max}"
+          value="${value != null ? value : ''}"
+          placeholder="${c.min} à ${c.max}"
+          oninput="updateRatingBreakdownPreview()"
+          class="breakdown-input"
+        >
+        <div class="breakdown-suffix" style="color:${rater.color}">${c.suffix}</div>
+      </div>
+    </div>`;
+  }).join('');
+  const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()">
+    <div class="modal breakdown-modal" style="max-width:760px">
+      <div class="breakdown-modal-body">
+        <div class="step-label" style="color:${rater.color};margin-bottom:8px">${rater.label} — ${esc(f.titre)}</div>
+        <div class="breakdown-top" style="grid-template-columns:1fr">
+          <div class="breakdown-note-card" style="text-align:center">
+            <div class="breakdown-note-label">Note globale ${rater.label}</div>
+            <div id="ratingBreakdownPreview" class="breakdown-note-value" style="color:${rater.color}">${note != null ? note.toFixed(2) + '/10' : 'n/a'}</div>
+          </div>
+        </div>
+        <div class="breakdown-list" style="margin-top:14px">
+          <div class="breakdown-head">
+            <div>Critère</div>
+            <div style="color:${rater.color}">Valeur</div>
+          </div>
+          ${rows}
+        </div>
+        ${hasAnyData ? '' : '<p class="desc" style="margin-top:14px">Aucune ventilation enregistrée pour cette personne.</p>'}
+        <div style="height:20px"></div>
+      </div>
+      <div class="breakdown-modal-footer">
+        <div class="modal-row">
+          <button class="btn" onclick="closeOverlay()">Annuler</button>
+          ${hasAnyData ? `<button class="btn red" onclick="confirmDeleteRaterNote(${idx},'${rater.key}')">Supprimer</button>` : ''}
+          <button class="btn gold" onclick="saveRatingBreakdown(${idx},'${rater.key}')">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('overlay').innerHTML = html;
+  requestAnimationFrame(() => updateRatingBreakdownPreview(raterKey));
+}
+
+function getRatingBreakdownDraft() {
+  const draft = {};
+  CRITERIA.forEach(c => {
+    const raw = document.getElementById('rbreakdown_' + c.key)?.value ?? '';
+    const trimmed = String(raw).trim();
+    draft[c.key] = trimmed === '' ? null : parseFloat(trimmed);
+  });
+  return draft;
+}
+
+function updateRatingBreakdownPreview() {
+  const noteEl = document.getElementById('ratingBreakdownPreview');
   if (!noteEl) return;
-  const { rater, draft } = getTitleBreakdownDraft();
+  const draft = getRatingBreakdownDraft();
   const invalid = CRITERIA.some(c => {
     const v = draft[c.key];
     return v != null && (isNaN(v) || v < c.min || v > c.max);
   });
-  noteEl.style.color = rater.color;
-  if (invalid) {
-    noteEl.textContent = 'Invalide';
-    return;
-  }
+  if (invalid) { noteEl.textContent = 'Invalide'; return; }
   const note = computeDraftNote(draft);
   noteEl.textContent = note != null ? note.toFixed(2) + '/10' : 'n/a';
 }
 
-function saveTitleBreakdown(idx) {
+function saveRatingBreakdown(idx, raterKey) {
+  const rater = getRaterByKey(raterKey);
   const f = films[idx];
-  const oldTitle = f.titre;
-  const titleInput = document.getElementById('breakdownTitle');
-  const dateVuInput = document.getElementById('breakdownDateVu');
-  const newTitle = (titleInput?.value || '').trim();
-  const rawDateVu = (dateVuInput?.value || '').trim();
-  if (!newTitle) {
-    toast('Le titre est requis', 'error');
-    return;
-  }
-  if (rawDateVu !== '' && !isValidDateVu(rawDateVu)) {
-    toast('Format de date invalide. Utilisez AAAA/MM/JJ', 'error');
-    return;
-  }
-  const { rater, draft } = getTitleBreakdownDraft();
+  const draft = getRatingBreakdownDraft();
   for (const c of CRITERIA) {
     const v = draft[c.key];
     if (v != null && (isNaN(v) || v < c.min || v > c.max)) {
@@ -1528,17 +1641,41 @@ function saveTitleBreakdown(idx) {
     }
   }
   const oldNote = f[rater.key];
-  f.titre = newTitle;
   CRITERIA.forEach(c => { f[rater.prefix + c.key] = draft[c.key]; });
   f[rater.key] = computeDraftNote(draft);
-  const dateUpdated = updateDateVu(idx, rawDateVu, '(modal)');
-  if (!dateUpdated) return;
   saveFilms();
-  if (newTitle !== oldTitle) {
-    addLog('edit', `<strong>${oldTitle}</strong> → <strong>${newTitle}</strong>`);
-  }
-  addLog('note', `<strong>${rater.label}</strong> - Ventilation modifiée pour <strong>${newTitle}</strong> : ${oldNote != null ? oldNote.toFixed(2) : 'n/a'} → ${f[rater.key] != null ? f[rater.key].toFixed(2) : 'n/a'}`);
-  toast(`Modifications enregistrées pour ${newTitle}`, 'success');
+  const newNote = f[rater.key];
+  addLog('note', `<strong>${rater.label}</strong> — Ventilation modifiée pour <strong>${f.titre}</strong> : ${oldNote != null ? oldNote.toFixed(2) : '—'} → ${newNote != null ? newNote.toFixed(2) : '—'}`);
+  toast(`${rater.label} → ${f.titre} : ${newNote != null ? newNote.toFixed(2) : '—'}`, 'success');
+  closeOverlay();
+  render();
+}
+
+function confirmDeleteRaterNote(idx, raterKey) {
+  const rater = getRaterByKey(raterKey);
+  const f = films[idx];
+  const html = `<div class="overlay" onclick="if(event.target===this)openRatingBreakdown(${idx},'${raterKey}');">
+    <div class="modal" style="max-width:380px">
+      <h2>Supprimer cette note ?</h2>
+      <p class="desc">La note <strong>${rater.label}</strong> et tous ses critères détaillés seront effacés pour <strong>${esc(f.titre)}</strong>.</p>
+      <div class="modal-row">
+        <button class="btn" onclick="openRatingBreakdown(${idx},'${raterKey}')">Annuler</button>
+        <button class="btn red" onclick="doDeleteRaterNote(${idx},'${raterKey}')">Supprimer</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('overlay').innerHTML = html;
+}
+
+function doDeleteRaterNote(idx, raterKey) {
+  const rater = getRaterByKey(raterKey);
+  const f = films[idx];
+  const oldNote = f[rater.key];
+  CRITERIA.forEach(c => { f[rater.prefix + c.key] = null; });
+  f[rater.key] = null;
+  saveFilms();
+  addLog('note', `<strong>${rater.label}</strong> — Note supprimée pour <strong>${f.titre}</strong> : ${oldNote != null ? oldNote.toFixed(2) : '—'}`);
+  toast(`Note supprimée : ${rater.label} · ${f.titre}`, 'warn');
   closeOverlay();
   render();
 }
@@ -2251,109 +2388,10 @@ function doDelete(idx) {
 function closeOverlay() { document.getElementById('overlay').innerHTML = ''; }
 
 /* ═══════════════════════════════════════════════════
-   RATING MODAL (multi-step, multi-rater)
+   RATING MODAL — now opens the new breakdown modal
    ═══════════════════════════════════════════════════ */
-let ratingState = null;
 function openRating(idx, raterKey) {
-  const rater = RATERS.find(r => r.key === raterKey);
-  ratingState = { idx, step: 0, scores: {}, rater };
-  CRITERIA.forEach(c => { ratingState.scores[c.key] = films[idx][rater.prefix + c.key]; });
-  showRatingStep();
-}
-function showRatingStep() {
-  const s = ratingState;
-  const c = CRITERIA[s.step];
-  const r = s.rater;
-  const val = s.scores[c.key];
-  const pct = ((s.step + 1) / CRITERIA.length * 100).toFixed(0);
-  const hasExistingRating = films[s.idx][r.key] != null || CRITERIA.some(cr => films[s.idx][r.prefix + cr.key] != null);
-  const html = `<div class="overlay" onclick="if(event.target===this){ratingState=null;closeOverlay();}">
-    <div class="modal">
-      <div class="step-label" style="color:${r.color}">Critère ${s.step+1} / ${CRITERIA.length} — ${r.label} — ${films[s.idx].titre}</div>
-      <div class="progress-bar"><div class="fill" style="width:${pct}%;background:${r.gradient}"></div></div>
-      <h3>${c.label}</h3>
-      <p class="desc">${c.desc}</p>
-      <div class="score-input-wrap">
-        <input type="number" id="ratingInput" step="0.01" min="${c.min}" max="${c.max}" value="${val!=null?val:''}"
-          placeholder="${c.min} – ${c.max}"
-          style="border-color:${val!=null?r.color:'var(--border)'}"
-          onfocus="this.style.borderColor='${r.color}'"
-          onblur="this.style.borderColor='var(--border)'"
-          onkeydown="if(event.key==='Enter')ratingNext();">
-        <span class="suffix">${c.suffix}</span>
-      </div>
-      <div class="modal-row wrap">
-        <button class="btn" onclick="ratingState=null;closeOverlay();">Annuler</button>
-        ${s.step > 0 ? '<button class="btn" onclick="ratingPrev()">← Précédent</button>' : ''}
-        <button class="btn" style="background:${r.gradient};color:#000;border:none;font-weight:700" onclick="ratingNext()">${s.step < CRITERIA.length-1 ? 'Suivant →' : 'Calculer la note ✓'}</button>
-        ${s.step === 0 && hasExistingRating ? '<button class="btn red btn-grow" onclick="confirmDeleteRating()">Supprimer</button>' : ''}
-      </div>
-    </div>
-  </div>`;
-  document.getElementById('overlay').innerHTML = html;
-  setTimeout(() => { const inp = document.getElementById('ratingInput'); inp.focus(); inp.select(); }, 100);
-}
-function ratingNext() {
-  const c = CRITERIA[ratingState.step];
-  const v = parseFloat(document.getElementById('ratingInput').value);
-  if (isNaN(v) || v < c.min || v > c.max) { toast(`Entrez une valeur entre ${c.min} et ${c.max}`, 'error'); return; }
-  ratingState.scores[c.key] = v;
-  if (ratingState.step < CRITERIA.length - 1) {
-    ratingState.step++;
-    showRatingStep();
-  } else {
-    const f = films[ratingState.idx];
-    const r = ratingState.rater;
-    const oldNote = f[r.key];
-    CRITERIA.forEach(cr => { f[r.prefix + cr.key] = ratingState.scores[cr.key]; });
-    f[r.key] = computeNote(f, r.prefix);
-    saveFilms();
-    const noteStr = f[r.key] != null ? f[r.key].toFixed(2) : '—';
-    addLog('note', `<strong>${r.label}</strong> — Note calculée pour <strong>${f.titre}</strong> : ${noteStr}/10 (ancien : ${oldNote!=null?oldNote.toFixed(2):'—'})`);
-    toast(`${r.label} → ${f.titre} : ${noteStr}`, 'success');
-    ratingState = null;
-    closeOverlay();
-    render();
-  }
-}
-function ratingPrev() {
-  const c = CRITERIA[ratingState.step];
-  const v = document.getElementById('ratingInput').value;
-  if (v !== '') ratingState.scores[c.key] = parseFloat(v);
-  ratingState.step--;
-  showRatingStep();
-}
-
-function confirmDeleteRating() {
-  const s = ratingState;
-  const f = films[s.idx];
-  const r = s.rater;
-  const html = `<div class="overlay" onclick="if(event.target===this)showRatingStep();">
-    <div class="modal" style="max-width:380px">
-      <h2>Supprimer cette note ?</h2>
-      <p class="desc">La note <strong>${r.label}</strong> et tous ses critères détaillés seront effacés pour <strong>${esc(f.titre)}</strong>.</p>
-      <div class="modal-row">
-        <button class="btn" onclick="showRatingStep()">Annuler</button>
-        <button class="btn red" onclick="deleteRating()">Supprimer</button>
-      </div>
-    </div>
-  </div>`;
-  document.getElementById('overlay').innerHTML = html;
-}
-
-function deleteRating() {
-  const s = ratingState;
-  const f = films[s.idx];
-  const r = s.rater;
-  const oldNote = f[r.key];
-  CRITERIA.forEach(cr => { f[r.prefix + cr.key] = null; });
-  f[r.key] = null;
-  saveFilms();
-  addLog('note', `<strong>${r.label}</strong> — Note supprimée pour <strong>${f.titre}</strong> : ${oldNote!=null?oldNote.toFixed(2):'—'}`);
-  toast(`Note supprimée : ${r.label} · ${f.titre}`, 'warn');
-  ratingState = null;
-  closeOverlay();
-  render();
+  openRatingBreakdown(idx, raterKey);
 }
 
 /* ═══════════════════════════════════════════════════
