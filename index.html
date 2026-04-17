@@ -472,6 +472,107 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.7); cursor
 .ambig-info-meta { color: var(--txt2); font-size: .72rem; }
 .ambig-btns { display: flex; flex-direction: column; gap: 4px; }
 .ambig-btns .btn { padding: 4px 8px; font-size: .72rem; min-width: 60px; }
+
+/* ─── TAGS ────────────────────────────────────────── */
+.tag-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 12px;
+  font-size: .72rem; font-weight: 600;
+  background: var(--bg3); border: 1px solid var(--tag-color, var(--gold-dim));
+  color: var(--tag-color, var(--txt));
+  margin: 2px 3px 2px 0; white-space: nowrap;
+  cursor: pointer; transition: transform .1s, box-shadow .15s;
+  max-width: 180px; overflow: hidden; text-overflow: ellipsis;
+}
+.tag-chip:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+.tag-chip.active {
+  background: var(--tag-color, var(--gold));
+  color: #000; font-weight: 700;
+}
+.tag-chip .emoji { font-size: .85rem; line-height: 1; }
+.tag-chip .remove {
+  margin-left: 2px; font-size: .7rem; opacity: .6; cursor: pointer;
+  display: inline-block;
+}
+.tag-chip .remove:hover { opacity: 1; color: var(--red); }
+.tag-chip.large {
+  padding: 6px 12px; font-size: .82rem;
+  margin: 3px 4px 3px 0;
+}
+.tag-chip.large .emoji { font-size: 1rem; }
+.tag-chips-cell {
+  display: flex; flex-wrap: wrap; align-items: center; min-height: 20px;
+}
+.tag-chips-list {
+  display: flex; flex-wrap: wrap; padding: 10px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg); min-height: 50px; margin-top: 6px;
+}
+.tag-chips-list.empty::before {
+  content: 'Aucun tag sur ce film';
+  color: var(--txt3); font-style: italic; font-size: .85rem; padding: 4px;
+}
+.tag-picker-grid {
+  display: flex; flex-wrap: wrap; padding: 10px;
+  max-height: 220px; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg); margin-top: 6px;
+}
+.tag-picker-grid .tag-chip { opacity: .55; }
+.tag-picker-grid .tag-chip.selected { opacity: 1; }
+.tag-picker-empty {
+  padding: 20px; text-align: center; color: var(--txt2);
+  font-style: italic; font-size: .85rem;
+}
+.tag-mgr-list { margin-top: 10px; }
+.tag-mgr-row {
+  display: grid;
+  grid-template-columns: 44px 1fr 44px auto 32px;
+  gap: 8px; align-items: center;
+  padding: 6px 0; border-bottom: 1px solid var(--border);
+}
+.tag-mgr-row:last-child { border-bottom: none; }
+.tag-mgr-emoji {
+  font-size: 1.4rem; text-align: center;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px 0; cursor: pointer;
+  line-height: 1;
+}
+.tag-mgr-name {
+  padding: 8px 10px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 6px; color: #fff; font-size: .9rem;
+  width: 100%; font-family: var(--font-body); outline: none;
+}
+.tag-mgr-name:focus { border-color: var(--gold); }
+.tag-mgr-color {
+  width: 44px; height: 36px; border-radius: 6px;
+  border: 1px solid var(--border); background: transparent;
+  cursor: pointer; padding: 2px;
+}
+.tag-mgr-count {
+  font-size: .72rem; color: var(--txt3); min-width: 42px; text-align: right;
+}
+.tag-mgr-del {
+  width: 28px; height: 28px; border-radius: 50%; border: none;
+  background: var(--bg4); color: var(--txt2); cursor: pointer;
+  font-size: .85rem; transition: all .15s;
+}
+.tag-mgr-del:hover { background: var(--red); color: #fff; }
+.tag-mgr-add {
+  padding: 10px 12px; background: var(--bg); border: 1px dashed var(--border);
+  border-radius: 6px; cursor: pointer; text-align: center;
+  color: var(--txt2); font-size: .88rem; margin-top: 10px;
+  transition: all .15s;
+}
+.tag-mgr-add:hover { border-color: var(--gold); color: var(--gold); }
+
+.tag-filter-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; background: rgba(232,166,48,.08);
+  border-bottom: 1px solid var(--border);
+  font-size: .85rem; flex-wrap: wrap;
+}
+
 .batch-fields-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -877,6 +978,8 @@ td.editing input {
   <!-- Toolbar -->
   <div class="toolbar"></div>
 
+  <!-- Tag Filter Bar -->
+  <div id="tagFilterBar"></div>
   <!-- Table -->
   <div class="table-wrap" id="tableWrap"></div>
 
@@ -953,6 +1056,7 @@ function ensureFilmKeys(f) {
   if (!('posterPath' in f)) f.posterPath = null;
   if (!('runtime' in f)) f.runtime = null;
   if (!('tmdbVote' in f)) f.tmdbVote = null;
+  if (!('tags' in f) || !Array.isArray(f.tags)) f.tags = [];
   f.dateVu = normalizeDateVu(f.dateVu);
 }
 const COLS = [
@@ -969,7 +1073,8 @@ const COLS = [
   { key:'dateVu',      label:'Date vu',         align:'center', w:110, edit:false, isDate:true },
   { key:'victor',      label:'Victor',          align:'center', w:75,  rater:true },
   { key:'lilyRose',    label:'Lily-Rose',       align:'center', w:80,  rater:true },
-  { key:'julie',       label:'Julie',           align:'center', w:75,  rater:true }
+  { key:'julie',       label:'Julie',           align:'center', w:75,  rater:true },
+  { key:'tags',        label:'Tags',            align:'left',   w:200, isTags:true }
 ];
 
 const DEFAULT_FILMS=[
@@ -1074,6 +1179,8 @@ const DEFAULT_FILMS=[
    STATE
    ═══════════════════════════════════════════════════ */
 let films = [], log = [], showHidden = false, sortCol = 'notePerso', sortDir = 'desc', titleExpanded = false, titreReducedWidth = 90, showPosters = true;
+let tags = []; // [{ id, name, color, emoji }]
+let tagFilter = null; // tag id or null
 let editCell = null; // {idx, key}
 
 function loadState() {
@@ -1083,6 +1190,15 @@ function loadState() {
     films.forEach(f => ensureFilmKeys(f));
   } catch(e) { films = JSON.parse(JSON.stringify(DEFAULT_FILMS)); films.forEach(f => ensureFilmKeys(f)); }
   try { log = JSON.parse(localStorage.getItem('cf_log') || '[]'); } catch(e) { log = []; }
+  try {
+    const t = localStorage.getItem('cf_tags');
+    tags = t ? JSON.parse(t) : [];
+  } catch(e) { tags = []; }
+  // Seed default tags on first use
+  if (!localStorage.getItem('cf_tags') && !tags.length) {
+    tags = getDefaultTags();
+    saveTags();
+  }
   showHidden = localStorage.getItem('cf_showHidden') === '1';
   titleExpanded = localStorage.getItem('cf_titleExpanded') === '1';
   showPosters = localStorage.getItem('cf_showPosters') !== '0'; // default true
@@ -1090,6 +1206,26 @@ function loadState() {
   if (!isNaN(savedTRW) && savedTRW >= 50 && savedTRW <= 600) titreReducedWidth = savedTRW;
   applyLayoutVars();
 }
+
+function saveTags() { localStorage.setItem('cf_tags', JSON.stringify(tags)); }
+
+function getDefaultTags() {
+  return [
+    { id: genTagId(), emoji: '🎭', name: 'Acteur exceptionnel',       color: '#e86090' },
+    { id: genTagId(), emoji: '🎬', name: 'Réalisation exceptionnelle', color: '#e8a630' },
+    { id: genTagId(), emoji: '🎵', name: 'Trame sonore exceptionnelle',color: '#a06eea' },
+    { id: genTagId(), emoji: '📝', name: 'Scénario brillant',          color: '#40c890' },
+    { id: genTagId(), emoji: '💔', name: 'Émouvant',                   color: '#e84040' },
+    { id: genTagId(), emoji: '😂', name: 'Drôle',                      color: '#f0c060' },
+    { id: genTagId(), emoji: '🤯', name: 'Twist mémorable',            color: '#4088e8' },
+    { id: genTagId(), emoji: '🏆', name: 'Chef-d\'œuvre',              color: '#e8a630' },
+    { id: genTagId(), emoji: '💎', name: 'Pépite cachée',              color: '#50e8a0' },
+    { id: genTagId(), emoji: '🔁', name: 'À revoir',                   color: '#c060e8' }
+  ];
+}
+
+function genTagId() { return 'tag_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,7); }
+function findTag(id) { return tags.find(t => t.id === id) || null; }
 
 function saveFilms() { localStorage.setItem('cf_films', JSON.stringify(films)); }
 function saveLog() { localStorage.setItem('cf_log', JSON.stringify(log)); }
@@ -1255,10 +1391,11 @@ function render() {
 
   // Apply search filter AFTER ranks are computed
   if (q) list = list.filter(f => (f.titre+f.genre+f.realisateur+f.acteurs).toLowerCase().includes(q));
+  if (tagFilter) list = list.filter(f => (f.tags || []).includes(tagFilter));
 
   document.getElementById('counter').textContent = list.length + ' / ' + films.length + ' films';
 
-  const hiddenBaseCols = new Set(['genre','realisateur','acteurs','annee','budget','boxOffice','dateVu']);
+  const hiddenBaseCols = new Set(['genre','realisateur','acteurs','annee','budget','boxOffice','dateVu','tags']);
   let html = '<table><thead><tr><th class="col-frozen-del" style="width:24px"></th>';
   html += '<th class="col-frozen-pos ' + (sortCol ? 'sorted' : '') + '" style="text-align:center;min-width:24px;width:24px">#</th>';
   COLS.forEach(c => {
@@ -1313,6 +1450,12 @@ function render() {
         const v = f[col.key];
         const display = v != null ? v.toFixed(1) : '—';
         html += `<td class="cell-num" style="text-align:${col.align};color:var(--gold)">${display}</td>`;
+      } else if (col.isTags) {
+        const filmTags = (f.tags || []).map(tid => findTag(tid)).filter(Boolean);
+        const chips = filmTags.map(t => {
+          return `<span class="tag-chip" style="--tag-color:${t.color}" onclick="event.stopPropagation();setTagFilter('${t.id}')"><span class="emoji">${t.emoji||'🏷'}</span>${esc(t.name)}</span>`;
+        }).join('');
+        html += `<td class="cell-num" style="text-align:left" ondblclick="openTitleBreakdown(${f._idx})"><div class="tag-chips-cell">${chips || '<span class="hint">double-clic</span>'}</div></td>`;
       } else if (col.key === 'titre') {
         const titreStyle = titleExpanded
           ? 'min-width:min(calc(100vw - 124px), 1000px);width:min(calc(100vw - 124px), 1000px)'
@@ -1346,7 +1489,30 @@ function render() {
   });
   html += '</tbody></table>';
   document.getElementById('tableWrap').innerHTML = html;
+  renderTagFilterBar();
   requestAnimationFrame(syncFrozenHeader);
+}
+
+function renderTagFilterBar() {
+  const bar = document.getElementById('tagFilterBar');
+  if (!bar) return;
+  if (!tagFilter) { bar.innerHTML = ''; return; }
+  const t = findTag(tagFilter);
+  if (!t) { tagFilter = null; bar.innerHTML = ''; return; }
+  bar.innerHTML = `<div class="tag-filter-bar">
+    <span>Filtré par :</span>
+    <span class="tag-chip active" style="--tag-color:${t.color}"><span class="emoji">${t.emoji||'🏷'}</span>${esc(t.name)}</span>
+    <button class="btn" onclick="clearTagFilter()">✕ Effacer le filtre</button>
+  </div>`;
+}
+
+function setTagFilter(tagId) {
+  tagFilter = tagId;
+  render();
+}
+function clearTagFilter() {
+  tagFilter = null;
+  render();
 }
 
 
@@ -1497,6 +1663,10 @@ function openTitleBreakdown(idx) {
         <label style="margin-top:10px">Date vu</label>
         <input type="date" id="detailsDateVu" value="${dateVuToIso(f.dateVu)}">
 
+        <label style="margin-top:14px">Tags</label>
+        <div id="detailsTagsList" class="tag-chips-list"></div>
+        <div id="detailsTagsPicker" class="tag-picker-grid"></div>
+
         <div style="height:20px"></div>
       </div>
       <div class="breakdown-modal-footer">
@@ -1508,6 +1678,55 @@ function openTitleBreakdown(idx) {
     </div>
   </div>`;
   document.getElementById('overlay').innerHTML = html;
+  // Initialize tag picker state
+  window._detailsTagsDraft = [...(f.tags || [])];
+  renderDetailsTagsList(idx);
+  renderDetailsTagsPicker(idx);
+}
+
+function renderDetailsTagsList(idx) {
+  const list = document.getElementById('detailsTagsList');
+  if (!list) return;
+  const draft = window._detailsTagsDraft || [];
+  const selectedTags = draft.map(tid => findTag(tid)).filter(Boolean);
+  if (!selectedTags.length) {
+    list.className = 'tag-chips-list empty';
+    list.innerHTML = '';
+    return;
+  }
+  list.className = 'tag-chips-list';
+  list.innerHTML = selectedTags.map(t =>
+    `<span class="tag-chip large" style="--tag-color:${t.color}">
+      <span class="emoji">${t.emoji||'🏷'}</span>${esc(t.name)}
+      <span class="remove" onclick="toggleDetailsTag(${idx},'${t.id}')">✕</span>
+    </span>`
+  ).join('');
+}
+
+function renderDetailsTagsPicker(idx) {
+  const box = document.getElementById('detailsTagsPicker');
+  if (!box) return;
+  if (!tags.length) {
+    box.innerHTML = '<div class="tag-picker-empty">Aucun tag défini — gérez vos tags dans les Paramètres ⚙</div>';
+    return;
+  }
+  const draft = window._detailsTagsDraft || [];
+  box.innerHTML = tags.map(t => {
+    const selected = draft.includes(t.id);
+    return `<span class="tag-chip large ${selected?'selected':''}" style="--tag-color:${t.color}" onclick="toggleDetailsTag(${idx},'${t.id}')">
+      <span class="emoji">${t.emoji||'🏷'}</span>${esc(t.name)}
+    </span>`;
+  }).join('');
+}
+
+function toggleDetailsTag(idx, tagId) {
+  const draft = window._detailsTagsDraft || [];
+  const i = draft.indexOf(tagId);
+  if (i >= 0) draft.splice(i, 1);
+  else draft.push(tagId);
+  window._detailsTagsDraft = draft;
+  renderDetailsTagsList(idx);
+  renderDetailsTagsPicker(idx);
 }
 
 function saveFilmDetails(idx) {
@@ -1542,6 +1761,19 @@ function saveFilmDetails(idx) {
     }
   });
   updateDateVu(idx, rawDateVu, '(détails)');
+  // Save tag changes
+  const oldTags = f.tags || [];
+  const newTags = window._detailsTagsDraft || oldTags;
+  const tagsChanged = oldTags.length !== newTags.length
+    || oldTags.some(t => !newTags.includes(t))
+    || newTags.some(t => !oldTags.includes(t));
+  if (tagsChanged) {
+    const oldNames = oldTags.map(id => findTag(id)?.name).filter(Boolean).join(', ') || '—';
+    const newNames = newTags.map(id => findTag(id)?.name).filter(Boolean).join(', ') || '—';
+    changes.push(`Tags: ${oldNames} → ${newNames}`);
+    f.tags = [...newTags];
+  }
+  window._detailsTagsDraft = null;
   saveFilms();
   if (changes.length) {
     addLog('edit', `<strong>${newTitle}</strong> — ${changes.length} champ${changes.length>1?'s':''} modifié${changes.length>1?'s':''}`);
@@ -2527,44 +2759,156 @@ function openSettings() {
   const apiKey = localStorage.getItem('cf_tmdbKey') || '';
   const lang = localStorage.getItem('cf_tmdbLang') || 'fr-FR';
   const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()">
-    <div class="modal" style="max-width:460px">
-      <h2>⚙ Paramètres</h2>
-      <p class="desc">Ajustez les préférences d'affichage du classeur.</p>
-      <label>Largeur réduite de la colonne Titre (px)</label>
-      <input type="number" id="settingsTitreWidth" min="50" max="600" step="10" value="${titreReducedWidth}" placeholder="90">
-      <p style="font-size:.78rem;color:var(--txt3);margin-top:6px;margin-bottom:14px">Valeur par défaut : 90 px · Min 50 · Max 600</p>
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-        <input type="checkbox" id="settingsShowPosters" ${showPosters ? 'checked' : ''} style="width:auto;margin:0">
-        <span>Afficher les mini-affiches dans le tableau</span>
-      </label>
-      <p style="font-size:.78rem;color:var(--txt3);margin-top:6px;margin-bottom:14px">Les affiches apparaissent à gauche du titre (nécessite TMDb)</p>
-      <label>Clé API TMDb (v3)</label>
-      <input type="text" id="settingsTmdbKey" value="${esc(apiKey)}" placeholder="Votre clé API TMDb">
-      <p style="font-size:.78rem;color:var(--txt3);margin-top:6px;margin-bottom:14px">Gratuite sur <span style="color:var(--gold)">themoviedb.org</span> · Utilisée pour chercher films et affiches</p>
-      <label>Langue TMDb</label>
-      <select id="settingsTmdbLang">
-        <option value="fr-FR" ${lang==='fr-FR'?'selected':''}>Français (fr-FR)</option>
-        <option value="en-US" ${lang==='en-US'?'selected':''}>Anglais (en-US)</option>
-        <option value="fr-CA" ${lang==='fr-CA'?'selected':''}>Français Canada (fr-CA)</option>
-      </select>
-      ${hasTmdbKey() ? `<div style="margin-top:18px;padding:12px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)">
-        <div style="font-size:.85rem;font-weight:700;color:#fff;margin-bottom:4px">🔄 Enrichissement batch TMDb</div>
-        <div style="font-size:.78rem;color:var(--txt2);margin-bottom:10px">Charger massivement les données TMDb (affiches, casting, genres, etc.). Vous choisirez les champs à remplir.</div>
-        <button class="btn" onclick="closeOverlay();startBatchEnrich()" style="width:100%">Configurer et lancer</button>
-      </div>` : ''}
-      <div style="margin-top:12px;padding:12px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)">
-        <div style="font-size:.85rem;font-weight:700;color:#fff;margin-bottom:4px">📦 Cache PWA</div>
-        <div style="font-size:.78rem;color:var(--txt2);margin-bottom:10px">Vider le cache des affiches TMDb (libère de l'espace).</div>
-        <button class="btn" onclick="clearImageCache()" style="width:100%">Vider le cache des affiches</button>
+    <div class="modal breakdown-modal" style="max-width:520px">
+      <div class="breakdown-modal-body">
+        <h2>⚙ Paramètres</h2>
+        <p class="desc">Ajustez les préférences d'affichage du classeur.</p>
+        <label>Largeur réduite de la colonne Titre (px)</label>
+        <input type="number" id="settingsTitreWidth" min="50" max="600" step="10" value="${titreReducedWidth}" placeholder="90">
+        <p style="font-size:.78rem;color:var(--txt3);margin-top:6px;margin-bottom:14px">Valeur par défaut : 90 px · Min 50 · Max 600</p>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="settingsShowPosters" ${showPosters ? 'checked' : ''} style="width:auto;margin:0">
+          <span>Afficher les mini-affiches dans le tableau</span>
+        </label>
+        <p style="font-size:.78rem;color:var(--txt3);margin-top:6px;margin-bottom:14px">Les affiches apparaissent à gauche du titre (nécessite TMDb)</p>
+        <label>Clé API TMDb (v3)</label>
+        <input type="text" id="settingsTmdbKey" value="${esc(apiKey)}" placeholder="Votre clé API TMDb">
+        <p style="font-size:.78rem;color:var(--txt3);margin-top:6px;margin-bottom:14px">Gratuite sur <span style="color:var(--gold)">themoviedb.org</span> · Utilisée pour chercher films et affiches</p>
+        <label>Langue TMDb</label>
+        <select id="settingsTmdbLang">
+          <option value="fr-FR" ${lang==='fr-FR'?'selected':''}>Français (fr-FR)</option>
+          <option value="en-US" ${lang==='en-US'?'selected':''}>Anglais (en-US)</option>
+          <option value="fr-CA" ${lang==='fr-CA'?'selected':''}>Français Canada (fr-CA)</option>
+        </select>
+
+        <div style="margin-top:18px;padding:12px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)">
+          <div style="font-size:.85rem;font-weight:700;color:#fff;margin-bottom:4px">🏷 Gestion des tags</div>
+          <div style="font-size:.78rem;color:var(--txt2);margin-bottom:10px">Créez, renommez ou supprimez vos tags (${tags.length} tag${tags.length>1?'s':''} actuellement).</div>
+          <button class="btn" onclick="openTagManager()" style="width:100%">Gérer les tags</button>
+        </div>
+
+        ${hasTmdbKey() ? `<div style="margin-top:12px;padding:12px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)">
+          <div style="font-size:.85rem;font-weight:700;color:#fff;margin-bottom:4px">🔄 Enrichissement batch TMDb</div>
+          <div style="font-size:.78rem;color:var(--txt2);margin-bottom:10px">Charger massivement les données TMDb (affiches, casting, genres, etc.). Vous choisirez les champs à remplir.</div>
+          <button class="btn" onclick="closeOverlay();startBatchEnrich()" style="width:100%">Configurer et lancer</button>
+        </div>` : ''}
+        <div style="margin-top:12px;padding:12px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)">
+          <div style="font-size:.85rem;font-weight:700;color:#fff;margin-bottom:4px">📦 Cache PWA</div>
+          <div style="font-size:.78rem;color:var(--txt2);margin-bottom:10px">Vider le cache des affiches TMDb (libère de l'espace).</div>
+          <button class="btn" onclick="clearImageCache()" style="width:100%">Vider le cache des affiches</button>
+        </div>
+        <div style="height:20px"></div>
       </div>
-      <div class="modal-row">
-        <button class="btn" onclick="closeOverlay()">Annuler</button>
-        <button class="btn gold" onclick="saveSettings()">Enregistrer</button>
+      <div class="breakdown-modal-footer">
+        <div class="modal-row">
+          <button class="btn" onclick="closeOverlay()">Annuler</button>
+          <button class="btn gold" onclick="saveSettings()">Enregistrer</button>
+        </div>
       </div>
     </div>
   </div>`;
   document.getElementById('overlay').innerHTML = html;
   setTimeout(() => { const inp = document.getElementById('settingsTitreWidth'); inp.focus(); inp.select(); }, 100);
+}
+
+/* ═══════════════════════════════════════════════════
+   TAG MANAGER
+   ═══════════════════════════════════════════════════ */
+function openTagManager() {
+  window._tagMgrDraft = tags.map(t => ({ ...t }));
+  renderTagManager();
+}
+
+function renderTagManager() {
+  const draft = window._tagMgrDraft || [];
+  // Compute usage count per tag
+  const usage = {};
+  draft.forEach(t => { usage[t.id] = films.filter(f => (f.tags||[]).includes(t.id)).length; });
+
+  const rowsHtml = draft.map((t, i) => {
+    const count = usage[t.id] || 0;
+    return `<div class="tag-mgr-row" data-idx="${i}">
+      <input class="tag-mgr-emoji" type="text" maxlength="4" value="${esc(t.emoji||'🏷')}" oninput="updateTagDraft(${i},'emoji',this.value)">
+      <input class="tag-mgr-name" type="text" value="${esc(t.name||'')}" placeholder="Nom du tag" oninput="updateTagDraft(${i},'name',this.value)">
+      <input class="tag-mgr-color" type="color" value="${t.color||'#e8a630'}" oninput="updateTagDraft(${i},'color',this.value)">
+      <span class="tag-mgr-count">${count} film${count>1?'s':''}</span>
+      <button class="tag-mgr-del" onclick="deleteTagDraft(${i})" title="Supprimer">✕</button>
+    </div>`;
+  }).join('');
+
+  const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()">
+    <div class="modal breakdown-modal" style="max-width:640px">
+      <div class="breakdown-modal-body">
+        <h2>🏷 Gérer les tags</h2>
+        <p class="desc">Personnalisez votre bibliothèque de tags. Cliquez sur un emoji pour le modifier.</p>
+        <div class="tag-mgr-list">${rowsHtml || '<div class="tag-picker-empty">Aucun tag. Cliquez sur + Ajouter un tag pour commencer.</div>'}</div>
+        <div class="tag-mgr-add" onclick="addTagDraft()">+ Ajouter un tag</div>
+        <p style="font-size:.78rem;color:var(--txt3);margin-top:10px">💡 Suppression : les films utilisant ce tag le perdront (on vous préviendra).</p>
+        <div style="height:20px"></div>
+      </div>
+      <div class="breakdown-modal-footer">
+        <div class="modal-row">
+          <button class="btn" onclick="closeOverlay();openSettings()">Annuler</button>
+          <button class="btn gold" onclick="saveTagManager()">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('overlay').innerHTML = html;
+}
+
+function updateTagDraft(idx, key, value) {
+  const draft = window._tagMgrDraft;
+  if (!draft || !draft[idx]) return;
+  draft[idx][key] = value;
+}
+
+function addTagDraft() {
+  const draft = window._tagMgrDraft || [];
+  draft.push({ id: genTagId(), emoji: '🏷', name: '', color: '#e8a630' });
+  window._tagMgrDraft = draft;
+  renderTagManager();
+}
+
+function deleteTagDraft(idx) {
+  const draft = window._tagMgrDraft;
+  if (!draft || !draft[idx]) return;
+  const t = draft[idx];
+  const used = films.filter(f => (f.tags||[]).includes(t.id)).length;
+  if (used > 0) {
+    if (!confirm(`Le tag "${t.name}" est utilisé par ${used} film${used>1?'s':''}. Supprimer quand même ? Il sera retiré de ces films.`)) return;
+  }
+  draft.splice(idx, 1);
+  renderTagManager();
+}
+
+function saveTagManager() {
+  const draft = window._tagMgrDraft || [];
+  // Validate names
+  for (const t of draft) {
+    if (!t.name || !t.name.trim()) {
+      toast('Chaque tag doit avoir un nom', 'error');
+      return;
+    }
+  }
+  // Find deleted tag IDs → remove from films
+  const newIds = new Set(draft.map(t => t.id));
+  const deletedIds = tags.filter(t => !newIds.has(t.id)).map(t => t.id);
+  if (deletedIds.length) {
+    films.forEach(f => {
+      if (!f.tags) return;
+      f.tags = f.tags.filter(tid => !deletedIds.includes(tid));
+    });
+    saveFilms();
+  }
+  tags = draft.map(t => ({ ...t, name: t.name.trim() }));
+  saveTags();
+  addLog('edit', `Tags mis à jour (${tags.length} au total)`);
+  toast('Tags enregistrés', 'success');
+  window._tagMgrDraft = null;
+  closeOverlay();
+  openSettings();
+  render();
 }
 function saveSettings() {
   const raw = parseInt(document.getElementById('settingsTitreWidth').value);
@@ -2649,7 +2993,7 @@ function renderLogCount() {
    IMPORT / EXPORT
    ═══════════════════════════════════════════════════ */
 function exportJSON() {
-  const data = { version: 3, exportDate: new Date().toISOString(), films, log };
+  const data = { version: 4, exportDate: new Date().toISOString(), films, log, tags };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -2684,6 +3028,9 @@ function buildExcelRows() {
       if (key === 'dateVu') { row[label] = film[key] ? displayDateVu(film[key]) : ''; }
       else { row[label] = film[key] ?? ''; }
     });
+    // Tags (comma-separated names)
+    const filmTagNames = (film.tags || []).map(tid => findTag(tid)?.name).filter(Boolean);
+    row['Tags'] = filmTagNames.join(', ');
     RATERS.forEach(r => {
       CRITERIA.forEach(c => {
         row[`${r.label} - ${c.label}`] = film[r.prefix + c.key] ?? '';
@@ -2727,8 +3074,9 @@ function importJSON(e) {
       films = data.films;
       films.forEach(f => ensureFilmKeys(f));
       if (data.log && Array.isArray(data.log)) log = data.log;
+      if (data.tags && Array.isArray(data.tags)) { tags = data.tags; saveTags(); }
       saveFilms(); saveLog();
-      addLog('backup', `Importation JSON : ${count} films restaurés`);
+      addLog('backup', `Importation JSON : ${count} films restaurés${data.tags?` + ${data.tags.length} tags`:''}`);
       toast(`${count} films importés avec succès`, 'success');
       render(); renderLogCount();
     } catch(err) { toast('Erreur : fichier JSON invalide — ' + err.message, 'error'); }
