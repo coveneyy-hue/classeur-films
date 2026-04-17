@@ -2070,6 +2070,10 @@ function showBatchConfigModal() {
         <button class="btn" onclick="batchFieldsToggleAll(false)">Tout décocher</button>
       </div>
 
+      <label style="margin-top:14px">Nombre d'acteurs à importer</label>
+      <input type="number" id="batchActorsCount" min="1" max="20" value="3" style="width:100%">
+      <p style="font-size:.78rem;color:var(--txt3);margin-top:6px">Les X premiers acteurs du casting TMDb (par ordre d'importance). Par défaut : 3</p>
+
       <p style="font-size:.78rem;color:var(--txt3);margin-top:14px">💡 Affiche, durée et note TMDb sont toujours mis à jour (indépendamment du mode) car ils n'ont pas d'équivalent manuel.</p>
 
       <div class="modal-row">
@@ -2088,6 +2092,7 @@ function batchFieldsToggleAll(checked) {
 function launchBatchEnrich() {
   const scope = document.getElementById('batchScope').value;
   const mode = document.getElementById('batchMode').value;
+  const actorsCount = Math.max(1, Math.min(20, parseInt(document.getElementById('batchActorsCount').value) || 3));
   const selectedFields = new Set();
   BATCH_FIELDS.forEach(fd => {
     const cb = document.getElementById('batch_field_' + fd.key);
@@ -2111,16 +2116,16 @@ function launchBatchEnrich() {
   batchState = {
     pending, pos: 0, ok: 0, err: 0, skip: 0,
     logs: [], cancelled: false, waitingChoice: false,
-    selectedFields, mode,
+    selectedFields, mode, actorsCount,
   };
   showBatchModal();
   processBatchNext();
 }
 
 // Apply TMDb data d to film f using selectedFields + mode
-function applyBatchFields(f, d, selectedFields, mode) {
+function applyBatchFields(f, d, selectedFields, mode, actorsCount) {
   const directors = (d.credits?.crew || []).filter(c => c.job === 'Director').map(c => c.name).join(', ') || null;
-  const actors = (d.credits?.cast || []).slice(0, 3).map(c => c.name).join('; ') || null;
+  const actors = (d.credits?.cast || []).slice(0, actorsCount || 3).map(c => c.name).join('; ') || null;
   const genres = (d.genres || []).map(g => g.name).join(', ') || null;
   const annee = d.release_date ? parseFloat(d.release_date.slice(0,4)) : null;
   const budget = d.budget ? parseFloat((d.budget / 1_000_000).toFixed(1)) : null;
@@ -2259,7 +2264,7 @@ async function processBatchNext() {
       chosenId = chosen.id;
     }
     const d = await tmdbDetails(chosenId);
-    const changedCount = applyBatchFields(f, d, s.selectedFields, s.mode);
+    const changedCount = applyBatchFields(f, d, s.selectedFields, s.mode, s.actorsCount);
     s.ok++;
     const suffix = changedCount > 0 ? ` (${changedCount} champ${changedCount>1?'s':''})` : ' (aucun changement)';
     batchAddLog('ok', `✅ ${esc(f.titre)} → ${esc(d.title)}${suffix}`);
@@ -2307,7 +2312,7 @@ async function resolveBatchAmbig(filmIdx, tmdbId) {
   const f = films[filmIdx];
   try {
     const d = await tmdbDetails(tmdbId);
-    const changedCount = applyBatchFields(f, d, s.selectedFields, s.mode);
+    const changedCount = applyBatchFields(f, d, s.selectedFields, s.mode, s.actorsCount);
     s.ok++;
     const suffix = changedCount > 0 ? ` (${changedCount} champ${changedCount>1?'s':''})` : '';
     batchAddLog('ok', `✅ ${esc(f.titre)} → ${esc(d.title)} (choix manuel${suffix ? ',' + suffix : ''})`);
