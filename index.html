@@ -884,7 +884,7 @@ td.editing input {
   <div class="floating-head" id="floatingHead" aria-hidden="true"></div>
 
   <div class="formula-box">
-    <h3>📐 Calcul des notes (Note perso · Victor · Lily-Rose · Julie)</h3>
+    <h3>📐 Calcul des notes (Ma note · Victor · Lily-Rose · Julie)</h3>
     <p>
       Même formule pour les 4 colonnes — double-cliquez sur n'importe laquelle pour noter.<br>
       <strong>Position sur 100</strong> (33 %) — Convertie en note : position 1 → 9.9, position 50 → 5.0, position 100 → 0.0<br>
@@ -931,7 +931,7 @@ const CRITERIA = [
 ];
 
 const RATERS = [
-  { key:'notePerso', label:'Note perso', prefix:'', css:'cell-note', color:'#e8a630', gradient:'linear-gradient(135deg,#e8a630,#d08820)' },
+  { key:'notePerso', label:'Ma note', prefix:'', css:'cell-note', color:'#e8a630', gradient:'linear-gradient(135deg,#e8a630,#d08820)' },
   { key:'victor', label:'Victor', prefix:'v_', css:'cell-victor', color:'#40c890', gradient:'linear-gradient(135deg,#40c890,#20a870)' },
   { key:'lilyRose', label:'Lily-Rose', prefix:'lr_', css:'cell-lily', color:'#e860a0', gradient:'linear-gradient(135deg,#e860a0,#d04080)' },
   { key:'julie', label:'Julie', prefix:'ju_', css:'cell-julie', color:'#a06eea', gradient:'linear-gradient(135deg,#a06eea,#7040c8)' }
@@ -963,8 +963,8 @@ const COLS = [
   { key:'annee',       label:'Année',           align:'center', w:60,  edit:true, type:'num' },
   { key:'budget',      label:'Budget (M$)',     align:'center', w:90,  edit:true, type:'num' },
   { key:'boxOffice',   label:'Box Office (M$)', align:'center', w:100, edit:true, type:'num' },
-  { key:'tmdbVote',    label:'TMDb ⭐',         align:'center', w:80,  edit:false, type:'num', isTmdbVote:true },
-  { key:'notePerso',   label:'Note perso',      align:'center', w:90,  rater:true },
+  { key:'notePerso',   label:'Ma note',         align:'center', w:70,  rater:true },
+  { key:'tmdbVote',    label:'TMDb ⭐',         align:'center', w:70,  edit:false, type:'num', isTmdbVote:true },
   { key:'tiers',       label:'Tiers',           align:'center', w:55,  isTiers:true },
   { key:'dateVu',      label:'Date vu',         align:'center', w:110, edit:false, isDate:true },
   { key:'victor',      label:'Victor',          align:'center', w:75,  rater:true },
@@ -1258,7 +1258,7 @@ function render() {
 
   document.getElementById('counter').textContent = list.length + ' / ' + films.length + ' films';
 
-  const hiddenBaseCols = new Set(['genre','realisateur','acteurs','annee','budget','boxOffice','tmdbVote','dateVu']);
+  const hiddenBaseCols = new Set(['genre','realisateur','acteurs','annee','budget','boxOffice','dateVu']);
   let html = '<table><thead><tr><th class="col-frozen-del" style="width:24px"></th>';
   html += '<th class="col-frozen-pos ' + (sortCol ? 'sorted' : '') + '" style="text-align:center;min-width:24px;width:24px">#</th>';
   COLS.forEach(c => {
@@ -2660,14 +2660,14 @@ function buildExcelRows() {
     ['runtime', 'Durée (min)'],
     ['budget', 'Budget (M$)'],
     ['boxOffice', 'Box office'],
+    ['notePerso', 'Ma note'],
     ['tmdbVote', 'TMDb ⭐'],
-    ['tmdbId', 'TMDb ID'],
-    ['notePerso', 'Note perso'],
     ['tiers', 'Tiers'],
     ['dateVu', 'Date vu'],
     ['victor', 'Victor'],
     ['lilyRose', 'Lily-Rose'],
-    ['julie', 'Julie']
+    ['julie', 'Julie'],
+    ['tmdbId', 'TMDb ID']
   ];
   const rows = films.map((film, index) => {
     const row = { '#': index + 1 };
@@ -2762,7 +2762,7 @@ function showSuggestModal(f, idx, count, reason) {
     subtitle = `${count} film${count>1?'s':''} à noter ou compléter dans ton classeur.`;
     question = `Critère${missing.length>1?'s':''} manquant${missing.length>1?'s':''} : <strong style="color:var(--gold)">${missing.join(', ')}</strong>.<br>Compléter la ventilation ?`;
   } else {
-    subtitle = `${count} film${count>1?'s':''} sans note perso dans ton classeur.`;
+    subtitle = `${count} film${count>1?'s':''} sans note dans ton classeur.`;
     question = `Envie de noter ce film maintenant ?`;
   }
   const actionLabel = reason === 'incomplete' ? 'Compléter 🎯' : 'Allons-y ! 🎯';
