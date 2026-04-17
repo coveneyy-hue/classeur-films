@@ -500,6 +500,13 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.7); cursor
   margin: 3px 4px 3px 0;
 }
 .tag-chip.large .emoji { font-size: 1rem; }
+.tag-chip.is-primary {
+  box-shadow: 0 0 0 2px var(--tag-color, var(--gold));
+}
+.tag-chip .tag-star {
+  font-size: .95rem; line-height: 1;
+  display: inline-block; margin-right: 2px;
+}
 .tag-chips-cell {
   display: flex; flex-wrap: wrap; align-items: center; min-height: 20px;
 }
@@ -599,7 +606,7 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.7); cursor
   display: inline-block; width: 22px; height: 33px;
   border-radius: 3px; background-size: cover; background-position: center;
   background-color: var(--bg4); vertical-align: middle;
-  margin-right: 8px; flex-shrink: 0;
+  flex-shrink: 0;
 }
 .title-poster.empty {
   background: linear-gradient(135deg, var(--bg3), var(--bg4));
@@ -611,12 +618,26 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.7); cursor
   font-size: .7rem; opacity: .4;
 }
 .cell-titre-inner {
-  display: inline-flex; align-items: center;
+  display: flex; align-items: center; gap: 8px;
   max-width: 100%; overflow: hidden;
+}
+.cell-titre-textcol {
+  display: flex; flex-direction: column; min-width: 0; flex: 1;
+  line-height: 1.2;
 }
 .cell-titre-text {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
 }
+.cell-titre-primary-tag {
+  margin-top: 3px;
+  display: inline-block;
+  max-width: 100%;
+}
+.cell-titre-primary-tag .tag-chip {
+  font-size: .65rem; padding: 1px 6px; margin: 0;
+  max-width: 100%;
+}
+.cell-titre-primary-tag .tag-chip .emoji { font-size: .75rem; }
 
 /* ─── BREAKDOWN MODAL POSTER ──────────────────────── */.breakdown-header {
   display: flex; gap: 16px; margin-bottom: 16px;
@@ -1057,6 +1078,7 @@ function ensureFilmKeys(f) {
   if (!('runtime' in f)) f.runtime = null;
   if (!('tmdbVote' in f)) f.tmdbVote = null;
   if (!('tags' in f) || !Array.isArray(f.tags)) f.tags = [];
+  if (!('primaryTag' in f)) f.primaryTag = null;
   f.dateVu = normalizeDateVu(f.dateVu);
 }
 const COLS = [
@@ -1460,16 +1482,18 @@ function render() {
         const titreStyle = titleExpanded
           ? 'min-width:min(calc(100vw - 124px), 1000px);width:min(calc(100vw - 124px), 1000px)'
           : `min-width:${titreReducedWidth}px;width:${titreReducedWidth}px;max-width:${titreReducedWidth}px`;
-        let inner = '';
+        let posterPart = '';
         if (showPosters) {
           const pUrl = posterUrl(f, 'small');
-          if (pUrl) {
-            inner = `<span class="title-poster" style="background-image:url('${pUrl}')"></span>`;
-          } else {
-            inner = `<span class="title-poster empty"></span>`;
-          }
+          posterPart = pUrl
+            ? `<span class="title-poster" style="background-image:url('${pUrl}')"></span>`
+            : `<span class="title-poster empty"></span>`;
         }
-        inner += `<span class="cell-titre-text">${esc(f[col.key]||'—')}</span>`;
+        const primary = f.primaryTag ? findTag(f.primaryTag) : null;
+        const primaryChip = primary
+          ? `<span class="cell-titre-primary-tag"><span class="tag-chip" style="--tag-color:${primary.color}" onclick="event.stopPropagation();setTagFilter('${primary.id}')"><span class="emoji">${primary.emoji||'🏷'}</span>${esc(primary.name)}</span></span>`
+          : '';
+        const inner = `${posterPart}<span class="cell-titre-textcol"><span class="cell-titre-text">${esc(f[col.key]||'—')}</span>${primaryChip}</span>`;
         html += `<td class="cell-titre col-frozen-titre" style="${titreStyle}" ondblclick="openTitleBreakdown(${f._idx})" title="${esc(f[col.key]||'')}"><span class="cell-titre-inner">${inner}</span></td>`;
       } else if (col.edit) {
         const v = f[col.key];
@@ -1664,6 +1688,7 @@ function openTitleBreakdown(idx) {
         <input type="date" id="detailsDateVu" value="${dateVuToIso(f.dateVu)}">
 
         <label style="margin-top:14px">Tags</label>
+        <p style="font-size:.75rem;color:var(--txt3);margin-top:-4px;margin-bottom:4px">Cliquez sur ☆ pour désigner un tag principal (affiché sous le titre dans le tableau)</p>
         <div id="detailsTagsList" class="tag-chips-list"></div>
         <div id="detailsTagsPicker" class="tag-picker-grid"></div>
 
@@ -1680,6 +1705,7 @@ function openTitleBreakdown(idx) {
   document.getElementById('overlay').innerHTML = html;
   // Initialize tag picker state
   window._detailsTagsDraft = [...(f.tags || [])];
+  window._detailsPrimaryDraft = f.primaryTag || null;
   renderDetailsTagsList(idx);
   renderDetailsTagsPicker(idx);
 }
@@ -1688,6 +1714,7 @@ function renderDetailsTagsList(idx) {
   const list = document.getElementById('detailsTagsList');
   if (!list) return;
   const draft = window._detailsTagsDraft || [];
+  const primaryId = window._detailsPrimaryDraft;
   const selectedTags = draft.map(tid => findTag(tid)).filter(Boolean);
   if (!selectedTags.length) {
     list.className = 'tag-chips-list empty';
@@ -1695,12 +1722,16 @@ function renderDetailsTagsList(idx) {
     return;
   }
   list.className = 'tag-chips-list';
-  list.innerHTML = selectedTags.map(t =>
-    `<span class="tag-chip large" style="--tag-color:${t.color}">
+  list.innerHTML = selectedTags.map(t => {
+    const isPrimary = t.id === primaryId;
+    const starIcon = isPrimary ? '★' : '☆';
+    const starTitle = isPrimary ? 'Tag principal (affiché sous le titre) — cliquer pour retirer' : 'Désigner comme tag principal';
+    return `<span class="tag-chip large${isPrimary?' is-primary':''}" style="--tag-color:${t.color}">
+      <span class="tag-star" title="${starTitle}" onclick="togglePrimaryTag(${idx},'${t.id}')" style="cursor:pointer;color:${isPrimary?t.color:'var(--txt3)'};font-weight:800">${starIcon}</span>
       <span class="emoji">${t.emoji||'🏷'}</span>${esc(t.name)}
       <span class="remove" onclick="toggleDetailsTag(${idx},'${t.id}')">✕</span>
-    </span>`
-  ).join('');
+    </span>`;
+  }).join('');
 }
 
 function renderDetailsTagsPicker(idx) {
@@ -1722,11 +1753,25 @@ function renderDetailsTagsPicker(idx) {
 function toggleDetailsTag(idx, tagId) {
   const draft = window._detailsTagsDraft || [];
   const i = draft.indexOf(tagId);
-  if (i >= 0) draft.splice(i, 1);
-  else draft.push(tagId);
+  if (i >= 0) {
+    draft.splice(i, 1);
+    // If we removed the primary tag, clear primary
+    if (window._detailsPrimaryDraft === tagId) window._detailsPrimaryDraft = null;
+  } else {
+    draft.push(tagId);
+  }
   window._detailsTagsDraft = draft;
   renderDetailsTagsList(idx);
   renderDetailsTagsPicker(idx);
+}
+
+function togglePrimaryTag(idx, tagId) {
+  if (window._detailsPrimaryDraft === tagId) {
+    window._detailsPrimaryDraft = null;
+  } else {
+    window._detailsPrimaryDraft = tagId;
+  }
+  renderDetailsTagsList(idx);
 }
 
 function saveFilmDetails(idx) {
@@ -1773,7 +1818,19 @@ function saveFilmDetails(idx) {
     changes.push(`Tags: ${oldNames} → ${newNames}`);
     f.tags = [...newTags];
   }
+  // Save primary tag change
+  const oldPrimary = f.primaryTag || null;
+  let newPrimary = window._detailsPrimaryDraft ?? oldPrimary;
+  // Sanity: primary must be in the selected tags list; if not, clear it
+  if (newPrimary && !(f.tags || []).includes(newPrimary)) newPrimary = null;
+  if (oldPrimary !== newPrimary) {
+    const oldPName = oldPrimary ? (findTag(oldPrimary)?.name || '—') : '—';
+    const newPName = newPrimary ? (findTag(newPrimary)?.name || '—') : '—';
+    changes.push(`Tag principal: ${oldPName} → ${newPName}`);
+    f.primaryTag = newPrimary;
+  }
   window._detailsTagsDraft = null;
+  window._detailsPrimaryDraft = null;
   saveFilms();
   if (changes.length) {
     addLog('edit', `<strong>${newTitle}</strong> — ${changes.length} champ${changes.length>1?'s':''} modifié${changes.length>1?'s':''}`);
@@ -2896,8 +2953,8 @@ function saveTagManager() {
   const deletedIds = tags.filter(t => !newIds.has(t.id)).map(t => t.id);
   if (deletedIds.length) {
     films.forEach(f => {
-      if (!f.tags) return;
-      f.tags = f.tags.filter(tid => !deletedIds.includes(tid));
+      if (f.tags) f.tags = f.tags.filter(tid => !deletedIds.includes(tid));
+      if (f.primaryTag && deletedIds.includes(f.primaryTag)) f.primaryTag = null;
     });
     saveFilms();
   }
