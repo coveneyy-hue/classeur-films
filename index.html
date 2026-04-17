@@ -1477,7 +1477,7 @@ function openTitleBreakdown(idx) {
         <input type="text" id="detailsReal" value="${esc(f.realisateur || '')}" placeholder="Ex: Denis Villeneuve">
 
         <label style="margin-top:10px">Acteurs principaux</label>
-        <input type="text" id="detailsActeurs" value="${esc(f.acteurs || '')}" placeholder="Séparés par des ;">
+        <textarea id="detailsActeurs" placeholder="Séparés par des ;" rows="3" style="resize:vertical;min-height:60px;font-family:var(--font-body);line-height:1.4">${esc(f.acteurs || '')}</textarea>
 
         <div style="display:flex;gap:10px;margin-top:10px">
           <div style="flex:1">
