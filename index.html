@@ -367,6 +367,69 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.7); cursor
 .tmdb-fields label { margin-top: 8px; }
 .tmdb-fields label:first-child { margin-top: 0; }
 
+.title-poster {
+  display: inline-block; width: 22px; height: 33px;
+  border-radius: 3px; background-size: cover; background-position: center;
+  background-color: var(--bg4); vertical-align: middle;
+  margin-right: 8px; flex-shrink: 0;
+}
+.title-poster.empty {
+  background: linear-gradient(135deg, var(--bg3), var(--bg4));
+  position: relative;
+}
+.title-poster.empty::after {
+  content: '🎬'; position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .7rem; opacity: .4;
+}
+.cell-titre-inner {
+  display: inline-flex; align-items: center;
+  max-width: 100%; overflow: hidden;
+}
+.cell-titre-text {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
+
+/* ─── BREAKDOWN MODAL POSTER ──────────────────────── */
+.breakdown-header {
+  display: flex; gap: 16px; margin-bottom: 16px;
+  padding-bottom: 16px; border-bottom: 1px solid var(--border);
+}
+.breakdown-header-poster {
+  width: 110px; height: 165px; flex-shrink: 0; border-radius: 8px;
+  background-size: cover; background-position: center;
+  background-color: var(--bg4); box-shadow: 0 4px 16px rgba(0,0,0,.3);
+  position: relative; cursor: pointer; overflow: hidden;
+  transition: transform .2s;
+}
+.breakdown-header-poster:hover { transform: scale(1.03); }
+.breakdown-header-poster.empty {
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 6px; font-size: 2rem; color: var(--txt3);
+  background: linear-gradient(135deg, var(--bg3), var(--bg4));
+}
+.breakdown-header-poster .hover-label {
+  position: absolute; inset: 0; background: rgba(0,0,0,.6);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: .75rem; font-weight: 700;
+  opacity: 0; transition: opacity .2s; text-align: center; padding: 8px;
+}
+.breakdown-header-poster:hover .hover-label { opacity: 1; }
+.breakdown-header-info { flex: 1; min-width: 0; }
+.breakdown-header-info h2 { margin-bottom: 6px; }
+.breakdown-header-meta {
+  font-size: .85rem; color: var(--txt2); line-height: 1.5;
+}
+.breakdown-tmdb-link {
+  font-size: .75rem; color: var(--gold); text-decoration: none;
+  margin-top: 6px; display: inline-block;
+}
+.breakdown-tmdb-link:hover { text-decoration: underline; }
+@media (max-width: 500px) {
+  .breakdown-header { flex-direction: column; align-items: center; text-align: center; }
+  .breakdown-header-poster { width: 140px; height: 210px; }
+}
+
 
 .cell-tiers {
   text-align: center; font-weight: 800; font-family: var(--font-display);
@@ -824,7 +887,7 @@ const DEFAULT_FILMS=[
 /* ═══════════════════════════════════════════════════
    STATE
    ═══════════════════════════════════════════════════ */
-let films = [], log = [], showHidden = false, sortCol = 'notePerso', sortDir = 'desc', titleExpanded = false, titreReducedWidth = 90;
+let films = [], log = [], showHidden = false, sortCol = 'notePerso', sortDir = 'desc', titleExpanded = false, titreReducedWidth = 90, showPosters = true;
 let editCell = null; // {idx, key}
 
 function loadState() {
@@ -836,6 +899,7 @@ function loadState() {
   try { log = JSON.parse(localStorage.getItem('cf_log') || '[]'); } catch(e) { log = []; }
   showHidden = localStorage.getItem('cf_showHidden') === '1';
   titleExpanded = localStorage.getItem('cf_titleExpanded') === '1';
+  showPosters = localStorage.getItem('cf_showPosters') !== '0'; // default true
   const savedTRW = parseInt(localStorage.getItem('cf_titreReducedWidth'));
   if (!isNaN(savedTRW) && savedTRW >= 50 && savedTRW <= 600) titreReducedWidth = savedTRW;
   applyLayoutVars();
@@ -847,6 +911,7 @@ function savePrefs() {
   localStorage.setItem('cf_showHidden', showHidden ? '1' : '0');
   localStorage.setItem('cf_titleExpanded', titleExpanded ? '1' : '0');
   localStorage.setItem('cf_titreReducedWidth', String(titreReducedWidth));
+  localStorage.setItem('cf_showPosters', showPosters ? '1' : '0');
 }
 function applyLayoutVars() {
   const titreWidth = titleExpanded ? 'min(calc(100vw - 124px), 1000px)' : titreReducedWidth + 'px';
@@ -1062,7 +1127,17 @@ function render() {
         const titreStyle = titleExpanded
           ? 'min-width:min(calc(100vw - 124px), 1000px);width:min(calc(100vw - 124px), 1000px)'
           : `min-width:${titreReducedWidth}px;width:${titreReducedWidth}px;max-width:${titreReducedWidth}px`;
-        html += `<td class="cell-titre col-frozen-titre" style="${titreStyle}" ondblclick="openTitleBreakdown(${f._idx})" title="${esc(f[col.key]||'')}">${esc(f[col.key]||'—')}</td>`;
+        let inner = '';
+        if (showPosters) {
+          const pUrl = posterUrl(f, 'small');
+          if (pUrl) {
+            inner = `<span class="title-poster" style="background-image:url('${pUrl}')"></span>`;
+          } else {
+            inner = `<span class="title-poster empty"></span>`;
+          }
+        }
+        inner += `<span class="cell-titre-text">${esc(f[col.key]||'—')}</span>`;
+        html += `<td class="cell-titre col-frozen-titre" style="${titreStyle}" ondblclick="openTitleBreakdown(${f._idx})" title="${esc(f[col.key]||'')}"><span class="cell-titre-inner">${inner}</span></td>`;
       } else if (col.edit) {
         const v = f[col.key];
         const display = v != null ? (col.type==='num' && col.key==='annee' ? String(Math.round(v)) : (typeof v==='number' ? v.toLocaleString('fr-CA'):esc(v))) : '—';
@@ -1191,10 +1266,28 @@ function openTitleBreakdown(idx, selectedRaterKey) {
   }).join('');
   const options = RATERS.map(r => `<option value="${r.key}" ${r.key === rater.key ? 'selected' : ''}>${r.label}</option>`).join('');
   const hasAnyData = note != null || CRITERIA.some(c => f[rater.prefix + c.key] != null);
+  const pUrl = posterUrl(f, 'large');
+  const hasKey = hasTmdbKey();
+  const posterHtml = pUrl
+    ? `<div class="breakdown-header-poster" style="background-image:url('${pUrl}')" onclick="openTmdbAssociate(${idx})"><div class="hover-label">Remplacer l'affiche</div></div>`
+    : `<div class="breakdown-header-poster empty" onclick="openTmdbAssociate(${idx})" title="${hasKey ? 'Associer à TMDb' : 'Configurez votre clé API TMDb dans les Paramètres'}">🎬<div style="font-size:.7rem;color:var(--gold)">Associer TMDb</div></div>`;
+  const info = [f.genre, f.annee ? Math.round(f.annee) : null, f.realisateur].filter(Boolean).join(' · ');
+  const runtime = f.runtime ? `${f.runtime} min` : null;
+  const tmdbVote = f.tmdbVote ? `⭐ TMDb ${f.tmdbVote.toFixed(1)}` : null;
+  const extras = [runtime, tmdbVote].filter(Boolean).join(' · ');
+  const tmdbLink = f.tmdbId ? `<a href="https://www.themoviedb.org/movie/${f.tmdbId}" target="_blank" class="breakdown-tmdb-link">Voir sur TMDb ↗</a>` : '';
   const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()">
     <div class="modal breakdown-modal" style="max-width:760px">
-      <h2>Modifier le film</h2>
-      <p class="desc">Modifiez le titre et la ventilation des notes détaillées.</p>
+      <div class="breakdown-header">
+        ${posterHtml}
+        <div class="breakdown-header-info">
+          <h2 style="margin-bottom:4px">Modifier le film</h2>
+          <p class="desc" style="margin-bottom:10px">Modifiez le titre, l'affiche et la ventilation des notes.</p>
+          ${info ? `<div class="breakdown-header-meta">${esc(info)}</div>` : ''}
+          ${extras ? `<div class="breakdown-header-meta" style="color:var(--txt3)">${extras}</div>` : ''}
+          ${tmdbLink}
+        </div>
+      </div>
       <label>Titre</label>
       <input type="text" id="breakdownTitle" value="${esc(f.titre || '')}" placeholder="Titre du film">
       <div style="margin-top:12px">
@@ -1389,6 +1482,12 @@ function finishEdit(idx, key, input) {
    ═══════════════════════════════════════════════════ */
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 const TMDB_IMG = 'https://image.tmdb.org/t/p/w92';
+const TMDB_IMG_LARGE = 'https://image.tmdb.org/t/p/w342';
+function posterUrl(f, size) {
+  if (!f?.posterPath) return null;
+  const base = (size === 'large') ? TMDB_IMG_LARGE : TMDB_IMG;
+  return base + f.posterPath;
+}
 let tmdbSearchTimer = null;
 let tmdbSelected = null;
 
@@ -1410,6 +1509,100 @@ async function tmdbDetails(id) {
   const r = await fetch(url);
   if (!r.ok) throw new Error('TMDb détails : ' + r.status);
   return r.json();
+}
+
+function openTmdbAssociate(filmIdx) {
+  if (!hasTmdbKey()) {
+    toast('Configurez d\'abord votre clé API TMDb dans les Paramètres ⚙', 'warn');
+    return;
+  }
+  const f = films[filmIdx];
+  const initialQuery = f.titre || '';
+  const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()">
+    <div class="modal" style="max-width:560px">
+      <h2>Associer à TMDb</h2>
+      <p class="desc">Recherchez le film pour ajouter affiche, durée et note TMDb.</p>
+      <label>Recherche TMDb</label>
+      <input type="text" id="tmdbAssocSearch" value="${esc(initialQuery)}" placeholder="Titre du film..." oninput="onTmdbAssocSearchInput(${filmIdx}, this.value)" autocomplete="off">
+      <div id="tmdbAssocResults" class="tmdb-results" style="display:none"></div>
+      <div class="modal-row">
+        <button class="btn" onclick="closeOverlay();openTitleBreakdown(${filmIdx})">Retour</button>
+        ${f.posterPath ? `<button class="btn red" onclick="removeTmdbAssoc(${filmIdx})">Supprimer l'affiche</button>` : ''}
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('overlay').innerHTML = html;
+  setTimeout(() => {
+    const input = document.getElementById('tmdbAssocSearch');
+    input.focus();
+    input.select();
+    if (initialQuery.length >= 2) onTmdbAssocSearchInput(filmIdx, initialQuery);
+  }, 100);
+}
+
+function onTmdbAssocSearchInput(filmIdx, q) {
+  clearTimeout(tmdbSearchTimer);
+  const box = document.getElementById('tmdbAssocResults');
+  if (!q || q.trim().length < 2) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  box.style.display = 'block';
+  box.innerHTML = '<div class="tmdb-status">🔎 Recherche…</div>';
+  tmdbSearchTimer = setTimeout(async () => {
+    try {
+      const results = await tmdbSearch(q.trim());
+      if (!results.length) {
+        box.innerHTML = '<div class="tmdb-status">Aucun résultat.</div>';
+        return;
+      }
+      box.innerHTML = results.slice(0, 10).map(r => {
+        const poster = r.poster_path ? `background-image:url('${TMDB_IMG}${r.poster_path}')` : '';
+        const year = r.release_date ? r.release_date.slice(0,4) : '—';
+        const title = esc(r.title || r.original_title || '');
+        const orig = r.original_title && r.original_title !== r.title ? ` <span style="color:var(--txt3)">(${esc(r.original_title)})</span>` : '';
+        return `<div class="tmdb-result" onclick="confirmTmdbAssoc(${filmIdx}, ${r.id})">
+          <div class="tmdb-poster" style="${poster}"></div>
+          <div class="tmdb-result-info">
+            <div class="tmdb-result-title">${title}${orig}</div>
+            <div class="tmdb-result-meta">${year} · ⭐ ${r.vote_average ? r.vote_average.toFixed(1) : '—'}</div>
+          </div>
+        </div>`;
+      }).join('');
+    } catch (err) {
+      box.innerHTML = `<div class="tmdb-status error">Erreur : ${esc(err.message)}</div>`;
+    }
+  }, 350);
+}
+
+async function confirmTmdbAssoc(filmIdx, tmdbId) {
+  const f = films[filmIdx];
+  try {
+    const d = await tmdbDetails(tmdbId);
+    f.tmdbId = d.id;
+    f.posterPath = d.poster_path || null;
+    f.runtime = d.runtime || null;
+    f.tmdbVote = d.vote_average || null;
+    saveFilms();
+    addLog('edit', `<strong>${f.titre}</strong> — Associé à TMDb : ${esc(d.title)}`);
+    toast(`Associé : ${d.title}`, 'success');
+    closeOverlay();
+    openTitleBreakdown(filmIdx);
+    render();
+  } catch (err) {
+    toast('Erreur : ' + err.message, 'error');
+  }
+}
+
+function removeTmdbAssoc(filmIdx) {
+  const f = films[filmIdx];
+  f.tmdbId = null;
+  f.posterPath = null;
+  f.runtime = null;
+  f.tmdbVote = null;
+  saveFilms();
+  addLog('edit', `<strong>${f.titre}</strong> — Association TMDb supprimée`);
+  toast('Association TMDb supprimée', 'info');
+  closeOverlay();
+  openTitleBreakdown(filmIdx);
+  render();
 }
 
 /* ═══════════════════════════════════════════════════
@@ -1695,6 +1888,11 @@ function openSettings() {
       <label>Largeur réduite de la colonne Titre (px)</label>
       <input type="number" id="settingsTitreWidth" min="50" max="600" step="10" value="${titreReducedWidth}" placeholder="90">
       <p style="font-size:.78rem;color:var(--txt3);margin-top:6px;margin-bottom:14px">Valeur par défaut : 90 px · Min 50 · Max 600</p>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="settingsShowPosters" ${showPosters ? 'checked' : ''} style="width:auto;margin:0">
+        <span>Afficher les mini-affiches dans le tableau</span>
+      </label>
+      <p style="font-size:.78rem;color:var(--txt3);margin-top:6px;margin-bottom:14px">Les affiches apparaissent à gauche du titre (nécessite TMDb)</p>
       <label>Clé API TMDb (v3)</label>
       <input type="text" id="settingsTmdbKey" value="${esc(apiKey)}" placeholder="Votre clé API TMDb">
       <p style="font-size:.78rem;color:var(--txt3);margin-top:6px;margin-bottom:14px">Gratuite sur <span style="color:var(--gold)">themoviedb.org</span> · Utilisée pour chercher films et affiches</p>
@@ -1720,7 +1918,9 @@ function saveSettings() {
     return;
   }
   titreReducedWidth = raw;
+  showPosters = document.getElementById('settingsShowPosters').checked;
   localStorage.setItem('cf_titreReducedWidth', String(titreReducedWidth));
+  localStorage.setItem('cf_showPosters', showPosters ? '1' : '0');
   const tmdbKey = document.getElementById('settingsTmdbKey').value.trim();
   const tmdbLang = document.getElementById('settingsTmdbLang').value;
   localStorage.setItem('cf_tmdbKey', tmdbKey);
