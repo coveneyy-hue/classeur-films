@@ -367,6 +367,56 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.7); cursor
 .tmdb-fields label { margin-top: 8px; }
 .tmdb-fields label:first-child { margin-top: 0; }
 
+/* ─── TMDB COMPARE ──────────────────────────────────── */
+.tmdb-compare {
+  max-height: 55vh;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  margin-top: 10px;
+}
+.tmdb-compare-row {
+  display: grid;
+  grid-template-columns: 110px 1fr auto;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+}
+.tmdb-compare-row:last-child { border-bottom: none; }
+.tmdb-compare-row.same { opacity: .5; }
+.tmdb-compare-row.empty-old { background: rgba(64,200,144,.04); }
+.tmdb-compare-label {
+  font-size: .78rem;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--txt2);
+  font-weight: 700;
+}
+.tmdb-compare-values { min-width: 0; font-size: .85rem; line-height: 1.35; }
+.tmdb-compare-old {
+  color: var(--txt3); text-decoration: line-through; word-break: break-word;
+}
+.tmdb-compare-new {
+  color: #fff; font-weight: 500; word-break: break-word; margin-top: 2px;
+}
+.tmdb-compare-new.added { color: var(--green); }
+.tmdb-compare-check {
+  width: 22px; height: 22px; accent-color: var(--gold); cursor: pointer;
+}
+.tmdb-compare-actions {
+  display: flex; gap: 6px; padding: 10px 12px;
+  border-bottom: 1px solid var(--border); background: var(--bg3);
+}
+.tmdb-compare-actions .btn {
+  padding: 6px 10px; font-size: .72rem; flex: 1;
+}
+.tmdb-compare-none {
+  padding: 20px; text-align: center; color: var(--txt2);
+  font-style: italic;
+}
+
 .title-poster {
   display: inline-block; width: 22px; height: 33px;
   border-radius: 3px; background-size: cover; background-position: center;
@@ -547,7 +597,26 @@ td.editing input {
 /* File input hidden */
 .file-input { display: none; }
 
-.breakdown-modal { width:min(92vw, 760px); }
+.breakdown-modal {
+  width:min(92vw, 760px);
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+.breakdown-modal-body {
+  padding: 28px 32px 0;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+.breakdown-modal-footer {
+  padding: 14px 32px;
+  border-top: 1px solid var(--border);
+  background: var(--bg2);
+  flex-shrink: 0;
+}
+.breakdown-modal-footer .modal-row { margin-top: 0; }
 .breakdown-top {
   display:grid;
   grid-template-columns:minmax(0,1fr) 220px;
@@ -639,9 +708,13 @@ td.editing input {
 @media (max-width: 768px) {
   .breakdown-modal {
     width:calc(100vw - 24px);
-    padding:20px 16px;
     max-height:calc(100vh - 24px);
-    overflow:auto;
+  }
+  .breakdown-modal-body {
+    padding: 20px 16px 0;
+  }
+  .breakdown-modal-footer {
+    padding: 12px 16px;
   }
   .breakdown-top {
     grid-template-columns:1fr;
@@ -777,7 +850,7 @@ const COLS = [
   { key:'annee',       label:'Année',           align:'center', w:60,  edit:true, type:'num' },
   { key:'budget',      label:'Budget (M$)',     align:'center', w:90,  edit:true, type:'num' },
   { key:'boxOffice',   label:'Box Office (M$)', align:'center', w:100, edit:true, type:'num' },
-  { key:'imdb',        label:'IMDb Top 250',    align:'center', w:85,  edit:true, type:'num' },
+  { key:'tmdbVote',    label:'TMDb ⭐',         align:'center', w:80,  edit:false, type:'num', isTmdbVote:true },
   { key:'notePerso',   label:'Note perso',      align:'center', w:90,  rater:true },
   { key:'tiers',       label:'Tiers',           align:'center', w:55,  isTiers:true },
   { key:'dateVu',      label:'Date vu',         align:'center', w:110, edit:false, isDate:true },
@@ -1072,7 +1145,7 @@ function render() {
 
   document.getElementById('counter').textContent = list.length + ' / ' + films.length + ' films';
 
-  const hiddenBaseCols = new Set(['genre','realisateur','acteurs','annee','budget','boxOffice','imdb','dateVu']);
+  const hiddenBaseCols = new Set(['genre','realisateur','acteurs','annee','budget','boxOffice','tmdbVote','dateVu']);
   let html = '<table><thead><tr><th class="col-frozen-del" style="width:24px"></th>';
   html += '<th class="col-frozen-pos ' + (sortCol ? 'sorted' : '') + '" style="text-align:center;min-width:24px;width:24px">#</th>';
   COLS.forEach(c => {
@@ -1123,6 +1196,10 @@ function render() {
         const cls = 'cell-tiers' + (tiersCls ? ' ' + tiersCls : '');
         const display = v ? esc(v) : '<span class="hint">double-clic</span>';
         html += `<td class="${cls}" ondblclick="startTiersEdit(${f._idx},this)">${display}</td>`;
+      } else if (col.isTmdbVote) {
+        const v = f[col.key];
+        const display = v != null ? v.toFixed(1) : '—';
+        html += `<td class="cell-num" style="text-align:${col.align};color:var(--gold)">${display}</td>`;
       } else if (col.key === 'titre') {
         const titreStyle = titleExpanded
           ? 'min-width:min(calc(100vw - 124px), 1000px);width:min(calc(100vw - 124px), 1000px)'
@@ -1278,45 +1355,50 @@ function openTitleBreakdown(idx, selectedRaterKey) {
   const tmdbLink = f.tmdbId ? `<a href="https://www.themoviedb.org/movie/${f.tmdbId}" target="_blank" class="breakdown-tmdb-link">Voir sur TMDb ↗</a>` : '';
   const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()">
     <div class="modal breakdown-modal" style="max-width:760px">
-      <div class="breakdown-header">
-        ${posterHtml}
-        <div class="breakdown-header-info">
-          <h2 style="margin-bottom:4px">Modifier le film</h2>
-          <p class="desc" style="margin-bottom:10px">Modifiez le titre, l'affiche et la ventilation des notes.</p>
-          ${info ? `<div class="breakdown-header-meta">${esc(info)}</div>` : ''}
-          ${extras ? `<div class="breakdown-header-meta" style="color:var(--txt3)">${extras}</div>` : ''}
-          ${tmdbLink}
+      <div class="breakdown-modal-body">
+        <div class="breakdown-header">
+          ${posterHtml}
+          <div class="breakdown-header-info">
+            <h2 style="margin-bottom:4px">Modifier le film</h2>
+            <p class="desc" style="margin-bottom:10px">Modifiez le titre, l'affiche et la ventilation des notes.</p>
+            ${info ? `<div class="breakdown-header-meta">${esc(info)}</div>` : ''}
+            ${extras ? `<div class="breakdown-header-meta" style="color:var(--txt3)">${extras}</div>` : ''}
+            ${tmdbLink}
+          </div>
         </div>
-      </div>
-      <label>Titre</label>
-      <input type="text" id="breakdownTitle" value="${esc(f.titre || '')}" placeholder="Titre du film">
-      <div style="margin-top:12px">
-        <label>Date vu</label>
-        <input type="date" id="breakdownDateVu" value="${dateVuToIso(f.dateVu)}">
-      </div>
-      <div class="breakdown-top">
-        <div>
-          <label>Afficher la ventilation pour</label>
-          <select id="breakdownRater" onchange="openTitleBreakdown(${idx}, this.value)">
-            ${options}
-          </select>
+        <label>Titre</label>
+        <input type="text" id="breakdownTitle" value="${esc(f.titre || '')}" placeholder="Titre du film">
+        <div style="margin-top:12px">
+          <label>Date vu</label>
+          <input type="date" id="breakdownDateVu" value="${dateVuToIso(f.dateVu)}">
         </div>
-        <div class="breakdown-note-card">
-          <div class="breakdown-note-label">Note globale</div>
-          <div id="breakdownNotePreview" class="breakdown-note-value" style="color:${rater.color}">${note != null ? note.toFixed(2) + '/10' : 'n/a'}</div>
+        <div class="breakdown-top">
+          <div>
+            <label>Afficher la ventilation pour</label>
+            <select id="breakdownRater" onchange="openTitleBreakdown(${idx}, this.value)">
+              ${options}
+            </select>
+          </div>
+          <div class="breakdown-note-card">
+            <div class="breakdown-note-label">Note globale</div>
+            <div id="breakdownNotePreview" class="breakdown-note-value" style="color:${rater.color}">${note != null ? note.toFixed(2) + '/10' : 'n/a'}</div>
+          </div>
         </div>
-      </div>
-      <div class="breakdown-list">
-        <div class="breakdown-head">
-          <div>Critère</div>
-          <div style="color:${rater.color}">Valeur</div>
+        <div class="breakdown-list">
+          <div class="breakdown-head">
+            <div>Critère</div>
+            <div style="color:${rater.color}">Valeur</div>
+          </div>
+          ${rows}
         </div>
-        ${rows}
+        ${hasAnyData ? '' : '<p class="desc" style="margin-top:14px;margin-bottom:20px">Aucune ventilation enregistrée pour cette personne.</p>'}
+        <div style="height:20px"></div>
       </div>
-      ${hasAnyData ? '' : '<p class="desc" style="margin-top:14px;margin-bottom:0">Aucune ventilation enregistrée pour cette personne.</p>'}
-      <div class="modal-row">
-        <button class="btn" onclick="closeOverlay()">Annuler</button>
-        <button class="btn gold" onclick="saveTitleBreakdown(${idx})">Enregistrer</button>
+      <div class="breakdown-modal-footer">
+        <div class="modal-row">
+          <button class="btn" onclick="closeOverlay()">Annuler</button>
+          <button class="btn gold" onclick="saveTitleBreakdown(${idx})">Enregistrer</button>
+        </div>
       </div>
     </div>
   </div>`;
@@ -1573,22 +1655,131 @@ function onTmdbAssocSearchInput(filmIdx, q) {
 }
 
 async function confirmTmdbAssoc(filmIdx, tmdbId) {
-  const f = films[filmIdx];
   try {
     const d = await tmdbDetails(tmdbId);
-    f.tmdbId = d.id;
-    f.posterPath = d.poster_path || null;
-    f.runtime = d.runtime || null;
-    f.tmdbVote = d.vote_average || null;
-    saveFilms();
-    addLog('edit', `<strong>${f.titre}</strong> — Associé à TMDb : ${esc(d.title)}`);
-    toast(`Associé : ${d.title}`, 'success');
-    closeOverlay();
-    openTitleBreakdown(filmIdx);
-    render();
+    showTmdbCompare(filmIdx, d);
   } catch (err) {
     toast('Erreur : ' + err.message, 'error');
   }
+}
+
+// Build a comparison between current film and TMDb data
+function buildTmdbDiff(f, d) {
+  const directors = (d.credits?.crew || []).filter(c => c.job === 'Director').map(c => c.name).join(', ') || null;
+  const actors = (d.credits?.cast || []).slice(0, 3).map(c => c.name).join('; ') || null;
+  const genres = (d.genres || []).map(g => g.name).join(', ') || null;
+  const annee = d.release_date ? parseFloat(d.release_date.slice(0,4)) : null;
+  const budget = d.budget ? parseFloat((d.budget / 1_000_000).toFixed(1)) : null;
+  const boxOffice = d.revenue ? parseFloat((d.revenue / 1_000_000).toFixed(1)) : null;
+  return [
+    { key: 'titre',       label: 'Titre',       oldVal: f.titre,       newVal: d.title || d.original_title || null, editable: true },
+    { key: 'annee',       label: 'Année',       oldVal: f.annee,       newVal: annee, editable: true },
+    { key: 'genre',       label: 'Genre',       oldVal: f.genre,       newVal: genres, editable: true },
+    { key: 'realisateur', label: 'Réalisateur', oldVal: f.realisateur, newVal: directors, editable: true },
+    { key: 'acteurs',     label: 'Acteurs',     oldVal: f.acteurs,     newVal: actors, editable: true },
+    { key: 'budget',      label: 'Budget (M$)', oldVal: f.budget,      newVal: budget, editable: true },
+    { key: 'boxOffice',   label: 'Box Office (M$)', oldVal: f.boxOffice, newVal: boxOffice, editable: true },
+    { key: 'runtime',     label: 'Durée (min)', oldVal: f.runtime,     newVal: d.runtime || null, editable: true },
+    { key: 'tmdbVote',    label: 'Note TMDb',   oldVal: f.tmdbVote,    newVal: d.vote_average || null, editable: true },
+    { key: 'posterPath',  label: 'Affiche',     oldVal: f.posterPath,  newVal: d.poster_path || null, editable: true, isPoster: true },
+  ];
+}
+
+function fmtCompareValue(v, isPoster) {
+  if (v == null || v === '') return '<span style="color:var(--txt3);font-style:italic">(vide)</span>';
+  if (isPoster) return '<span style="color:var(--txt2)">🎬 image</span>';
+  return esc(String(v));
+}
+
+function showTmdbCompare(filmIdx, d) {
+  const f = films[filmIdx];
+  const diff = buildTmdbDiff(f, d);
+  // Separate changed vs same
+  const changes = diff.filter(row => {
+    const a = row.oldVal == null ? '' : String(row.oldVal);
+    const b = row.newVal == null ? '' : String(row.newVal);
+    return a !== b;
+  });
+  const unchanged = diff.length - changes.length;
+
+  const rowsHtml = changes.length === 0
+    ? '<div class="tmdb-compare-none">Aucune différence — toutes les données sont identiques.</div>'
+    : changes.map((row, i) => {
+      const hasOld = row.oldVal != null && row.oldVal !== '';
+      const addedCls = !hasOld ? 'added' : '';
+      const rowCls = !hasOld ? 'empty-old' : '';
+      return `<div class="tmdb-compare-row ${rowCls}">
+        <div class="tmdb-compare-label">${row.label}</div>
+        <div class="tmdb-compare-values">
+          ${hasOld ? `<div class="tmdb-compare-old">${fmtCompareValue(row.oldVal, row.isPoster)}</div>` : ''}
+          <div class="tmdb-compare-new ${addedCls}">${fmtCompareValue(row.newVal, row.isPoster)}</div>
+        </div>
+        <input type="checkbox" class="tmdb-compare-check" id="cmp_${row.key}" ${row.newVal != null ? 'checked' : ''} data-key="${row.key}">
+      </div>`;
+    }).join('');
+
+  // Store both on window for access by save handler
+  window._tmdbCompareData = { filmIdx, d, diff };
+
+  const html = `<div class="overlay">
+    <div class="modal" style="max-width:620px">
+      <h2>Rafraîchir depuis TMDb</h2>
+      <p class="desc">${changes.length ? `${changes.length} différence${changes.length>1?'s':''} détectée${changes.length>1?'s':''}` : 'Les données sont identiques'}${unchanged ? ` · ${unchanged} champ${unchanged>1?'s':''} identique${unchanged>1?'s':''}` : ''}. Cochez les champs à mettre à jour.</p>
+      ${changes.length > 0 ? `<div class="tmdb-compare-actions">
+        <button class="btn" onclick="tmdbCompareToggleAll(true)">Tout cocher</button>
+        <button class="btn" onclick="tmdbCompareToggleAll(false)">Tout décocher</button>
+        <button class="btn" onclick="tmdbCompareCheckEmpty()">Cocher vides seulement</button>
+      </div>` : ''}
+      <div class="tmdb-compare">
+        ${rowsHtml}
+      </div>
+      <div class="modal-row">
+        <button class="btn" onclick="closeOverlay();openTitleBreakdown(${filmIdx})">Annuler</button>
+        <button class="btn gold" onclick="applyTmdbCompare()">${changes.length ? 'Appliquer la sélection' : 'Associer quand même'}</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('overlay').innerHTML = html;
+}
+
+function tmdbCompareToggleAll(checked) {
+  document.querySelectorAll('.tmdb-compare-check').forEach(cb => { cb.checked = checked; });
+}
+function tmdbCompareCheckEmpty() {
+  const { diff } = window._tmdbCompareData;
+  document.querySelectorAll('.tmdb-compare-check').forEach(cb => {
+    const key = cb.dataset.key;
+    const row = diff.find(r => r.key === key);
+    const hasOld = row && row.oldVal != null && row.oldVal !== '';
+    cb.checked = !hasOld;
+  });
+}
+
+function applyTmdbCompare() {
+  const { filmIdx, d, diff } = window._tmdbCompareData;
+  const f = films[filmIdx];
+  const applied = [];
+  // Always set tmdbId (the association itself)
+  f.tmdbId = d.id;
+  // Apply checked fields
+  diff.forEach(row => {
+    const cb = document.getElementById('cmp_' + row.key);
+    if (cb && cb.checked) {
+      const oldVal = f[row.key];
+      f[row.key] = row.newVal;
+      if (oldVal !== row.newVal) {
+        applied.push(`${row.label}: ${oldVal ?? '—'} → ${row.newVal ?? '—'}`);
+      }
+    }
+  });
+  saveFilms();
+  const summary = applied.length ? ` (${applied.length} champ${applied.length>1?'s':''} mis à jour)` : '';
+  addLog('edit', `<strong>${f.titre}</strong> — Associé à TMDb : ${esc(d.title)}${summary}`);
+  toast(`Associé : ${d.title}${summary}`, 'success');
+  window._tmdbCompareData = null;
+  closeOverlay();
+  openTitleBreakdown(filmIdx);
+  render();
 }
 
 function removeTmdbAssoc(filmIdx) {
@@ -1996,7 +2187,7 @@ function buildExcelRows() {
     ['annee', 'Année'],
     ['budget', 'Budget (M$)'],
     ['boxOffice', 'Box office'],
-    ['imdb', 'IMDb Top 250'],
+    ['tmdbVote', 'TMDb ⭐'],
     ['notePerso', 'Note perso'],
     ['tiers', 'Tiers'],
     ['dateVu', 'Date vu'],
