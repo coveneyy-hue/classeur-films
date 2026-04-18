@@ -3105,12 +3105,19 @@ function openRatingBreakdown(idx, raterKey) {
     toast('Evaluateur introuvable.', 'error');
     return;
   }
+  const preservedDraft = window._ratingBreakdownDraftState
+    && window._ratingBreakdownDraftState.idx === idx
+    && window._ratingBreakdownDraftState.raterKey === raterKey
+      ? window._ratingBreakdownDraftState
+      : null;
   const note = f[rater.key];
   window._ratingBreakdownCtx = { idx, raterKey };
-  const currentIgnored = getIgnoredTech(f, rater.prefix);
-  const hasAnyData = note != null || CRITERIA.some(c => f[rater.prefix + c.key] != null) || currentIgnored.length > 0;
+  const currentIgnored = preservedDraft ? preservedDraft.ignoredTech.slice() : getIgnoredTech(f, rater.prefix);
+  const hasAnyData = note != null || CRITERIA.some(c => f[rater.prefix + c.key] != null) || currentIgnored.length > 0 || !!preservedDraft;
   const rows = CRITERIA.map(c => {
-    const value = f[rater.prefix + c.key];
+    const value = preservedDraft && Object.prototype.hasOwnProperty.call(preservedDraft.values, c.key)
+      ? preservedDraft.values[c.key]
+      : f[rater.prefix + c.key];
     const isIgnored = !c.isPreference && currentIgnored.includes(c.key);
     const weight = c.isPreference
       ? (raterKey === 'notePerso' ? ' <span style="color:var(--gold);font-size:.7rem">(25%)</span>' : ' <span style="color:var(--gold);font-size:.7rem">(33%)</span>')
@@ -3222,32 +3229,55 @@ function getCriterionPeopleInfo(film, critKey) {
   return '';
 }
 
+function collectCurrentRatingBreakdownDraft() {
+  const ctx = window._ratingBreakdownCtx;
+  if (!ctx) return null;
+  const values = {};
+  const ignoredTech = [];
+  CRITERIA.forEach(c => {
+    const input = document.getElementById(`rbreakdown_${c.key}`);
+    if (!input) return;
+    values[c.key] = input.value;
+    if (!c.isPreference && input.dataset.ignored === '1') ignoredTech.push(c.key);
+  });
+  return { idx: ctx.idx, raterKey: ctx.raterKey, values, ignoredTech };
+}
+
 function openCriterionInfo(idx, critKey, infoType) {
   const film = films[idx];
   const criterion = CRITERIA.find(c => c.key === critKey);
   if (!film || !criterion) return;
+  const overlayRoot = document.getElementById('overlay');
+  if (!overlayRoot) return;
+  closeCriterionInfo();
+  const draft = collectCurrentRatingBreakdownDraft();
+  if (draft) window._ratingBreakdownDraftState = draft;
   const title = infoType === 'people' ? `Noms liés · ${criterion.label}` : `Description · ${criterion.label}`;
   const body = infoType === 'people'
     ? (getCriterionPeopleInfo(film, critKey) || 'Aucun nom précis n’est lié à ce critère pour ce film.')
     : criterion.desc;
-  const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()">
+  const html = `<div class="overlay rating-info-overlay" data-role="rating-info-overlay" onclick="if(event.target===this)closeCriterionInfo()" style="z-index:130">
     <div class="modal" style="max-width:520px">
       <h2>${esc(title)}</h2>
       <p class="desc" style="margin-bottom:18px">${esc(film.titre)}</p>
       <div style="padding:14px 16px;background:var(--bg);border:1px solid var(--border);border-radius:12px;line-height:1.6;color:var(--txt);white-space:pre-wrap">${esc(body)}</div>
       <div class="modal-row">
-        <button class="btn gold" onclick="reopenRatingBreakdownAfterInfo()">Fermer</button>
+        <button class="btn gold" onclick="closeCriterionInfo()">Fermer</button>
       </div>
     </div>
   </div>`;
-  window._ratingBreakdownInfoReturn = { idx, raterKey: (window._ratingBreakdownCtx || {}).raterKey || 'notePerso' };
-  document.getElementById('overlay').innerHTML = html;
+  overlayRoot.insertAdjacentHTML('beforeend', html);
+}
+
+function closeCriterionInfo() {
+  const overlayRoot = document.getElementById('overlay');
+  if (!overlayRoot) return;
+  const infoOverlay = overlayRoot.querySelector('[data-role="rating-info-overlay"]');
+  if (infoOverlay) infoOverlay.remove();
 }
 
 function reopenRatingBreakdownAfterInfo() {
-  const ctx = window._ratingBreakdownInfoReturn;
-  if (!ctx) { closeOverlay(); return; }
-  openRatingBreakdown(ctx.idx, ctx.raterKey);
+  closeCriterionInfo();
 }
 
 function getRatingBreakdownDraft() {
@@ -3311,6 +3341,7 @@ function toggleIgnoreCriterion(critKey) {
 }
 
 function handleRatingBreakdownCancel() {
+  window._ratingBreakdownDraftState = null;
   const ctx = window._ratingBreakdownCtx || {};
   if (ctx.raterKey === 'notePerso' && ratingRafaleSession) {
     cancelRatingRafale();
@@ -3320,6 +3351,7 @@ function handleRatingBreakdownCancel() {
 }
 
 function saveRatingBreakdown(idx, raterKey) {
+  window._ratingBreakdownDraftState = null;
   const rater = getRaterByKey(raterKey);
   const f = films[idx];
   const draft = getRatingBreakdownDraft();
@@ -4232,7 +4264,11 @@ function doDelete(idx) {
   closeOverlay();
   render();
 }
-function closeOverlay() { document.getElementById('overlay').innerHTML = ''; }
+function closeOverlay() {
+  const overlay = document.getElementById('overlay');
+  if (overlay) overlay.innerHTML = '';
+  window._ratingBreakdownDraftState = null;
+}
 
 /* ═══════════════════════════════════════════════════
    RATING MODAL — now opens the new breakdown modal
