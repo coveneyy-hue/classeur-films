@@ -68,7 +68,7 @@ body::before {
   gap: 10px;
 }
 .topbar-title-row { justify-content: flex-start; }
-.topbar-actions-row { justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.topbar-actions-row { justify-content: flex-end; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
 .topbar-actions-row::-webkit-scrollbar { display: none; }
 .topbar-search-row { justify-content: space-between; }
 .topbar h1 {
@@ -90,7 +90,7 @@ body::before {
 .searchbox:focus { border-color: var(--gold-dim); box-shadow: 0 0 0 3px rgba(232,166,48,.1); }
 .search-inline-wrap {
   display: inline-flex; align-items: center; gap: 8px;
-  flex: 0 1 430px; min-width: 240px; max-width: 430px;
+  flex: 1 1 auto; min-width: 280px; max-width: none;
 }
 .search-inline-wrap .searchbox {
   flex: 1; min-width: 0; max-width: none;
@@ -399,6 +399,7 @@ body::before {
 .topbar-actions {
   display: inline-flex; align-items: center; gap: 8px;
   flex-wrap: nowrap;
+  margin-left: auto;
 }
 .topbar-view-modes {
   display: none;
@@ -720,8 +721,8 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.7); cursor
   .search-inline-wrap { flex: 1 1 auto; min-width: 0; max-width: none; }
   .searchbox { max-width: 100%; width: 100%; }
   .count { margin-left: 0; flex: 0 0 auto; }
-  .topbar-actions-row { overflow-x: auto; }
-  .topbar-actions { flex: 0 0 auto; }
+  .topbar-actions-row { justify-content: flex-end; overflow-x: auto; }
+  .topbar-actions { flex: 0 0 auto; margin-left: auto; }
   .topbar-view-modes { display: none; }
   .btn { padding: 8px 10px; font-size: .78rem; }
   .btn-icon { width: 34px; height: 34px; }
@@ -1718,15 +1719,15 @@ td.editing input {
         <button class="btn btn-icon" onclick="toggleHidden()" title="Afficher ou masquer les critères" aria-label="Afficher ou masquer les critères">👁</button>
         <button class="btn btn-icon" onclick="openStats()" title="Statistiques" aria-label="Statistiques">📈</button>
         <button class="btn btn-icon" onclick="openSettings()" title="Paramètres" aria-label="Paramètres">⚙</button>
+        <button class="btn btn-icon" onclick="openDuelModal()" title="Lancer un duel" aria-label="Lancer un duel">⚔</button>
+        <button class="btn btn-icon" onclick="startTournament()" title="Lancer un tournoi" aria-label="Lancer un tournoi">🏟</button>
+        <button class="btn btn-icon" onclick="openSuggestModalManual()" title="Classer un film non classé" aria-label="Classer un film non classé">🏁</button>
       </div>
       <div id="topbarViewModes" class="topbar-view-modes"></div>
     </div>
     <div class="topbar-search-row">
       <div class="search-inline-wrap">
         <input type="text" class="searchbox" id="search" placeholder="Rechercher titre, genre, réalisateur, tag…" oninput="render()">
-        <button class="btn btn-icon" onclick="openDuelModal()" title="Lancer un duel" aria-label="Lancer un duel">⚔</button>
-        <button class="btn btn-icon" onclick="startTournament()" title="Lancer un tournoi" aria-label="Lancer un tournoi">🏟</button>
-        <button class="btn btn-icon" onclick="openSuggestModalManual()" title="Classer un film non classé" aria-label="Classer un film non classé">🏁</button>
       </div>
       <span class="count" id="counter"></span>
     </div>
