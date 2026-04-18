@@ -1454,7 +1454,7 @@ function ensureFilmKeys(f) {
   f.dateVu = normalizeDateVu(f.dateVu);
 }
 const COLS = [
-  { key:'titre',       label:'Titre',           align:'left',   w:90, edit:true  },
+  { key:'titre',       label:'Titre original',  align:'left',   w:90, edit:true  },
   { key:'genre',       label:'Genre',           align:'left',   w:170, edit:true  },
   { key:'realisateur', label:'Réalisateur',     align:'left',   w:155, edit:true  },
   { key:'acteurs',     label:'Acteurs principaux', align:'left',w:210, edit:true  },
@@ -1996,7 +1996,7 @@ function render() {
         : `min-width:${titreReducedWidth}px;width:${titreReducedWidth}px;max-width:${titreReducedWidth}px`)
       : `min-width:${c.w}px`;
     const labelHtml = c.key === 'titre'
-      ? `${c.label}${arrow}<button class="col-expand-btn" onclick="event.stopPropagation();toggleTitleWidth()" title="${titleExpanded ? 'Réduire la colonne Titre' : 'Agrandir la colonne Titre'}" aria-label="${titleExpanded ? 'Réduire la colonne Titre' : 'Agrandir la colonne Titre'}">⤢</button>`
+      ? `${c.label}${arrow}<button class="col-expand-btn" onclick="event.stopPropagation();toggleTitleWidth()" title="${titleExpanded ? 'Réduire la colonne Titre original' : 'Agrandir la colonne Titre original'}" aria-label="${titleExpanded ? 'Réduire la colonne Titre original' : 'Agrandir la colonne Titre original'}">⤢</button>`
       : `${c.label}${arrow}`;
     html += `<th class="${cls}${frozenCls}" onclick="doSort('${c.key}')" style="text-align:${c.align};${widthStyle}">${labelHtml}</th>`;
   });
@@ -2338,7 +2338,7 @@ function bindFrozenHeader() {
 function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 function doSort(key) { if (sortCol===key) sortDir = sortDir==='asc'?'desc':'asc'; else { sortCol=key; sortDir='asc'; } render(); }
 function toggleHidden() { showHidden=!showHidden; savePrefs(); render(); toast(showHidden?'Colonnes détaillées affichées':'Colonnes détaillées masquées','info'); }
-function toggleTitleWidth() { titleExpanded = !titleExpanded; applyLayoutVars(); savePrefs(); render(); toast(titleExpanded ? 'Colonne Titre agrandie' : 'Colonne Titre réduite', 'info'); }
+function toggleTitleWidth() { titleExpanded = !titleExpanded; applyLayoutVars(); savePrefs(); render(); toast(titleExpanded ? 'Colonne Titre original agrandie' : 'Colonne Titre original réduite', 'info'); }
 
 function getRaterByKey(raterKey) {
   return RATERS.find(r => r.key === raterKey) || RATERS[0];
@@ -2381,8 +2381,8 @@ function openTitleBreakdown(idx) {
         ${f.watchlist ? '' : `<div class="note-summary-grid">${notesHtml}</div>
         <p class="desc" style="margin-top:4px;margin-bottom:14px;font-size:.78rem">💡 Cliquez sur une note ci-dessus pour modifier la ventilation.</p>`}
 
-        <label>Titre *</label>
-        <input type="text" id="detailsTitre" value="${esc(f.titre || '')}" placeholder="Titre du film">
+        <label>Titre original *</label>
+        <input type="text" id="detailsTitre" value="${esc(f.titre || '')}" placeholder="Titre original du film">
 
         <div style="display:flex;gap:10px;margin-top:10px">
           <div style="flex:2">
@@ -2528,7 +2528,7 @@ function saveFilmDetails(idx) {
     return;
   }
   const fields = [
-    { id: 'detailsTitre',   key: 'titre',       label: 'Titre',       type: 'text' },
+    { id: 'detailsTitre',   key: 'titre',       label: 'Titre original', type: 'text' },
     { id: 'detailsGenre',   key: 'genre',       label: 'Genre',       type: 'text' },
     { id: 'detailsAnnee',   key: 'annee',       label: 'Année',       type: 'num' },
     { id: 'detailsReal',    key: 'realisateur', label: 'Réalisateur', type: 'text' },
@@ -2904,7 +2904,7 @@ function openTmdbAssociate(filmIdx) {
       <h2>Associer à TMDb</h2>
       <p class="desc">Recherchez le film pour ajouter affiche, durée et note TMDb.</p>
       <label>Recherche TMDb</label>
-      <input type="text" id="tmdbAssocSearch" value="${esc(initialQuery)}" placeholder="Titre du film..." oninput="onTmdbAssocSearchInput(${filmIdx}, this.value)" autocomplete="off">
+      <input type="text" id="tmdbAssocSearch" value="${esc(initialQuery)}" placeholder="Titre original du film..." oninput="onTmdbAssocSearchInput(${filmIdx}, this.value)" autocomplete="off">
       <div id="tmdbAssocResults" class="tmdb-results" style="display:none"></div>
       <div class="modal-row">
         <button class="btn" onclick="closeOverlay();openTitleBreakdown(${filmIdx})">Retour</button>
@@ -2937,8 +2937,8 @@ function onTmdbAssocSearchInput(filmIdx, q) {
       box.innerHTML = results.slice(0, 10).map(r => {
         const poster = r.poster_path ? `background-image:url('${TMDB_IMG}${r.poster_path}')` : '';
         const year = r.release_date ? r.release_date.slice(0,4) : '—';
-        const title = esc(r.title || r.original_title || '');
-        const orig = r.original_title && r.original_title !== r.title ? ` <span style="color:var(--txt3)">(${esc(r.original_title)})</span>` : '';
+        const title = esc(r.original_title || r.title || '');
+        const orig = r.title && r.original_title && r.original_title !== r.title ? ` <span style="color:var(--txt3)">(${esc(r.title)})</span>` : '';
         return `<div class="tmdb-result" onclick="confirmTmdbAssoc(${filmIdx}, ${r.id})">
           <div class="tmdb-poster" style="${poster}"></div>
           <div class="tmdb-result-info">
@@ -2971,7 +2971,7 @@ function buildTmdbDiff(f, d) {
   const budget = d.budget ? parseFloat((d.budget / 1_000_000).toFixed(1)) : null;
   const boxOffice = d.revenue ? parseFloat((d.revenue / 1_000_000).toFixed(1)) : null;
   return [
-    { key: 'titre',       label: 'Titre',       oldVal: f.titre,       newVal: d.title || d.original_title || null, editable: true },
+    { key: 'titre',       label: 'Titre original', oldVal: f.titre,    newVal: d.original_title || d.title || null, editable: true },
     { key: 'annee',       label: 'Année',       oldVal: f.annee,       newVal: annee, editable: true },
     { key: 'genre',       label: 'Genre',       oldVal: f.genre,       newVal: genres, editable: true },
     { key: 'realisateur', label: 'Réalisateur', oldVal: f.realisateur, newVal: directors, editable: true },
@@ -3073,8 +3073,8 @@ function applyTmdbCompare() {
   });
   saveFilms();
   const summary = applied.length ? ` (${applied.length} champ${applied.length>1?'s':''} mis à jour)` : '';
-  addLog('edit', `<strong>${f.titre}</strong> — Associé à TMDb : ${esc(d.title)}${summary}`);
-  toast(`Associé : ${d.title}${summary}`, 'success');
+  addLog('edit', `<strong>${f.titre}</strong> — Associé à TMDb : ${esc(d.original_title || d.title)}${summary}`);
+  toast(`Associé : ${d.original_title || d.title}${summary}`, 'success');
   window._tmdbCompareData = null;
   closeOverlay();
   openTitleBreakdown(filmIdx);
@@ -3105,7 +3105,7 @@ const BATCH_FIELDS = [
   { key: 'posterPath', label: 'Affiche',          defaultOn: true,  alwaysFill: true },
   { key: 'runtime',    label: 'Durée (min)',      defaultOn: true,  alwaysFill: true },
   { key: 'tmdbVote',   label: 'Note TMDb ⭐',      defaultOn: true,  alwaysFill: true },
-  { key: 'titre',      label: 'Titre',            defaultOn: false, alwaysFill: false },
+  { key: 'titre',      label: 'Titre original',   defaultOn: false, alwaysFill: false },
   { key: 'genre',      label: 'Genre',            defaultOn: true,  alwaysFill: false },
   { key: 'realisateur',label: 'Réalisateur',      defaultOn: true,  alwaysFill: false },
   { key: 'acteurs',    label: 'Acteurs',          defaultOn: true,  alwaysFill: false },
@@ -3223,7 +3223,7 @@ function applyBatchFields(f, d, selectedFields, mode, actorsCount) {
     posterPath: d.poster_path || null,
     runtime: d.runtime || null,
     tmdbVote: d.vote_average || null,
-    titre: d.title || d.original_title || null,
+    titre: d.original_title || d.title || null,
     genre: genres,
     realisateur: directors,
     acteurs: actors,
@@ -3356,7 +3356,7 @@ async function processBatchNext() {
     const changedCount = applyBatchFields(f, d, s.selectedFields, s.mode, s.actorsCount);
     s.ok++;
     const suffix = changedCount > 0 ? ` (${changedCount} champ${changedCount>1?'s':''})` : ' (aucun changement)';
-    batchAddLog('ok', `✅ ${esc(f.titre)} → ${esc(d.title)}${suffix}`);
+    batchAddLog('ok', `✅ ${esc(f.titre)} → ${esc(d.original_title || d.title)}${suffix}`);
   } catch (err) {
     s.err++;
     batchAddLog('err', `❌ ${esc(f.titre)} — ${esc(err.message)}`);
@@ -3374,7 +3374,7 @@ function showBatchAmbigChoice(filmIdx, candidates) {
     return `<div class="ambig-choice">
       <div class="ambig-poster" style="${poster}"></div>
       <div class="ambig-info">
-        <div class="ambig-info-title">${esc(c.title || c.original_title || '')}</div>
+        <div class="ambig-info-title">${esc(c.original_title || c.title || '')}</div>
         <div class="ambig-info-meta">${year} · ⭐ ${c.vote_average ? c.vote_average.toFixed(1) : '—'}</div>
       </div>
       <div class="ambig-btns">
@@ -3404,7 +3404,7 @@ async function resolveBatchAmbig(filmIdx, tmdbId) {
     const changedCount = applyBatchFields(f, d, s.selectedFields, s.mode, s.actorsCount);
     s.ok++;
     const suffix = changedCount > 0 ? ` (${changedCount} champ${changedCount>1?'s':''})` : '';
-    batchAddLog('ok', `✅ ${esc(f.titre)} → ${esc(d.title)} (choix manuel${suffix ? ',' + suffix : ''})`);
+    batchAddLog('ok', `✅ ${esc(f.titre)} → ${esc(d.original_title || d.title)} (choix manuel${suffix ? ',' + suffix : ''})`);
   } catch (err) {
     s.err++;
     batchAddLog('err', `❌ ${esc(f.titre)} — ${esc(err.message)}`);
@@ -3453,7 +3453,7 @@ function openAddModal() {
       <div id="tmdbResults" class="tmdb-results" style="display:none"></div>
       ` : ''}
       <div id="addManualFields" style="margin-top:14px">
-        <label>Titre *</label><input type="text" id="addTitre" placeholder="Ex: Blade Runner 2049">
+        <label>Titre original *</label><input type="text" id="addTitre" placeholder="Ex: Blade Runner 2049">
         <label style="margin-top:10px">Genre</label><input type="text" id="addGenre" placeholder="Ex: Science-fiction, Drame">
         <label style="margin-top:10px">Réalisateur</label><input type="text" id="addReal" placeholder="Ex: Denis Villeneuve">
         <label style="margin-top:10px">Acteurs principaux</label><input type="text" id="addActeurs" placeholder="Séparés par des ;">
@@ -3503,8 +3503,8 @@ function onTmdbSearchInput(q) {
       box.innerHTML = results.slice(0, 10).map(r => {
         const poster = r.poster_path ? `background-image:url('${TMDB_IMG}${r.poster_path}')` : '';
         const year = r.release_date ? r.release_date.slice(0,4) : '—';
-        const title = esc(r.title || r.original_title || '');
-        const orig = r.original_title && r.original_title !== r.title ? ` <span style="color:var(--txt3)">(${esc(r.original_title)})</span>` : '';
+        const title = esc(r.original_title || r.title || '');
+        const orig = r.title && r.original_title && r.original_title !== r.title ? ` <span style="color:var(--txt3)">(${esc(r.title)})</span>` : '';
         const overview = r.overview ? esc(r.overview.slice(0, 90)) + (r.overview.length > 90 ? '…' : '') : '';
         return `<div class="tmdb-result" onclick="selectTmdbResult(${r.id}, this)">
           <div class="tmdb-poster" style="${poster}"></div>
@@ -3530,7 +3530,7 @@ async function selectTmdbResult(id, element) {
     const d = await tmdbDetails(id);
     tmdbSelected = d;
     // Populate manual fields
-    document.getElementById('addTitre').value = d.title || d.original_title || '';
+    document.getElementById('addTitre').value = d.original_title || d.title || '';
     document.getElementById('addGenre').value = (d.genres || []).map(g => g.name).join(', ');
     const directors = (d.credits?.crew || []).filter(c => c.job === 'Director').map(c => c.name);
     document.getElementById('addReal').value = directors.join(', ');
@@ -3541,7 +3541,7 @@ async function selectTmdbResult(id, element) {
     document.getElementById('addBO').value = d.revenue ? (d.revenue / 1_000_000).toFixed(1) : '';
     // Replace status with confirmation
     box.innerHTML = `<div class="tmdb-status" style="color:var(--green)">✓ Champs pré-remplis depuis TMDb — vérifiez et ajoutez.</div>`;
-    toast(`Données TMDb chargées : ${d.title}`, 'success');
+    toast(`Données TMDb chargées : ${d.original_title || d.title}`, 'success');
   } catch (err) {
     box.querySelector('.tmdb-status')?.remove();
     toast('Erreur TMDb : ' + err.message, 'error');
@@ -4572,7 +4572,7 @@ function openSettings() {
         <div class="settings-section">
           <div class="settings-section-title">Affichage</div>
           <div class="settings-section-desc">Réglez la présentation du tableau principal.</div>
-          <label>Largeur réduite de la colonne Titre (px)</label>
+          <label>Largeur réduite de la colonne Titre original (px)</label>
           <input type="number" id="settingsTitreWidth" min="50" max="600" step="10" value="${titreReducedWidth}" placeholder="90">
           <p style="font-size:.78rem;color:var(--txt3);margin-top:6px;margin-bottom:14px">Valeur par défaut : 90 px · Min 50 · Max 600</p>
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
@@ -4875,7 +4875,7 @@ function exportJSON() {
 }
 function buildExcelRows() {
   const baseCols = [
-    ['titre', 'Titre'],
+    ['titre', 'Titre original'],
     ['genre', 'Genre'],
     ['realisateur', 'Réalisateur'],
     ['acteurs', 'Acteurs principaux'],
@@ -4920,7 +4920,7 @@ function exportExcel() {
     ws['!autofilter'] = { ref: `A1:${XLSX.utils.encode_cell({ r: 0, c: headers.length - 1 })}` };
     ws['!cols'] = headers.map((h, idx) => {
       if (idx === 0) return { wch: 6 };
-      if (h === 'Titre') return { wch: 28 };
+      if (h === 'Titre original') return { wch: 28 };
       return { wch: Math.min(Math.max(h.length + 2, 12), 26) };
     });
     XLSX.utils.book_append_sheet(wb, ws, 'Films');
