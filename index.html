@@ -414,8 +414,20 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.7); cursor
   .topbar h1 { font-size: 1.3rem; }
   .searchbox { max-width: 100%; order: 3; width: 100%; }
   .count { margin-left: 0; }
-  .topbar-actions { margin-left: 0; width: 100%; flex-wrap: wrap; }
-  .topbar-view-modes { flex-wrap: wrap; }
+  .topbar-actions {
+    margin-left: 0;
+    width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 8px;
+  }
+  .topbar-actions::-webkit-scrollbar { display: none; }
+  .topbar-view-modes {
+    flex-wrap: nowrap;
+    flex: 0 0 auto;
+  }
   .btn { padding: 8px 10px; font-size: .78rem; }
   .btn-icon { width: 34px; height: 34px; }
   .topbar-mode-btn { min-height: 34px; }
