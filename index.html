@@ -358,9 +358,7 @@ body::before {
   flex-wrap: nowrap;
 }
 .topbar-view-modes {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+  display: none;
 }
 .btn-icon {
   width: 36px; height: 36px; padding: 0;
@@ -681,7 +679,7 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.7); cursor
   .count { margin-left: 0; flex: 0 0 auto; }
   .topbar-actions-row { overflow-x: auto; }
   .topbar-actions { flex: 0 0 auto; }
-  .topbar-view-modes { flex-wrap: nowrap; flex: 0 0 auto; }
+  .topbar-view-modes { display: none; }
   .btn { padding: 8px 10px; font-size: .78rem; }
   .btn-icon { width: 34px; height: 34px; }
   .topbar-mode-btn { min-height: 34px; }
@@ -2377,7 +2375,7 @@ function render() {
   const q = document.getElementById('search').value.trim().toLowerCase();
   // Filter by view mode
   let list = films.map((f, i) => ({ ...f, _idx: i }))
-    .filter(f => viewMode === 'watchlist' ? f.watchlist : !f.watchlist);
+    .filter(f => !f.watchlist);
 
   // Determine if sort column is a "note" column (rater or criteria)
   const raterKeys = RATERS.map(r => r.key);
@@ -2446,12 +2444,13 @@ function render() {
   });
   if (tagFilter) list = list.filter(f => (f.tags || []).includes(tagFilter));
 
-  document.getElementById('counter').textContent = list.length + ' / ' + films.length + ' films';
+  const classeurTotal = films.filter(f => !f.watchlist).length;
+  document.getElementById('counter').textContent = list.length + ' / ' + classeurTotal + ' films';
   // Columns vary by view mode
   const hiddenBaseCols = new Set(['genre','realisateur','acteurs','annee','budget','boxOffice','dateVu','tags']);
   // In watchlist mode, hide note columns + tier + dateVu (replaced by priority)
   const wlHiddenCols = new Set(['notePerso','tmdbVote','tiers','victor','lilyRose','julie','dateVu']);
-  const isWL = viewMode === 'watchlist';
+  const isWL = false;
   let html = '<table><thead><tr><th class="col-frozen-del" style="width:24px"></th>';
   const isReorderHeader = !isWL && sortCol === 'notePerso' && sortDir === 'desc';
   html += '<th class="col-frozen-pos ' + (sortCol ? 'sorted' : '') + '" style="text-align:center;min-width:24px;width:24px;' + (isReorderHeader ? 'color:var(--gold)' : '') + '" title="' + (isReorderHeader ? 'Classement manuel — flèches pour réorganiser' : 'Rang') + '">' + (isReorderHeader ? '⇅' : '#') + '</th>';
@@ -2591,30 +2590,12 @@ function render() {
 function renderViewModeBar() {
   const bar = document.getElementById('topbarViewModes');
   if (!bar) return;
-  const classeurCount = films.filter(f => !f.watchlist).length;
-  const wlCount = films.filter(f => f.watchlist).length;
-  bar.innerHTML = `
-    <button class="btn topbar-mode-btn ${viewMode === 'classeur' ? 'active' : ''}" onclick="setViewMode('classeur')" title="Afficher le classeur" aria-label="Afficher le classeur">
-      <span class="mode-icon">📽</span>
-      <span class="mode-label">Classeur</span>
-      <span class="mode-count">${classeurCount}</span>
-    </button>
-    <button class="btn topbar-mode-btn ${viewMode === 'watchlist' ? 'active' : ''}" onclick="setViewMode('watchlist')" title="Afficher la liste À voir" aria-label="Afficher la liste À voir">
-      <span class="mode-icon">🎯</span>
-      <span class="mode-label">À voir</span>
-      <span class="mode-count">${wlCount}</span>
-    </button>
-  `;
+  bar.innerHTML = '';
 }
 
 function setViewMode(mode) {
-  if (viewMode === mode) return;
-  viewMode = mode;
-  // Smart default sort per view
-  if (mode === 'watchlist') {
-    sortCol = 'watchlistPriority';
-    sortDir = 'desc';
-  } else if (sortCol === 'watchlistPriority') {
+  viewMode = 'classeur';
+  if (sortCol === 'watchlistPriority' || sortCol === 'watchlistDate') {
     sortCol = 'notePerso';
     sortDir = 'desc';
   }
@@ -2674,7 +2655,7 @@ function confirmMoveToWatchlist(idx) {
     saveFilms();
     addLog('edit', `<strong>${f.titre}</strong> — Déplacé du classeur à la watchlist`);
     toast(`${f.titre} déplacé à la watchlist`, 'success');
-    viewMode = 'watchlist';
+    viewMode = 'classeur';
     closeOverlay();
     render();
     return;
@@ -2715,7 +2696,7 @@ function doMoveToWatchlist(idx) {
   saveFilms();
   addLog('edit', `<strong>${f.titre}</strong> — Déplacé du classeur à la watchlist (notes effacées)`);
   toast(`${f.titre} déplacé à la watchlist`, 'warn');
-  viewMode = 'watchlist';
+  viewMode = 'classeur';
   closeOverlay();
   render();
 }
@@ -4111,7 +4092,7 @@ function cancelBatchEnrich() {
 function openAddModal() {
   tmdbSelected = null;
   const hasKey = hasTmdbKey();
-  const defaultToWatchlist = viewMode === 'watchlist';
+  const defaultToWatchlist = false;
   const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()">
     <div class="modal" style="max-width:560px">
       <h2>Ajouter un film</h2>
@@ -4133,13 +4114,6 @@ function openAddModal() {
           <div style="flex:1"><label>Budget (M$)</label><input type="number" id="addBudget" step="0.1"></div>
           <div style="flex:1"><label>Box Office (M$)</label><input type="number" id="addBO" step="0.1"></div>
         </div>
-      </div>
-      <div style="margin-top:14px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)">
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0">
-          <input type="checkbox" id="addToWatchlist" ${defaultToWatchlist ? 'checked' : ''} style="width:auto;margin:0">
-          <span>🎯 Ajouter à la watchlist (film à voir)</span>
-        </label>
-        <p style="font-size:.72rem;color:var(--txt3);margin-top:6px;margin-left:26px">Sinon, le film sera ajouté au classeur et pourra être noté directement.</p>
       </div>
       <div class="modal-row">
         <button class="btn" onclick="closeOverlay()">Annuler</button>
@@ -4227,7 +4201,7 @@ function doAddFilm() {
     toast(`${t} existe déjà dans votre classeur`, 'warn');
     return;
   }
-  const addAsWatchlist = document.getElementById('addToWatchlist')?.checked || false;
+  const addAsWatchlist = false;
   const f = {
     titre: t,
     genre: document.getElementById('addGenre').value.trim() || null,
@@ -4256,9 +4230,7 @@ function doAddFilm() {
   addLog('add', `Film ajouté${source}${dest} : <strong>${t}</strong>`);
   toast(`${t} ajouté${addAsWatchlist ? ' à la watchlist' : ' au classeur'}`, 'success');
   tmdbSelected = null;
-  // Switch to the appropriate view to show the newly-added film
-  if (addAsWatchlist && viewMode !== 'watchlist') viewMode = 'watchlist';
-  else if (!addAsWatchlist && viewMode !== 'classeur') viewMode = 'classeur';
+  viewMode = 'classeur';
   closeOverlay();
   render();
 }
