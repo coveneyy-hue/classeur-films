@@ -21,6 +21,7 @@
   --red:       #e84040;
   --green:     #40c890;
   --blue:      #4088e8;
+  --pink:      #e860a0;
   --txt:       #d0d0e0;
   --txt2:      #808098;
   --txt3:      #505068;
@@ -473,6 +474,34 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.7); cursor
 .ambig-btns { display: flex; flex-direction: column; gap: 4px; }
 .ambig-btns .btn { padding: 4px 8px; font-size: .72rem; min-width: 60px; }
 
+/* ─── REORDER CONTROLS (drag-drop lite) ──────────── */
+.reorder-cell {
+  padding: 2px !important;
+}
+.reorder-wrap {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 1px; min-width: 22px;
+}
+.reorder-btn {
+  background: var(--bg3); color: var(--gold);
+  border: none; border-radius: 3px;
+  width: 18px; height: 14px;
+  font-size: .55rem; line-height: 1;
+  cursor: pointer; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s, color .15s;
+  touch-action: manipulation;
+}
+.reorder-btn:hover { background: var(--gold); color: #000; }
+.reorder-btn:active { transform: scale(0.9); }
+.reorder-rank {
+  font-weight: 800; color: var(--gold); font-size: .72rem;
+  font-family: var(--font-display); cursor: pointer;
+  padding: 1px 2px; line-height: 1;
+  border-radius: 3px; min-width: 20px; text-align: center;
+}
+.reorder-rank:hover { background: var(--bg3); }
+
 /* ─── TAGS ────────────────────────────────────────── */
 .tag-chip {
   display: inline-flex; align-items: center; gap: 4px;
@@ -578,6 +607,50 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.7); cursor
   padding: 8px 12px; background: rgba(232,166,48,.08);
   border-bottom: 1px solid var(--border);
   font-size: .85rem; flex-wrap: wrap;
+}
+
+/* ─── VIEW MODE BAR ───────────────────────────────── */
+.view-mode-bar {
+  display: flex; align-items: center; justify-content: center;
+  gap: 4px; padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+}
+.view-mode-btn {
+  padding: 8px 18px; border-radius: 24px;
+  font-family: var(--font-display); font-weight: 700;
+  font-size: .85rem; cursor: pointer;
+  background: transparent; color: var(--txt2);
+  border: 1px solid var(--border);
+  transition: all .2s;
+  display: inline-flex; align-items: center; gap: 6px;
+  letter-spacing: .02em;
+}
+.view-mode-btn:hover { color: var(--gold); border-color: var(--gold-dim); }
+.view-mode-btn.active {
+  background: linear-gradient(135deg, var(--gold), #d08820);
+  color: #000; border-color: transparent;
+  box-shadow: 0 4px 14px rgba(232,166,48,.35);
+}
+.view-mode-btn .count {
+  background: rgba(0,0,0,.15); color: inherit;
+  padding: 1px 7px; border-radius: 10px;
+  font-size: .72rem; margin-left: 2px;
+  font-family: var(--font-body); font-weight: 700;
+}
+.view-mode-btn.active .count { background: rgba(0,0,0,.25); }
+
+/* Watchlist priority stars */
+.priority-stars {
+  color: var(--gold); letter-spacing: 1px;
+  font-size: 1rem; cursor: pointer; user-select: none;
+}
+.priority-stars .dim { opacity: .2; }
+
+/* Move-to-classeur action styling */
+.btn-move-to-classeur {
+  background: linear-gradient(135deg, var(--green), #30a070);
+  color: #fff; border: none;
 }
 
 /* ─── STATS PANEL ─────────────────────────────────── */
@@ -1163,6 +1236,9 @@ td.editing input {
     </div>
   </div>
 
+  <!-- View Mode Toggle -->
+  <div id="viewModeBar" class="view-mode-bar"></div>
+
   <!-- Toolbar -->
   <div class="toolbar"></div>
 
@@ -1175,11 +1251,14 @@ td.editing input {
   <div class="floating-head" id="floatingHead" aria-hidden="true"></div>
 
   <div class="formula-box">
-    <h3>📐 Calcul des notes (Ma note · Victor · Lily-Rose · Julie)</h3>
+    <h3>📐 Calcul des notes</h3>
     <p>
-      Même formule pour les 4 colonnes — double-cliquez sur n'importe laquelle pour noter.<br>
-      <strong>Position sur 100</strong> (33 %) — Convertie en note : position 1 → 9.9, position 50 → 5.0, position 100 → 0.0<br>
-      <strong>8 autres critères</strong> (67 % répartis également, ~8.38 % chacun) — Acteur principal · Acteur secondaire · Antagoniste · Trame sonore · Fluidité narrative · Scénario · Réalisation · La fin
+      <strong style="color:var(--gold)">Ma note</strong> combine 3 composantes :<br>
+      • <strong>8 critères techniques (50 %)</strong> — Acteur principal · Acteur secondaire · Antagoniste · Trame sonore · Fluidité · Scénario · Réalisation · La fin<br>
+      • <strong>Coup de cœur (25 %)</strong> — Attachement personnel au film, indépendant de la qualité objective (0-10)<br>
+      • <strong>Préférence relative (25 %)</strong> — Issue du classement manuel par glisser-déposer (courbe log : rang #1 = 10, rang #N = 0)<br>
+      <br>
+      <strong style="color:var(--txt2)">Victor · Lily-Rose · Julie</strong> : 8 critères techniques (67 %) + coup de cœur (33 %), sans classement manuel.
     </p>
   </div>
 </div>
@@ -1210,7 +1289,7 @@ td.editing input {
    DATA
    ═══════════════════════════════════════════════════ */
 const CRITERIA = [
-  { key:'position100', label:'Position sur 100 estimée', desc:'Où situez-vous ce film dans un top 100 ? (1 = meilleur, 100 = pire). Ex : 80 → note de 2/10', min:1, max:100, suffix:'/100', isPos:true },
+  { key:'coupDeCoeur', label:'Coup de cœur', desc:'Votre attachement émotionnel et personnel au film — indépendant de sa qualité objective. 0 = indifférent, 10 = ce film me parle profondément.', min:0, max:10, suffix:'/10', isPreference:true },
   { key:'castPrincipal', label:'Acteur principal', desc:'Performance de l\'acteur/actrice principal(e) — charisme, justesse, émotion.', min:0, max:10, suffix:'/10' },
   { key:'castSecondaire', label:'Acteur secondaire', desc:'Qualité et impact des rôles secondaires.', min:0, max:10, suffix:'/10' },
   { key:'antagoniste', label:'Antagoniste', desc:'Mémorabilité, menace et complexité du vilain ou opposant.', min:0, max:10, suffix:'/10' },
@@ -1236,8 +1315,22 @@ function allCriteriaKeys() {
 function ensureCriteriaKeys(f) {
   RATERS.forEach(r => CRITERIA.forEach(c => { const k = r.prefix + c.key; if (!(k in f)) f[k] = null; }));
 }
+
+// Migration: convert old position100 → coupDeCoeur (0-10 equivalence)
+function migratePositionToCoupDeCoeur(f) {
+  RATERS.forEach(r => {
+    const oldPosKey = r.prefix + 'position100';
+    const newKey = r.prefix + 'coupDeCoeur';
+    if (f[oldPosKey] != null && f[newKey] == null) {
+      const pos = f[oldPosKey];
+      f[newKey] = Math.max(0, Math.min(10, parseFloat((10 - pos / 10).toFixed(2))));
+    }
+  });
+}
+
 function ensureFilmKeys(f) {
   ensureCriteriaKeys(f);
+  migratePositionToCoupDeCoeur(f);
   if (!('dateVu' in f)) f.dateVu = null;
   if (!('tiers' in f)) f.tiers = null;
   if (!('tmdbId' in f)) f.tmdbId = null;
@@ -1246,6 +1339,10 @@ function ensureFilmKeys(f) {
   if (!('tmdbVote' in f)) f.tmdbVote = null;
   if (!('tags' in f) || !Array.isArray(f.tags)) f.tags = [];
   if (!('primaryTag' in f)) f.primaryTag = null;
+  if (!('watchlist' in f)) f.watchlist = false;
+  if (!('watchlistDate' in f)) f.watchlistDate = null;
+  if (!('watchlistPriority' in f)) f.watchlistPriority = null;
+  if (!('rank' in f)) f.rank = null;
   f.dateVu = normalizeDateVu(f.dateVu);
 }
 const COLS = [
@@ -1368,6 +1465,7 @@ const DEFAULT_FILMS=[
    STATE
    ═══════════════════════════════════════════════════ */
 let films = [], log = [], showHidden = false, sortCol = 'notePerso', sortDir = 'desc', titleExpanded = false, titreReducedWidth = 90, showPosters = true;
+let viewMode = 'classeur'; // 'classeur' or 'watchlist'
 let tags = []; // [{ id, name, color, emoji }]
 let tagFilter = null; // tag id or null
 let editCell = null; // {idx, key}
@@ -1388,12 +1486,36 @@ function loadState() {
     tags = getDefaultTags();
     saveTags();
   }
+  // Initial rank seeding — if no film has a rank yet but has a coupDeCoeur (from migration),
+  // assign ranks ordered by old position100 ascending (best position first)
+  seedInitialRanksIfNeeded();
   showHidden = localStorage.getItem('cf_showHidden') === '1';
   titleExpanded = localStorage.getItem('cf_titleExpanded') === '1';
   showPosters = localStorage.getItem('cf_showPosters') !== '0'; // default true
   const savedTRW = parseInt(localStorage.getItem('cf_titreReducedWidth'));
   if (!isNaN(savedTRW) && savedTRW >= 50 && savedTRW <= 600) titreReducedWidth = savedTRW;
   applyLayoutVars();
+}
+
+function seedInitialRanksIfNeeded() {
+  // If ANY film already has a rank, skip (already migrated)
+  if (films.some(f => f.rank != null)) return;
+  // Collect eligible films (not in watchlist, has position100 OR has coupDeCoeur)
+  const eligible = films.map((f, i) => ({ f, i }))
+    .filter(x => !x.f.watchlist && (x.f.position100 != null || x.f.coupDeCoeur != null));
+  if (!eligible.length) return;
+  // Sort: prefer by old position100 ascending (1 = best); fallback to coupDeCoeur desc
+  eligible.sort((a, b) => {
+    const ap = a.f.position100, bp = b.f.position100;
+    if (ap != null && bp != null) return ap - bp;
+    if (ap != null) return -1;
+    if (bp != null) return 1;
+    return (b.f.coupDeCoeur ?? 0) - (a.f.coupDeCoeur ?? 0);
+  });
+  eligible.forEach((x, i) => { x.f.rank = i + 1; });
+  // Also recompute all perso notes now that ranks exist
+  recomputeAllPersoNotes();
+  saveFilms();
 }
 
 function saveTags() { localStorage.setItem('cf_tags', JSON.stringify(tags)); }
@@ -1496,14 +1618,114 @@ function addLog(type, msg) {
 /* ═══════════════════════════════════════════════════
    COMPUTE NOTE
    ═══════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════
+   COMPUTE NOTE
+   ═══════════════════════════════════════════════════
+   Ma note : 50% avg(8 critères techniques) + 25% coup de cœur + 25% préférence(rang)
+   Autres raters : 33% coup de cœur + 67% avg(8 critères techniques)
+   ═══════════════════════════════════════════════════ */
 function computeNote(f, prefix) {
   prefix = prefix || '';
-  const pos = f[prefix + 'position100'];
-  if (pos == null) return null;
-  const posNote = 10 - (pos / 100) * 10;
-  const others = CRITERIA.filter(c => !c.isPos).map(c => f[prefix + c.key] ?? 0);
-  const avg = others.reduce((a,b) => a + b, 0) / others.length;
-  return Math.round((posNote * 0.33 + avg * 0.67) * 100) / 100;
+  const coeur = f[prefix + 'coupDeCoeur'];
+  if (coeur == null) return null;
+  const techCriteria = CRITERIA.filter(c => !c.isPreference);
+  const techVals = techCriteria.map(c => f[prefix + c.key] ?? 0);
+  const avgTech = techVals.reduce((a,b) => a + b, 0) / techVals.length;
+
+  if (prefix === '') {
+    // Ma note — includes manual rank as 25% preference component
+    const prefVal = computePrefFromRank(f.rank);
+    const note = avgTech * 0.50 + coeur * 0.25 + prefVal * 0.25;
+    return Math.round(note * 100) / 100;
+  }
+  // Other raters — no rank system, simpler formula
+  const note = avgTech * 0.67 + coeur * 0.33;
+  return Math.round(note * 100) / 100;
+}
+
+// Logarithmic preference curve from rank (1 = top → 10, N = last → 0)
+function computePrefFromRank(rank) {
+  if (rank == null || rank < 1) return 0;
+  const totalRanked = films.filter(ff => !ff.watchlist && ff.rank != null && ff.rank >= 1).length;
+  if (totalRanked <= 1) return 10;
+  const val = 10 * (1 - Math.log(rank) / Math.log(totalRanked));
+  return Math.max(0, Math.min(10, val));
+}
+
+// Recompute notePerso for ALL classeur films (call after ranks change, or N changes)
+function recomputeAllPersoNotes() {
+  films.forEach(f => {
+    if (f.watchlist) return;
+    if (f.coupDeCoeur != null) f.notePerso = computeNote(f, '');
+  });
+}
+
+// Normalize ranks: compact all ranks to 1..N ensuring no gaps
+function normalizeRanks() {
+  const ranked = films
+    .map((f, i) => ({ f, i }))
+    .filter(x => !x.f.watchlist && x.f.rank != null)
+    .sort((a, b) => a.f.rank - b.f.rank);
+  ranked.forEach((x, i) => { x.f.rank = i + 1; });
+}
+
+// Move film from its current rank to newRank (1-based).
+// Cascades other films' ranks accordingly then recomputes all perso notes.
+function moveFilmToRank(idx, newRank) {
+  const f = films[idx];
+  if (!f || f.watchlist || f.rank == null) return false;
+  const oldRank = f.rank;
+  // Normalize newRank in [1..N] bounds
+  const N = films.filter(ff => !ff.watchlist && ff.rank != null).length;
+  newRank = Math.max(1, Math.min(N, newRank));
+  if (newRank === oldRank) return false;
+  // Move up (newRank < oldRank): everyone between newRank and oldRank-1 shifts +1
+  // Move down (newRank > oldRank): everyone between oldRank+1 and newRank shifts -1
+  films.forEach(ff => {
+    if (ff.watchlist || ff.rank == null || ff === f) return;
+    if (newRank < oldRank) {
+      if (ff.rank >= newRank && ff.rank < oldRank) ff.rank += 1;
+    } else {
+      if (ff.rank > oldRank && ff.rank <= newRank) ff.rank -= 1;
+    }
+  });
+  f.rank = newRank;
+  normalizeRanks();
+  recomputeAllPersoNotes();
+  saveFilms();
+  addLog('note', `<strong>${f.titre}</strong> — Classement manuel : #${oldRank} → #${newRank}`);
+  return true;
+}
+
+function moveFilmUp(idx) {
+  const f = films[idx];
+  if (!f || f.rank == null || f.rank <= 1) return;
+  if (moveFilmToRank(idx, f.rank - 1)) render();
+}
+
+function moveFilmDown(idx) {
+  const f = films[idx];
+  if (!f || f.rank == null) return;
+  const N = films.filter(ff => !ff.watchlist && ff.rank != null).length;
+  if (f.rank >= N) return;
+  if (moveFilmToRank(idx, f.rank + 1)) render();
+}
+
+function promptMoveToRank(idx) {
+  const f = films[idx];
+  if (!f || f.rank == null) return;
+  const N = films.filter(ff => !ff.watchlist && ff.rank != null).length;
+  const raw = prompt(`Déplacer "${f.titre}" à quel rang ? (1 à ${N})`, String(f.rank));
+  if (raw == null) return;
+  const n = parseInt(raw, 10);
+  if (isNaN(n) || n < 1 || n > N) {
+    toast(`Rang invalide (1 à ${N})`, 'error');
+    return;
+  }
+  if (moveFilmToRank(idx, n)) {
+    toast(`${f.titre} → rang #${n}`, 'success');
+    render();
+  }
 }
 
 /* ═══════════════════════════════════════════════════
@@ -1521,8 +1743,11 @@ function toast(msg, type='info') {
    RENDER TABLE
    ═══════════════════════════════════════════════════ */
 function render() {
+  renderViewModeBar();
   const q = document.getElementById('search').value.toLowerCase();
-  let list = films.map((f, i) => ({ ...f, _idx: i }));
+  // Filter by view mode
+  let list = films.map((f, i) => ({ ...f, _idx: i }))
+    .filter(f => viewMode === 'watchlist' ? f.watchlist : !f.watchlist);
 
   // Determine if sort column is a "note" column (rater or criteria)
   const raterKeys = RATERS.map(r => r.key);
@@ -1530,13 +1755,14 @@ function render() {
   RATERS.forEach(r => CRITERIA.forEach(c => criteriaStorageKeys.push(r.prefix + c.key)));
   const isNoteSort = sortCol && (raterKeys.includes(sortCol) || criteriaStorageKeys.includes(sortCol));
 
-  // Find tiebreaker key: position100 of the same rater
+  // Find tiebreaker key: for Ma note, use rank ascending; for others, use coupDeCoeur desc
   let tiebreakerKey = null;
+  let tiebreakerAsc = false;
   if (isNoteSort) {
     const rater = RATERS.find(r => r.key === sortCol) || RATERS.find(r => sortCol.startsWith(r.prefix) && r.prefix !== '');
-    if (!rater && sortCol === 'notePerso') tiebreakerKey = 'position100';
-    else if (!rater) tiebreakerKey = 'position100'; // fallback for prefix-less
-    else tiebreakerKey = rater.prefix + 'position100';
+    if (sortCol === 'notePerso') { tiebreakerKey = 'rank'; tiebreakerAsc = true; }
+    else if (rater) { tiebreakerKey = rater.prefix + 'coupDeCoeur'; tiebreakerAsc = false; }
+    else tiebreakerKey = 'coupDeCoeur';
   }
 
   if (sortCol) {
@@ -1549,7 +1775,7 @@ function render() {
       if (tiebreakerKey) {
         const pa = a[tiebreakerKey], pb = b[tiebreakerKey];
         if (pa == null) return 1; if (pb == null) return -1;
-        return pa - pb;
+        return tiebreakerAsc ? (pa - pb) : (pb - pa);
       }
       return 0;
     });
@@ -1566,7 +1792,7 @@ function render() {
         if (tiebreakerKey) {
           const pa = a[tiebreakerKey], pb = b[tiebreakerKey];
           if (pa == null) return 1; if (pb == null) return -1;
-          return pa - pb;
+          return tiebreakerAsc ? (pa - pb) : (pb - pa);
         }
         return 0;
       });
@@ -1583,12 +1809,17 @@ function render() {
   if (tagFilter) list = list.filter(f => (f.tags || []).includes(tagFilter));
 
   document.getElementById('counter').textContent = list.length + ' / ' + films.length + ' films';
-
+  // Columns vary by view mode
   const hiddenBaseCols = new Set(['genre','realisateur','acteurs','annee','budget','boxOffice','dateVu','tags']);
+  // In watchlist mode, hide note columns + tier + dateVu (replaced by priority)
+  const wlHiddenCols = new Set(['notePerso','tmdbVote','tiers','victor','lilyRose','julie','dateVu']);
+  const isWL = viewMode === 'watchlist';
   let html = '<table><thead><tr><th class="col-frozen-del" style="width:24px"></th>';
-  html += '<th class="col-frozen-pos ' + (sortCol ? 'sorted' : '') + '" style="text-align:center;min-width:24px;width:24px">#</th>';
+  const isReorderHeader = !isWL && sortCol === 'notePerso' && sortDir === 'desc';
+  html += '<th class="col-frozen-pos ' + (sortCol ? 'sorted' : '') + '" style="text-align:center;min-width:24px;width:24px;' + (isReorderHeader ? 'color:var(--gold)' : '') + '" title="' + (isReorderHeader ? 'Classement manuel — flèches pour réorganiser' : 'Rang') + '">' + (isReorderHeader ? '⇅' : '#') + '</th>';
   COLS.forEach(c => {
     if (!showHidden && hiddenBaseCols.has(c.key)) return;
+    if (isWL && wlHiddenCols.has(c.key)) return;
     const cls = sortCol === c.key ? ' sorted' : '';
     const arrow = sortCol === c.key ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
     const frozenCls = c.key === 'titre' ? ' col-frozen-titre' : '';
@@ -1602,6 +1833,16 @@ function render() {
       : `${c.label}${arrow}`;
     html += `<th class="${cls}${frozenCls}" onclick="doSort('${c.key}')" style="text-align:${c.align};${widthStyle}">${labelHtml}</th>`;
   });
+  // Watchlist-specific columns
+  if (isWL) {
+    const priCls = sortCol === 'watchlistPriority' ? ' sorted' : '';
+    const priArrow = sortCol === 'watchlistPriority' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
+    const dateCls = sortCol === 'watchlistDate' ? ' sorted' : '';
+    const dateArrow = sortCol === 'watchlistDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
+    html += `<th class="${priCls}" onclick="doSort('watchlistPriority')" style="text-align:center;min-width:90px">Priorité${priArrow}</th>`;
+    html += `<th class="${dateCls}" onclick="doSort('watchlistDate')" style="text-align:center;min-width:100px">Ajouté${dateArrow}</th>`;
+    html += `<th style="text-align:center;min-width:130px">Actions</th>`;
+  }
   if (showHidden) RATERS.forEach(r => {
     CRITERIA.forEach(c => {
       const sk = r.prefix + c.key;
@@ -1615,12 +1856,24 @@ function render() {
   list.forEach(f => {
     html += '<tr>';
     html += `<td class="cell-num col-frozen-del"><button class="del-btn" onclick="deleteFilm(${f._idx})" title="Supprimer">✕</button></td>`;
-    // Position cell
+    // Position cell — becomes reorder cell when sorted by Ma note desc in classeur view
     const rank = ranks.get(f._idx);
     const showRank = isNoteSort ? (f[sortCol] != null ? rank : null) : rank;
-    html += `<td class="cell-num col-frozen-pos" style="font-weight:700;color:var(--txt3);font-size:.8rem">${showRank != null ? showRank : '—'}</td>`;
+    const isReorderMode = !isWL && sortCol === 'notePerso' && sortDir === 'desc' && f.rank != null;
+    if (isReorderMode) {
+      html += `<td class="cell-num col-frozen-pos reorder-cell" style="text-align:center">
+        <div class="reorder-wrap">
+          <button class="reorder-btn" onclick="moveFilmUp(${f._idx})" title="Monter d'un rang">▲</button>
+          <span class="reorder-rank" onclick="promptMoveToRank(${f._idx})" title="Cliquer pour saisir un rang">${f.rank}</span>
+          <button class="reorder-btn" onclick="moveFilmDown(${f._idx})" title="Descendre d'un rang">▼</button>
+        </div>
+      </td>`;
+    } else {
+      html += `<td class="cell-num col-frozen-pos" style="font-weight:700;color:var(--txt3);font-size:.8rem">${showRank != null ? showRank : '—'}</td>`;
+    }
     COLS.forEach(col => {
       if (!showHidden && hiddenBaseCols.has(col.key)) return;
+      if (isWL && wlHiddenCols.has(col.key)) return;
       if (col.rater) {
         const rater = RATERS.find(r => r.key === col.key);
         const v = f[col.key];
@@ -1676,12 +1929,153 @@ function render() {
         html += `<td class="cell-hidden" style="color:${r.color};opacity:.6">${val!=null?val:'—'}</td>`;
       });
     });
+    // Watchlist-specific cells
+    if (isWL) {
+      const p = f.watchlistPriority || 0;
+      let stars = '';
+      for (let i = 1; i <= 5; i++) {
+        const cls = i <= p ? '' : 'dim';
+        stars += `<span class="${cls}" onclick="event.stopPropagation();setWatchlistPriority(${f._idx},${i === p ? 0 : i})">★</span>`;
+      }
+      html += `<td class="cell-num" style="text-align:center"><span class="priority-stars">${stars}</span></td>`;
+      const dateStr = f.watchlistDate ? new Date(f.watchlistDate).toLocaleDateString('fr-CA') : '—';
+      html += `<td class="cell-num" style="text-align:center;color:var(--txt3);font-size:.8rem">${dateStr}</td>`;
+      html += `<td class="cell-num" style="text-align:center"><button class="btn btn-move-to-classeur" onclick="moveToClasseur(${f._idx})" style="padding:4px 10px;font-size:.75rem">👁 Marquer vu</button></td>`;
+    }
     html += '</tr>';
   });
   html += '</tbody></table>';
   document.getElementById('tableWrap').innerHTML = html;
   renderTagFilterBar();
   requestAnimationFrame(syncFrozenHeader);
+}
+
+function renderViewModeBar() {
+  const bar = document.getElementById('viewModeBar');
+  if (!bar) return;
+  const classeurCount = films.filter(f => !f.watchlist).length;
+  const wlCount = films.filter(f => f.watchlist).length;
+  bar.innerHTML = `
+    <div class="view-mode-btn ${viewMode === 'classeur' ? 'active' : ''}" onclick="setViewMode('classeur')">
+      📽 Classeur <span class="count">${classeurCount}</span>
+    </div>
+    <div class="view-mode-btn ${viewMode === 'watchlist' ? 'active' : ''}" onclick="setViewMode('watchlist')">
+      🎯 À voir <span class="count">${wlCount}</span>
+    </div>
+  `;
+}
+
+function setViewMode(mode) {
+  if (viewMode === mode) return;
+  viewMode = mode;
+  // Smart default sort per view
+  if (mode === 'watchlist') {
+    sortCol = 'watchlistPriority';
+    sortDir = 'desc';
+  } else if (sortCol === 'watchlistPriority') {
+    sortCol = 'notePerso';
+    sortDir = 'desc';
+  }
+  render();
+}
+
+function setWatchlistPriority(idx, stars) {
+  const f = films[idx];
+  f.watchlistPriority = stars > 0 ? stars : null;
+  saveFilms();
+  render();
+}
+
+function moveToClasseur(idx) {
+  const f = films[idx];
+  f.watchlist = false;
+  f.watchlistPriority = null;
+  // Keep watchlistDate as a "date added to watchlist" historical marker — but clear since moved
+  f.watchlistDate = null;
+  // Set dateVu to today if not already set
+  if (!f.dateVu) f.dateVu = todayIso().replaceAll('-', '/');
+  saveFilms();
+  addLog('edit', `<strong>${f.titre}</strong> — Déplacé de la watchlist au classeur`);
+  toast(`${f.titre} marqué comme vu ! Pensez à le noter.`, 'success');
+  // Switch to classeur view and open rating modal
+  viewMode = 'classeur';
+  render();
+  setTimeout(() => openRatingBreakdown(idx, 'notePerso'), 400);
+}
+
+function moveToWatchlist(idx) {
+  const f = films[idx];
+  f.watchlist = true;
+  f.watchlistDate = new Date().toISOString();
+  f.watchlistPriority = f.watchlistPriority || 3;
+  saveFilms();
+  addLog('edit', `<strong>${f.titre}</strong> — Ajouté à la watchlist`);
+  toast(`${f.titre} ajouté à la watchlist`, 'success');
+  closeOverlay();
+  render();
+}
+
+function confirmMoveToWatchlist(idx) {
+  const f = films[idx];
+  const hasAnyNote = f.notePerso != null || RATERS.some(r => f[r.key] != null);
+  if (!hasAnyNote) {
+    // No notes, just move
+    f.watchlist = true;
+    f.watchlistDate = new Date().toISOString();
+    f.watchlistPriority = f.watchlistPriority || 3;
+    // If film had a rank, clear it and normalize remaining
+    if (f.rank != null) {
+      f.rank = null;
+      normalizeRanks();
+      recomputeAllPersoNotes();
+    }
+    saveFilms();
+    addLog('edit', `<strong>${f.titre}</strong> — Déplacé du classeur à la watchlist`);
+    toast(`${f.titre} déplacé à la watchlist`, 'success');
+    viewMode = 'watchlist';
+    closeOverlay();
+    render();
+    return;
+  }
+  const html = `<div class="overlay" onclick="if(event.target===this)openTitleBreakdown(${idx});">
+    <div class="modal" style="max-width:420px">
+      <h2>⚠ Déplacer à la watchlist ?</h2>
+      <p class="desc"><strong>${esc(f.titre)}</strong> a déjà des notes. Le déplacer à la watchlist <strong>effacera toutes les notes et ventilations</strong>.</p>
+      <p class="desc" style="color:var(--gold);font-size:.82rem">💡 Alternative : gardez-le au classeur et marquez-le simplement "à revoir" avec un tag.</p>
+      <div class="modal-row">
+        <button class="btn" onclick="openTitleBreakdown(${idx})">Annuler</button>
+        <button class="btn red" onclick="doMoveToWatchlist(${idx})">Effacer notes et déplacer</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('overlay').innerHTML = html;
+}
+
+function doMoveToWatchlist(idx) {
+  const f = films[idx];
+  // Clear all notes and criteria
+  f.notePerso = null;
+  f.dateVu = null;
+  f.tiers = null;
+  RATERS.forEach(r => {
+    f[r.key] = null;
+    CRITERIA.forEach(c => { f[r.prefix + c.key] = null; });
+  });
+  f.watchlist = true;
+  f.watchlistDate = new Date().toISOString();
+  f.watchlistPriority = 3;
+  // Clear rank and normalize remaining
+  if (f.rank != null) {
+    f.rank = null;
+    normalizeRanks();
+    recomputeAllPersoNotes();
+  }
+  saveFilms();
+  addLog('edit', `<strong>${f.titre}</strong> — Déplacé du classeur à la watchlist (notes effacées)`);
+  toast(`${f.titre} déplacé à la watchlist`, 'warn');
+  viewMode = 'watchlist';
+  closeOverlay();
+  render();
 }
 
 function renderTagFilterBar() {
@@ -1806,15 +2200,15 @@ function openTitleBreakdown(idx) {
         <div class="breakdown-header">
           ${posterHtml}
           <div class="breakdown-header-info">
-            <h2 style="margin-bottom:4px">Détails du film</h2>
+            <h2 style="margin-bottom:4px">${f.watchlist ? '🎯 À voir' : 'Détails du film'}</h2>
             <p class="desc" style="margin-bottom:10px">Modifiez les informations du film.</p>
             ${info ? `<div class="breakdown-header-meta">${esc(info)}</div>` : ''}
             ${extras ? `<div class="breakdown-header-meta" style="color:var(--txt3)">${extras}</div>` : ''}
             ${tmdbLink}
           </div>
         </div>
-        <div class="note-summary-grid">${notesHtml}</div>
-        <p class="desc" style="margin-top:4px;margin-bottom:14px;font-size:.78rem">💡 Cliquez sur une note ci-dessus pour modifier la ventilation.</p>
+        ${f.watchlist ? '' : `<div class="note-summary-grid">${notesHtml}</div>
+        <p class="desc" style="margin-top:4px;margin-bottom:14px;font-size:.78rem">💡 Cliquez sur une note ci-dessus pour modifier la ventilation.</p>`}
 
         <label>Titre *</label>
         <input type="text" id="detailsTitre" value="${esc(f.titre || '')}" placeholder="Titre du film">
@@ -1851,13 +2245,24 @@ function openTitleBreakdown(idx) {
           </div>
         </div>
 
-        <label style="margin-top:10px">Date vu</label>
-        <input type="date" id="detailsDateVu" value="${dateVuToIso(f.dateVu)}">
+        ${f.watchlist ? '' : `<label style="margin-top:10px">Date vu</label>
+        <input type="date" id="detailsDateVu" value="${dateVuToIso(f.dateVu)}">`}
 
         <label style="margin-top:14px">Tags</label>
         <p style="font-size:.75rem;color:var(--txt3);margin-top:-4px;margin-bottom:4px">Cliquez sur ☆ pour désigner un tag principal (affiché sous le titre dans le tableau)</p>
         <div id="detailsTagsList" class="tag-chips-list"></div>
         <div id="detailsTagsPicker" class="tag-picker-grid"></div>
+
+        <div style="margin-top:16px;padding:12px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)">
+          ${f.watchlist
+            ? `<div style="font-size:.85rem;font-weight:700;color:#fff;margin-bottom:4px">🎯 Ce film est dans la watchlist</div>
+               <div style="font-size:.78rem;color:var(--txt2);margin-bottom:10px">Marquez-le comme vu pour le déplacer au classeur et le noter.</div>
+               <button class="btn btn-move-to-classeur" onclick="moveToClasseur(${idx})" style="width:100%">👁 Marquer comme vu → Classeur</button>`
+            : `<div style="font-size:.85rem;font-weight:700;color:#fff;margin-bottom:4px">📽 Ce film est dans le classeur</div>
+               <div style="font-size:.78rem;color:var(--txt2);margin-bottom:10px">Déplacez-le vers la watchlist (effacera notes et ventilation).</div>
+               <button class="btn" onclick="confirmMoveToWatchlist(${idx})" style="width:100%">🎯 Déplacer vers la watchlist</button>`
+          }
+        </div>
 
         <div style="height:20px"></div>
       </div>
@@ -1946,7 +2351,7 @@ function saveFilmDetails(idx) {
   const oldTitle = f.titre;
   const newTitle = (document.getElementById('detailsTitre').value || '').trim();
   if (!newTitle) { toast('Le titre est requis', 'error'); return; }
-  const rawDateVu = (document.getElementById('detailsDateVu').value || '').trim();
+  const rawDateVu = (document.getElementById('detailsDateVu')?.value || '').trim();
   if (rawDateVu !== '' && !isValidDateVu(rawDateVu)) {
     toast('Format de date invalide. Utilisez AAAA/MM/JJ', 'error');
     return;
@@ -1972,7 +2377,7 @@ function saveFilmDetails(idx) {
       f[fd.key] = newVal;
     }
   });
-  updateDateVu(idx, rawDateVu, '(détails)');
+  if (!films[idx].watchlist) updateDateVu(idx, rawDateVu, '(détails)');
   // Save tag changes
   const oldTags = f.tags || [];
   const newTags = window._detailsTagsDraft || oldTags;
@@ -2007,16 +2412,24 @@ function saveFilmDetails(idx) {
   render();
 }
 
-function computeDraftNote(draft) {
-  const pos = draft.position100;
-  if (pos == null || isNaN(pos)) return null;
-  const posNote = 10 - (pos / 100) * 10;
-  const others = CRITERIA.filter(c => !c.isPos).map(c => {
+function computeDraftNote(draft, raterKey, filmIdx) {
+  const coeur = draft.coupDeCoeur;
+  if (coeur == null || isNaN(coeur)) return null;
+  const techCriteria = CRITERIA.filter(c => !c.isPreference);
+  const techVals = techCriteria.map(c => {
     const v = draft[c.key];
     return (v == null || isNaN(v)) ? 0 : v;
   });
-  const avg = others.reduce((a, b) => a + b, 0) / others.length;
-  return Math.round((posNote * 0.33 + avg * 0.67) * 100) / 100;
+  const avgTech = techVals.reduce((a,b) => a + b, 0) / techVals.length;
+
+  if (raterKey === 'notePerso' || raterKey == null) {
+    // Ma note — 50/25/25
+    const f = filmIdx != null ? films[filmIdx] : null;
+    const prefVal = f ? computePrefFromRank(f.rank) : 0;
+    return Math.round((avgTech * 0.50 + coeur * 0.25 + prefVal * 0.25) * 100) / 100;
+  }
+  // Autres raters — 67/33
+  return Math.round((avgTech * 0.67 + coeur * 0.33) * 100) / 100;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -2026,12 +2439,16 @@ function openRatingBreakdown(idx, raterKey) {
   const rater = getRaterByKey(raterKey);
   const f = films[idx];
   const note = f[rater.key];
+  window._ratingBreakdownCtx = { idx, raterKey };
   const hasAnyData = note != null || CRITERIA.some(c => f[rater.prefix + c.key] != null);
   const rows = CRITERIA.map(c => {
     const value = f[rater.prefix + c.key];
+    const weight = c.isPreference
+      ? (raterKey === 'notePerso' ? ' <span style="color:var(--gold);font-size:.7rem">(25%)</span>' : ' <span style="color:var(--gold);font-size:.7rem">(33%)</span>')
+      : '';
     return `<div class="breakdown-row">
       <div class="breakdown-meta">
-        <div class="breakdown-label">${c.label}</div>
+        <div class="breakdown-label">${c.label}${weight}</div>
         <div class="breakdown-desc">${c.desc}</div>
       </div>
       <div class="breakdown-value-wrap">
@@ -2050,6 +2467,16 @@ function openRatingBreakdown(idx, raterKey) {
       </div>
     </div>`;
   }).join('');
+  // Info about rank/preference (only for Ma note)
+  let rankInfo = '';
+  if (raterKey === 'notePerso') {
+    if (f.rank != null) {
+      const prefVal = computePrefFromRank(f.rank);
+      rankInfo = `<p style="font-size:.78rem;color:var(--txt2);margin-top:8px">Classement manuel : <strong style="color:var(--gold)">#${f.rank}</strong> · Préférence (25%) = ${prefVal.toFixed(2)}/10</p>`;
+    } else {
+      rankInfo = `<p style="font-size:.78rem;color:var(--txt3);margin-top:8px">💡 Le film sera classé à la fin après enregistrement. Triez par Ma note ↓ pour glisser-déposer ensuite.</p>`;
+    }
+  }
   const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()">
     <div class="modal breakdown-modal" style="max-width:760px">
       <div class="breakdown-modal-body">
@@ -2058,6 +2485,7 @@ function openRatingBreakdown(idx, raterKey) {
           <div class="breakdown-note-card" style="text-align:center">
             <div class="breakdown-note-label">Note globale ${rater.label}</div>
             <div id="ratingBreakdownPreview" class="breakdown-note-value" style="color:${rater.color}">${note != null ? note.toFixed(2) + '/10' : 'n/a'}</div>
+            ${rankInfo}
           </div>
         </div>
         <div class="breakdown-list" style="margin-top:14px">
@@ -2080,7 +2508,7 @@ function openRatingBreakdown(idx, raterKey) {
     </div>
   </div>`;
   document.getElementById('overlay').innerHTML = html;
-  requestAnimationFrame(() => updateRatingBreakdownPreview(raterKey));
+  requestAnimationFrame(() => updateRatingBreakdownPreview());
 }
 
 function getRatingBreakdownDraft() {
@@ -2096,13 +2524,14 @@ function getRatingBreakdownDraft() {
 function updateRatingBreakdownPreview() {
   const noteEl = document.getElementById('ratingBreakdownPreview');
   if (!noteEl) return;
+  const ctx = window._ratingBreakdownCtx || {};
   const draft = getRatingBreakdownDraft();
   const invalid = CRITERIA.some(c => {
     const v = draft[c.key];
     return v != null && (isNaN(v) || v < c.min || v > c.max);
   });
   if (invalid) { noteEl.textContent = 'Invalide'; return; }
-  const note = computeDraftNote(draft);
+  const note = computeDraftNote(draft, ctx.raterKey, ctx.idx);
   noteEl.textContent = note != null ? note.toFixed(2) + '/10' : 'n/a';
 }
 
@@ -2119,7 +2548,15 @@ function saveRatingBreakdown(idx, raterKey) {
   }
   const oldNote = f[rater.key];
   CRITERIA.forEach(c => { f[rater.prefix + c.key] = draft[c.key]; });
-  f[rater.key] = computeDraftNote(draft);
+  // For Ma note: auto-assign rank at the end if coup de cœur just set and no rank yet
+  if (raterKey === 'notePerso' && draft.coupDeCoeur != null && f.rank == null && !f.watchlist) {
+    const maxRank = films.filter(ff => !ff.watchlist && ff.rank != null)
+                         .reduce((m, ff) => Math.max(m, ff.rank), 0);
+    f.rank = maxRank + 1;
+  }
+  f[rater.key] = computeDraftNote(draft, raterKey, idx);
+  // If Ma note was touched, recompute all (N changed or rank impact on others is none here, but safe)
+  if (raterKey === 'notePerso') recomputeAllPersoNotes();
   saveFilms();
   const newNote = f[rater.key];
   addLog('note', `<strong>${rater.label}</strong> — Ventilation modifiée pour <strong>${f.titre}</strong> : ${oldNote != null ? oldNote.toFixed(2) : '—'} → ${newNote != null ? newNote.toFixed(2) : '—'}`);
@@ -2150,6 +2587,12 @@ function doDeleteRaterNote(idx, raterKey) {
   const oldNote = f[rater.key];
   CRITERIA.forEach(c => { f[rater.prefix + c.key] = null; });
   f[rater.key] = null;
+  // If deleting Ma note: clear rank and normalize the remaining ones + recompute
+  if (raterKey === 'notePerso') {
+    f.rank = null;
+    normalizeRanks();
+    recomputeAllPersoNotes();
+  }
   saveFilms();
   addLog('note', `<strong>${rater.label}</strong> — Note supprimée pour <strong>${f.titre}</strong> : ${oldNote != null ? oldNote.toFixed(2) : '—'}`);
   toast(`Note supprimée : ${rater.label} · ${f.titre}`, 'warn');
@@ -2811,6 +3254,7 @@ function cancelBatchEnrich() {
 function openAddModal() {
   tmdbSelected = null;
   const hasKey = hasTmdbKey();
+  const defaultToWatchlist = viewMode === 'watchlist';
   const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()">
     <div class="modal" style="max-width:560px">
       <h2>Ajouter un film</h2>
@@ -2832,6 +3276,13 @@ function openAddModal() {
           <div style="flex:1"><label>Budget (M$)</label><input type="number" id="addBudget" step="0.1"></div>
           <div style="flex:1"><label>Box Office (M$)</label><input type="number" id="addBO" step="0.1"></div>
         </div>
+      </div>
+      <div style="margin-top:14px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0">
+          <input type="checkbox" id="addToWatchlist" ${defaultToWatchlist ? 'checked' : ''} style="width:auto;margin:0">
+          <span>🎯 Ajouter à la watchlist (film à voir)</span>
+        </label>
+        <p style="font-size:.72rem;color:var(--txt3);margin-top:6px;margin-left:26px">Sinon, le film sera ajouté au classeur et pourra être noté directement.</p>
       </div>
       <div class="modal-row">
         <button class="btn" onclick="closeOverlay()">Annuler</button>
@@ -2919,6 +3370,7 @@ function doAddFilm() {
     toast(`${t} existe déjà dans votre classeur`, 'warn');
     return;
   }
+  const addAsWatchlist = document.getElementById('addToWatchlist')?.checked || false;
   const f = {
     titre: t,
     genre: document.getElementById('addGenre').value.trim() || null,
@@ -2931,16 +3383,25 @@ function doAddFilm() {
     tmdbId: tmdbSelected?.id ?? null,
     posterPath: tmdbSelected?.poster_path ?? null,
     runtime: tmdbSelected?.runtime ?? null,
-    tmdbVote: tmdbSelected?.vote_average ?? null
+    tmdbVote: tmdbSelected?.vote_average ?? null,
+    watchlist: addAsWatchlist,
+    watchlistDate: addAsWatchlist ? new Date().toISOString() : null,
+    watchlistPriority: addAsWatchlist ? 3 : null,
+    tags: [],
+    primaryTag: null,
   };
   RATERS.forEach(r => { f[r.key] = null; });
   ensureCriteriaKeys(f);
   films.push(f);
   saveFilms();
   const source = tmdbSelected ? ' (via TMDb)' : '';
-  addLog('add', `Film ajouté${source} : <strong>${t}</strong>`);
-  toast(`${t} ajouté avec succès`, 'success');
+  const dest = addAsWatchlist ? ' 🎯 à la watchlist' : '';
+  addLog('add', `Film ajouté${source}${dest} : <strong>${t}</strong>`);
+  toast(`${t} ajouté${addAsWatchlist ? ' à la watchlist' : ' au classeur'}`, 'success');
   tmdbSelected = null;
+  // Switch to the appropriate view to show the newly-added film
+  if (addAsWatchlist && viewMode !== 'watchlist') viewMode = 'watchlist';
+  else if (!addAsWatchlist && viewMode !== 'classeur') viewMode = 'classeur';
   closeOverlay();
   render();
 }
@@ -2960,7 +3421,12 @@ function deleteFilm(idx) {
 }
 function doDelete(idx) {
   const name = films[idx].titre;
+  const hadRank = films[idx].rank != null;
   films.splice(idx, 1);
+  if (hadRank) {
+    normalizeRanks();
+    recomputeAllPersoNotes();
+  }
   saveFilms();
   addLog('delete', `Film supprimé : <strong>${name}</strong>`);
   toast(`${name} supprimé`, 'warn');
@@ -3105,16 +3571,19 @@ function pearson(xs, ys) {
 /* ─── TAB 1: OVERVIEW / KPIs ──────────────────────── */
 function buildStatsOverview() {
   const content = document.getElementById('statsContent');
-  const total = films.length;
-  const rated = films.filter(f => f.notePerso != null).length;
+  // Stats are computed on the classeur only (not watchlist)
+  const classeur = films.filter(f => !f.watchlist);
+  const watchlistFilms = films.filter(f => f.watchlist);
+  const total = classeur.length;
+  const rated = classeur.filter(f => f.notePerso != null).length;
   const pending = total - rated;
-  const notes = films.filter(f => f.notePerso != null).map(f => f.notePerso);
+  const notes = classeur.filter(f => f.notePerso != null).map(f => f.notePerso);
   const avg = mean(notes);
-  const bestFilm = notes.length ? films.filter(f => f.notePerso != null).sort((a,b) => b.notePerso - a.notePerso)[0] : null;
-  const worstFilm = notes.length ? films.filter(f => f.notePerso != null).sort((a,b) => a.notePerso - b.notePerso)[0] : null;
+  const bestFilm = notes.length ? classeur.filter(f => f.notePerso != null).sort((a,b) => b.notePerso - a.notePerso)[0] : null;
+  const worstFilm = notes.length ? classeur.filter(f => f.notePerso != null).sort((a,b) => a.notePerso - b.notePerso)[0] : null;
 
   // Total runtime (vus = dateVu exists)
-  const watched = films.filter(f => f.dateVu && f.runtime);
+  const watched = classeur.filter(f => f.dateVu && f.runtime);
   const totalMinutes = watched.reduce((a, f) => a + (f.runtime || 0), 0);
   const totalHours = Math.round(totalMinutes / 60);
   const totalDays = (totalMinutes / 60 / 24).toFixed(1);
@@ -3122,21 +3591,22 @@ function buildStatsOverview() {
   // Tiers
   const tierOrder = ['G', 'S', 'A', 'B', 'C'];
   const tierCounts = {};
-  tierOrder.forEach(t => { tierCounts[t] = films.filter(f => f.tiers === t).length; });
-  const noTier = films.filter(f => !f.tiers).length;
+  tierOrder.forEach(t => { tierCounts[t] = classeur.filter(f => f.tiers === t).length; });
+  const noTier = classeur.filter(f => !f.tiers).length;
 
   // Tags stats
-  const totalTagAssign = films.reduce((a,f) => a + (f.tags?.length || 0), 0);
-  const filmsWithPrimary = films.filter(f => f.primaryTag).length;
+  const totalTagAssign = classeur.reduce((a,f) => a + (f.tags?.length || 0), 0);
+  const filmsWithPrimary = classeur.filter(f => f.primaryTag).length;
 
   // TMDb coverage
-  const withPoster = films.filter(f => f.posterPath).length;
+  const withPoster = classeur.filter(f => f.posterPath).length;
 
   const html = `
     <div class="stats-card wide">
       <h3>🎬 Vue d'ensemble</h3>
       <div class="kpi-grid">
-        <div class="kpi"><div class="kpi-value">${total}</div><div class="kpi-label">Films</div></div>
+        <div class="kpi"><div class="kpi-value">${total}</div><div class="kpi-label">Films classeur</div></div>
+        <div class="kpi"><div class="kpi-value" style="color:var(--pink)">${watchlistFilms.length}</div><div class="kpi-label">À voir 🎯</div></div>
         <div class="kpi"><div class="kpi-value" style="color:var(--green)">${rated}</div><div class="kpi-label">Notés</div><div class="kpi-sub">${total? Math.round(rated/total*100) : 0}%</div></div>
         <div class="kpi"><div class="kpi-value" style="color:var(--gold)">${pending}</div><div class="kpi-label">À noter</div></div>
         <div class="kpi"><div class="kpi-value" style="color:var(--gold)">${avg != null ? avg.toFixed(2) : '—'}</div><div class="kpi-label">Moyenne</div></div>
@@ -3255,9 +3725,9 @@ function buildStatsCriteria() {
       <div class="chart-container tall"><canvas id="chartCriteria"></canvas></div>
     </div>
   `;
-  const labels = CRITERIA.filter(c => !c.isPos).map(c => c.label);
+  const labels = CRITERIA.filter(c => !c.isPreference).map(c => c.label);
   const datasets = RATERS.map(r => {
-    const data = CRITERIA.filter(c => !c.isPos).map(c => {
+    const data = CRITERIA.filter(c => !c.isPreference).map(c => {
       const vals = films.map(f => f[r.prefix + c.key]).filter(v => v != null);
       return vals.length ? parseFloat(mean(vals).toFixed(2)) : 0;
     });
@@ -3857,7 +4327,7 @@ function buildStatsStats() {
   });
 
   // Variance by criterion (per rater)
-  const critStats = CRITERIA.filter(c => !c.isPos).map(c => {
+  const critStats = CRITERIA.filter(c => !c.isPreference).map(c => {
     return {
       label: c.label,
       byRater: RATERS.map(r => {
@@ -4238,6 +4708,8 @@ function importJSON(e) {
    STARTUP — Suggest rating an unrated/incomplete film
    ═══════════════════════════════════════════════════ */
 function filmNeedsNotePerso(f) {
+  // Watchlist films are not suggestable
+  if (f.watchlist) return false;
   // No note at all
   if (f.notePerso == null) return 'unrated';
   // Has a note but some criteria are missing (null)
