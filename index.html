@@ -3138,7 +3138,9 @@ function openRatingBreakdown(idx, raterKey) {
     }
   }
   const showTopNoteCard = note != null;
-  const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()">
+  const isRafaleNotePerso = raterKey === 'notePerso' && !!ratingRafaleSession;
+  const overlayDismissAction = isRafaleNotePerso ? 'handleRatingBreakdownCancel()' : 'closeOverlay()';
+  const html = `<div class="overlay" onclick="if(event.target===this)${overlayDismissAction}">
     <div class="modal breakdown-modal" style="max-width:760px">
       <div class="breakdown-modal-body">
         <div class="step-label" style="color:${rater.color};margin-bottom:8px">${rater.label} — ${esc(f.titre)}</div>
@@ -3160,8 +3162,9 @@ function openRatingBreakdown(idx, raterKey) {
         <div style="height:20px"></div>
       </div>
       <div class="breakdown-modal-footer">
-        <div class="modal-row">
-          <button class="btn" onclick="closeOverlay()">Annuler</button>
+        <div class="modal-row ${isRafaleNotePerso ? 'wrap' : ''}">
+          <button class="btn" onclick="handleRatingBreakdownCancel()">Annuler</button>
+          ${isRafaleNotePerso ? `<button class="btn btn-grow" onclick="finishRatingRafaleManually()">Terminer la rafale</button>` : ''}
           ${hasAnyData ? `<button class="btn red" onclick="confirmDeleteRaterNote(${idx},'${rater.key}')">Supprimer</button>` : ''}
           <button class="btn gold" onclick="saveRatingBreakdown(${idx},'${rater.key}')">Enregistrer</button>
         </div>
@@ -5631,6 +5634,14 @@ function finishRatingRafaleAfterSave(lastIdx) {
 }
 
 function cancelRatingRafale() {
+  if (!ratingRafaleSession) {
+    closeOverlay();
+    return;
+  }
+  showRafaleSummaryModal(false);
+}
+
+function finishRatingRafaleManually() {
   if (!ratingRafaleSession) {
     closeOverlay();
     return;
