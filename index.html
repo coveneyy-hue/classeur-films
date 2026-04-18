@@ -180,6 +180,69 @@ body::before {
 .duel-history-flag { color: var(--gold); font-weight: 700; }
 .duel-result-note { margin-top: 10px; color: var(--txt2); font-size: .86rem; }
 
+/* Bannière "Victoire" en vert quand la carte est marquée gagnante,
+   "Défaite" reste en rouge (défaut) pour les cartes perdantes */
+.duel-card.winner .duel-poster-banner { background: rgba(64,200,144,.92); box-shadow: 0 10px 26px rgba(64,200,144,.32); }
+
+/* Tournoi : carte champion et résumé */
+.tournament-header {
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  padding:12px 14px; margin-bottom:10px; border-radius:12px;
+  background:linear-gradient(135deg, rgba(232,166,48,.14), rgba(232,64,64,.10));
+  border:1px solid rgba(232,166,48,.28);
+}
+.tournament-header .th-title {
+  font-family:var(--font-display); font-weight:900; font-size:1.05rem; color:#fff;
+}
+.tournament-header .th-champion {
+  font-size:.82rem; color:var(--txt2);
+}
+.tournament-header .th-champion strong { color:var(--gold); }
+.tournament-streak {
+  margin-left:auto; display:inline-flex; align-items:center; gap:6px;
+  padding:6px 12px; border-radius:999px;
+  background:rgba(232,64,64,.16); color:#fff;
+  font-family:var(--font-display); font-weight:800; font-size:.85rem;
+  border:1px solid rgba(232,64,64,.35);
+}
+.tournament-streak .flames { font-size:1.05rem; }
+
+.tournament-actions {
+  display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:16px;
+}
+.tournament-actions .btn { padding:10px 16px; font-size:.9rem; }
+
+.tournament-summary-list { display:grid; gap:6px; margin-top:10px; }
+.tournament-summary-item {
+  display:grid; grid-template-columns:28px 1fr auto; gap:10px;
+  align-items:center; padding:8px 12px;
+  background:var(--bg2); border:1px solid var(--border); border-radius:8px;
+  font-size:.85rem;
+}
+.tournament-summary-item.won { border-left:3px solid var(--green); }
+.tournament-summary-item.lost { border-left:3px solid var(--red); }
+.tournament-summary-item .ts-num {
+  font-family:var(--font-display); font-weight:800; color:var(--txt3); text-align:center;
+}
+.tournament-summary-item .ts-label strong { color:#fff; }
+.tournament-summary-item .ts-delta {
+  font-family:var(--font-display); font-weight:700; font-size:.85rem; white-space:nowrap;
+}
+.tournament-summary-item .ts-delta.up { color:var(--green); }
+.tournament-summary-item .ts-delta.down { color:var(--red); }
+.tournament-summary-stats {
+  display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-top:14px;
+}
+.tournament-summary-stats .tss-box {
+  padding:10px; background:var(--bg2); border:1px solid var(--border); border-radius:10px; text-align:center;
+}
+.tournament-summary-stats .tss-value {
+  font-family:var(--font-display); font-weight:900; font-size:1.5rem; color:var(--gold);
+}
+.tournament-summary-stats .tss-label {
+  font-size:.7rem; color:var(--txt2); text-transform:uppercase; letter-spacing:.06em;
+}
+
 /* Sous-texte du banner victoire (saut de rang) */
 .duel-poster-banner-sub {
   margin-top: 4px;
@@ -1561,6 +1624,7 @@ td.editing input {
       <div class="search-inline-wrap">
         <input type="text" class="searchbox" id="search" placeholder="Rechercher titre, genre, réalisateur, tag…" oninput="render()">
         <button class="btn btn-icon" onclick="openDuelModal()" title="Lancer un duel" aria-label="Lancer un duel">⚔</button>
+        <button class="btn btn-icon" onclick="startTournament()" title="Lancer un tournoi" aria-label="Lancer un tournoi">🏟</button>
         <button class="btn btn-icon" onclick="openSuggestModalManual()" title="Classer un film non classé" aria-label="Classer un film non classé">🏁</button>
       </div>
       <span class="count" id="counter"></span>
@@ -1809,6 +1873,7 @@ let duelMarathonMode = false;   // mode marathon (session uniquement)
 let duelStreak = 0;              // compteur de streak en marathon
 let duelBlindMode = true;        // mode aveugle par défaut (persistant)
 let duelRevealed = false;        // indique si les notes ont été révélées pour le duel courant
+let activeTournament = null;     // tournoi en cours : { championId, streak, fights, startedAt, currentPair, faced, lastResult }
 
 function loadState() {
   try {
@@ -5462,7 +5527,7 @@ function renderDuelCard(f, opts = {}) {
   const banner = opts.banner ? `<div class="duel-poster-banner show">${esc(opts.banner)}${subBanner}</div>` : '';
   const interactivePoster = opts.clickable === false ?
     `<div class="duel-poster" ${poster}>${f.posterPath ? '' : '🎬'}${banner}</div>` :
-    `<button type="button" class="duel-poster duel-poster-btn" ${poster} onclick="resolveDuel('${f.fid}')" aria-label="Choisir ${escAttr(f.titre)}">${f.posterPath ? '' : '🎬'}${banner}</button>`;
+    `<button type="button" class="duel-poster duel-poster-btn" ${poster} onclick="duelPosterClick('${f.fid}')" aria-label="Choisir ${escAttr(f.titre)}">${f.posterPath ? '' : '🎬'}${banner}</button>`;
   return `<div class="${cardCls}">${interactivePoster}<div class="duel-title">${esc(f.titre)}</div>${metaHtml}<div class="duel-score"><div class="duel-score-box"><div class="duel-score-value">${fmtNum(f.notePerso)}</div><div class="duel-score-label">Note globale</div></div><div class="duel-score-box"><div class="duel-score-value">${fmtNum(bd.preferenceScore)}</div><div class="duel-score-label">Préférence</div></div></div><div class="duel-breakdown"><div class="duel-breakdown-row"><span>Moyenne technique</span><strong>${fmtNum(bd.avgTech)}</strong></div><div class="duel-breakdown-row"><span>Contribution technique</span><strong>${fmtNum(bd.techContribution)}</strong></div><div class="duel-breakdown-row"><span>Coup de cœur</span><strong>${fmtNum(bd.coeur)}</strong></div><div class="duel-breakdown-row"><span>Contribution coup de cœur</span><strong>${fmtNum(bd.coeurContribution)}</strong></div><div class="duel-breakdown-row"><span>Préférence</span><strong>${fmtNum(bd.preferenceScore)}</strong></div><div class="duel-breakdown-row"><span>Contribution préférence</span><strong>${fmtNum(bd.preferenceContribution)}</strong></div><div class="duel-breakdown-row total"><span>Total</span><strong>${fmtNum(bd.note)}</strong></div></div></div>`;
 }
 function showDuelModal(a, b) {
@@ -5683,6 +5748,395 @@ function openDuelPodium() {
     </div>
   </div>`;
   document.getElementById('overlay').innerHTML = html;
+}
+
+/* ═══════════════════════════════════════════════════
+   MODE TOURNOI
+   ═══════════════════════════════════════════════════
+   Un champion défend son titre contre une série
+   d'adversaires. Chaque combat ajuste le classement
+   comme un duel normal. Le tournoi prend fin quand
+   le champion perd. ═══════════════════════════════ */
+
+/* Dispatcher d'un clic sur un poster : duel ou tournoi selon le contexte */
+function duelPosterClick(winnerId) {
+  if (activeTournament && activeTournament.currentPair) {
+    return resolveTournamentFight(winnerId);
+  }
+  return resolveDuel(winnerId);
+}
+
+/* Choisit un adversaire pour le champion dans un rayon de ±5 rangs,
+   en excluant les films déjà affrontés dans le tournoi en cours. */
+function pickTournamentOpponent(championFid, excludeFids) {
+  const ranked = getRankedFilmsSorted();
+  const champion = ranked.find(f => f.fid === championFid);
+  if (!champion) return null;
+  const excludeSet = new Set([championFid, ...(excludeFids || [])]);
+  const nearby = ranked.filter(f => !excludeSet.has(f.fid) && Math.abs((f.rank || 0) - (champion.rank || 0)) <= 5);
+  const pool = nearby.length ? nearby : ranked.filter(f => !excludeSet.has(f.fid));
+  if (!pool.length) return null;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+/* Lance un nouveau tournoi */
+function startTournament() {
+  const pair = pickDuelCandidates();
+  if (!pair) {
+    toast('Pas assez de films classés pour lancer un tournoi', 'info');
+    return;
+  }
+  activeTournament = {
+    championId: null,     // sera défini après le premier combat
+    streak: 0,
+    fights: [],           // [{ fightNum, opponentId, opponentTitle, opponentPoster, result, rankDelta, ts }]
+    startedAt: new Date().toISOString(),
+    currentPair: { aId: pair[0].fid, bId: pair[1].fid },
+    faced: [pair[0].fid, pair[1].fid], // films déjà impliqués
+    lastResult: null
+  };
+  showTournamentFightModal(pair[0], pair[1]);
+}
+
+/* Affiche le modal de combat du tournoi (pré-verdict) */
+function showTournamentFightModal(a, b) {
+  currentDuelPair = { aId: a.fid, bId: b.fid };
+  const fightNum = activeTournament.fights.length + 1;
+  const champId = activeTournament.championId;
+  const championFilm = champId ? films.find(f => f.fid === champId) : null;
+  const blindClass = duelBlindMode ? ' duel-blind' : '';
+  const revealHidden = !duelBlindMode ? 'style="display:none"' : '';
+  const headerHtml = championFilm
+    ? `<div class="tournament-header">
+        <div>
+          <div class="th-title">🏟 Tournoi · Combat #${fightNum}</div>
+          <div class="th-champion">Champion : <strong>${esc(championFilm.titre)}</strong></div>
+        </div>
+        <span class="tournament-streak"><span class="flames">🔥</span>${activeTournament.streak} victoire${activeTournament.streak > 1 ? 's' : ''} de suite</span>
+       </div>`
+    : `<div class="tournament-header">
+        <div>
+          <div class="th-title">🏟 Tournoi · Combat #1</div>
+          <div class="th-champion">Le vainqueur devient champion du tournoi</div>
+        </div>
+       </div>`;
+  const html = `<div class="overlay" onclick="if(event.target===this)confirmAbandonTournament()">
+    <div class="modal breakdown-modal${blindClass}" style="max-width:980px">
+      <div class="breakdown-modal-body">
+        ${headerHtml}
+        <p class="desc duel-desc duel-desc-default">Cliquer sur le poster pour déterminer le vainqueur</p>
+        <p class="desc duel-desc duel-desc-blind">Mode aveugle — choisis à l'instinct, les notes sont masquées.</p>
+        <div class="duel-toolbar">
+          <button class="btn" id="btnRevealDuel" ${revealHidden} onclick="revealDuelScores()" title="Afficher les notes et rangs">👁 Révéler</button>
+          <button class="btn red" onclick="confirmAbandonTournament()" title="Terminer le tournoi sans combattre">Abandonner</button>
+        </div>
+        <div class="duel-grid">${renderDuelCard(a)}${renderDuelCard(b)}</div>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('overlay').innerHTML = html;
+}
+
+/* Traite le verdict d'un combat de tournoi */
+function resolveTournamentFight(winnerId) {
+  if (!activeTournament || !activeTournament.currentPair) return;
+  const aIdx = getFilmIndexById(activeTournament.currentPair.aId);
+  const bIdx = getFilmIndexById(activeTournament.currentPair.bId);
+  if (aIdx < 0 || bIdx < 0) return;
+  const a = films[aIdx], b = films[bIdx];
+  const winner = winnerId === a.fid ? a : b;
+  const loser = winner === a ? b : a;
+  const before = {
+    winnerRank: winner.rank, loserRank: loser.rank,
+    winnerNote: winner.notePerso, loserNote: loser.notePerso
+  };
+  const scoreGapBefore = Math.abs((Number(before.winnerNote) || 0) - (Number(before.loserNote) || 0));
+  const changed = winner.rank > loser.rank ? moveFilmToRank(getFilmIndexById(winner.fid), loser.rank) : false;
+  const afterWinner = films[getFilmIndexById(winner.fid)];
+  const afterLoser = films[getFilmIndexById(loser.fid)];
+
+  // Détermine si le champion a gagné ou perdu
+  const wasChampion = activeTournament.championId;
+  const championWon = wasChampion ? (winner.fid === wasChampion) : true; // 1er combat : winner devient champion
+  const fightNum = activeTournament.fights.length + 1;
+
+  // Enregistre le duel dans le log global aussi (cohérence avec duelLog)
+  const duelEntry = {
+    ts: new Date().toISOString(),
+    pairKey: getDuelPairKey(winner, loser),
+    aId: a.fid, aTitle: a.titre, bId: b.fid, bTitle: b.titre,
+    winnerId: winner.fid, winnerTitle: winner.titre,
+    loserId: loser.fid, loserTitle: loser.titre,
+    beforeWinnerRank: before.winnerRank,
+    beforeLoserRank: before.loserRank,
+    changed,
+    beforeSummary: `${winner.titre} ${fmtNum(before.winnerNote)} (#${before.winnerRank}) · ${loser.titre} ${fmtNum(before.loserNote)} (#${before.loserRank})`,
+    afterSummary: `${afterWinner.titre} ${fmtNum(afterWinner.notePerso)} (#${afterWinner.rank}) · ${afterLoser.titre} ${fmtNum(afterLoser.notePerso)} (#${afterLoser.rank})`,
+    inverseConflict: '',
+    source: 'tournament'
+  };
+  recordDuel(duelEntry);
+
+  // Delta de rang pour chaque film
+  const winnerDelta = before.winnerRank != null && afterWinner.rank != null ? (before.winnerRank - afterWinner.rank) : 0;
+  const loserDelta = before.loserRank != null && afterLoser.rank != null ? (before.loserRank - afterLoser.rank) : 0;
+
+  // Enregistre le combat dans le tournoi
+  if (!wasChampion) {
+    // Premier combat : winner devient champion
+    activeTournament.championId = winner.fid;
+    activeTournament.streak = 1;
+    activeTournament.fights.push({
+      fightNum,
+      championId: winner.fid,
+      championTitle: winner.titre,
+      opponentId: loser.fid,
+      opponentTitle: loser.titre,
+      opponentPoster: loser.posterPath || null,
+      result: 'won',
+      championDelta: winnerDelta,
+      opponentDelta: loserDelta,
+      changed,
+      ts: duelEntry.ts
+    });
+  } else if (championWon) {
+    // Champion a gagné
+    activeTournament.streak += 1;
+    activeTournament.fights.push({
+      fightNum,
+      championId: winner.fid,
+      championTitle: winner.titre,
+      opponentId: loser.fid,
+      opponentTitle: loser.titre,
+      opponentPoster: loser.posterPath || null,
+      result: 'won',
+      championDelta: winnerDelta,
+      opponentDelta: loserDelta,
+      changed,
+      ts: duelEntry.ts
+    });
+  } else {
+    // Champion a perdu (le challenger est le winner)
+    activeTournament.fights.push({
+      fightNum,
+      championId: loser.fid,       // l'ex-champion (qui a perdu)
+      championTitle: loser.titre,
+      opponentId: winner.fid,
+      opponentTitle: winner.titre,
+      opponentPoster: winner.posterPath || null,
+      result: 'lost',
+      championDelta: loserDelta,   // delta du champion déchu
+      opponentDelta: winnerDelta,
+      changed,
+      ts: duelEntry.ts
+    });
+  }
+
+  addLog('note', `<strong>🏟 TOURNOI</strong> Combat #${fightNum} · ${esc(winner.titre)} bat ${esc(loser.titre)}`);
+  activeTournament.lastResult = {
+    winnerId: winner.fid, loserId: loser.fid,
+    winnerRankBefore: before.winnerRank, winnerRankAfter: afterWinner.rank,
+    loserRankBefore: before.loserRank, loserRankAfter: afterLoser.rank,
+    scoreGapBefore, championWon: wasChampion ? championWon : true
+  };
+  render();
+  showTournamentFightResultModal(afterWinner, afterLoser, before, scoreGapBefore, wasChampion ? championWon : true, wasChampion);
+}
+
+/* Affiche le résultat d'un combat avec bannières Victoire!/Défaite! et les sauts de rang */
+function showTournamentFightResultModal(winner, loser, before, scoreGapBefore, championStillStanding, hadChampionBefore) {
+  const winnerLabel = getDuelOutcomeLabel(scoreGapBefore);     // Victoire! / Domination! / Massacre!
+  const loserLabel  = getDuelLoserLabel(scoreGapBefore);        // Défaite! / Déroute! / Raclée!
+  const wDelta = before.winnerRank != null && winner.rank != null ? (before.winnerRank - winner.rank) : 0;
+  const lDelta = before.loserRank != null && loser.rank != null ? (before.loserRank - loser.rank) : 0;
+  const winnerJump = wDelta !== 0
+    ? `#${before.winnerRank} → #${winner.rank} · +${wDelta} place${wDelta > 1 ? 's' : ''}`
+    : `rang #${winner.rank} confirmé`;
+  const loserJump = lDelta !== 0
+    ? `#${before.loserRank} → #${loser.rank} · ${lDelta} place${Math.abs(lDelta) > 1 ? 's' : ''}`
+    : `rang #${loser.rank} inchangé`;
+
+  const fightNum = activeTournament.fights.length;
+  const champ = activeTournament.championId ? films.find(f => f.fid === activeTournament.championId) : null;
+  const streak = activeTournament.streak;
+  const tournamentEnded = hadChampionBefore && !championStillStanding;
+
+  // Bandeau d'en-tête
+  const headerHtml = tournamentEnded
+    ? `<div class="tournament-header" style="background:linear-gradient(135deg, rgba(232,64,64,.18), rgba(80,80,104,.12));border-color:rgba(232,64,64,.35)">
+        <div>
+          <div class="th-title">🏁 Fin du tournoi</div>
+          <div class="th-champion">Le champion <strong>${esc(loser.titre)}</strong> est tombé au combat #${fightNum}</div>
+        </div>
+       </div>`
+    : `<div class="tournament-header">
+        <div>
+          <div class="th-title">🏟 Combat #${fightNum} — Résultat</div>
+          <div class="th-champion">Champion : <strong>${esc(champ ? champ.titre : winner.titre)}</strong></div>
+        </div>
+        <span class="tournament-streak"><span class="flames">🔥</span>${streak} victoire${streak > 1 ? 's' : ''} de suite</span>
+       </div>`;
+
+  // Actions
+  const actionsHtml = tournamentEnded
+    ? `<div class="tournament-actions">
+        <button class="btn" onclick="closeOverlay()">Fermer</button>
+        <button class="btn" onclick="showTournamentSummary()">📋 Résumé du tournoi</button>
+        <button class="btn gold" onclick="closeOverlay();setTimeout(startTournament,20)">Nouveau tournoi 🏟</button>
+       </div>`
+    : `<div class="tournament-actions">
+        <button class="btn red" onclick="confirmAbandonTournament()">Abandonner</button>
+        <button class="btn gold" onclick="nextTournamentFight()">Prochain adversaire ▶</button>
+       </div>`;
+
+  const html = `<div class="overlay" onclick="if(event.target===this)${tournamentEnded ? 'closeOverlay()' : 'confirmAbandonTournament()'}">
+    <div class="modal breakdown-modal" style="max-width:880px">
+      <div class="breakdown-modal-body">
+        ${headerHtml}
+        <div class="duel-result-grid">
+          ${renderDuelCard(winner, { state:'winner', banner: winnerLabel, rankJump: winnerJump, clickable: false })}
+          ${renderDuelCard(loser,  { state:'loser',  banner: loserLabel,  rankJump: loserJump,  clickable: false })}
+        </div>
+        ${actionsHtml}
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('overlay').innerHTML = html;
+
+  // Si tournoi terminé : nettoie l'état après affichage pour permettre la fermeture propre
+  if (tournamentEnded) {
+    // On garde activeTournament en vie jusqu'à fermeture, pour que showTournamentSummary() puisse y accéder
+    // closeOverlay est assigné au bouton — on nettoie dans finalizeTournament
+  }
+}
+
+/* Lance le prochain combat du tournoi */
+function nextTournamentFight() {
+  if (!activeTournament || !activeTournament.championId) return;
+  const championId = activeTournament.championId;
+  const opponent = pickTournamentOpponent(championId, activeTournament.faced);
+  if (!opponent) {
+    toast('Plus d\'adversaires disponibles — le champion règne en maître !', 'success');
+    showTournamentSummary();
+    return;
+  }
+  const champion = films.find(f => f.fid === championId);
+  if (!champion) return;
+  activeTournament.faced.push(opponent.fid);
+  // Ordre gauche/droite aléatoire
+  const pair = Math.random() < 0.5 ? [champion, opponent] : [opponent, champion];
+  activeTournament.currentPair = { aId: pair[0].fid, bId: pair[1].fid };
+  showTournamentFightModal(pair[0], pair[1]);
+}
+
+/* Label du perdant selon l'écart des notes */
+function getDuelLoserLabel(diff) {
+  const gap = Math.abs(Number(diff) || 0);
+  if (gap >= 0.40) return 'Raclée !';
+  if (gap >= 0.15) return 'Déroute !';
+  return 'Défaite !';
+}
+
+/* Affiche le résumé complet du tournoi */
+function showTournamentSummary() {
+  if (!activeTournament) { closeOverlay(); return; }
+  const t = activeTournament;
+  const wins = t.fights.filter(f => f.result === 'won').length;
+  const losses = t.fights.filter(f => f.result === 'lost').length;
+  const totalFights = t.fights.length;
+  // Le champion final (celui qui avait le titre à la fin ou qui l'a pris au dernier combat)
+  const championFid = t.fights.length
+    ? (t.fights[t.fights.length - 1].result === 'lost'
+        ? t.fights[t.fights.length - 1].opponentId       // le challenger qui a renversé le champion
+        : t.fights[t.fights.length - 1].championId)
+    : null;
+  const champFilm = championFid ? films.find(f => f.fid === championFid) : null;
+  const itemsHtml = t.fights.map(f => {
+    const cls = f.result === 'won' ? 'won' : 'lost';
+    const icon = f.result === 'won' ? '✅' : '❌';
+    const verb = f.result === 'won' ? 'bat' : 'perd contre';
+    const delta = f.championDelta;
+    let deltaHtml = '';
+    if (delta > 0) deltaHtml = `<span class="ts-delta up">+${delta} place${delta > 1 ? 's' : ''}</span>`;
+    else if (delta < 0) deltaHtml = `<span class="ts-delta down">${delta} place${Math.abs(delta) > 1 ? 's' : ''}</span>`;
+    else deltaHtml = `<span class="ts-delta" style="color:var(--txt3)">=</span>`;
+    return `<div class="tournament-summary-item ${cls}">
+      <div class="ts-num">${f.fightNum}</div>
+      <div class="ts-label">${icon} <strong>${esc(f.championTitle)}</strong> ${verb} <strong>${esc(f.opponentTitle)}</strong></div>
+      ${deltaHtml}
+    </div>`;
+  }).join('');
+  const duration = t.startedAt ? Math.max(1, Math.round((Date.now() - new Date(t.startedAt).getTime()) / 1000 / 60)) : 0;
+  const html = `<div class="overlay" onclick="if(event.target===this)finalizeTournament()">
+    <div class="modal breakdown-modal" style="max-width:720px">
+      <div class="breakdown-modal-body">
+        <h2>📋 Résumé du tournoi</h2>
+        <p class="desc">${champFilm ? `Champion final : <strong style="color:var(--gold)">${esc(champFilm.titre)}</strong>` : 'Aucun champion couronné.'}</p>
+        <div class="tournament-summary-stats">
+          <div class="tss-box"><div class="tss-value">${totalFights}</div><div class="tss-label">Combats</div></div>
+          <div class="tss-box"><div class="tss-value" style="color:var(--green)">${wins}</div><div class="tss-label">Victoires de suite</div></div>
+          <div class="tss-box"><div class="tss-value">${duration} min</div><div class="tss-label">Durée</div></div>
+        </div>
+        <div class="tournament-summary-list">${itemsHtml || '<div class="podium-empty">Aucun combat enregistré.</div>'}</div>
+      </div>
+      <div class="breakdown-modal-footer">
+        <div class="modal-row">
+          <button class="btn" onclick="finalizeTournament()">Fermer</button>
+          <button class="btn gold" onclick="finalizeTournament();setTimeout(startTournament,20)">Nouveau tournoi 🏟</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('overlay').innerHTML = html;
+}
+
+/* Demande confirmation avant d'abandonner */
+function confirmAbandonTournament() {
+  if (!activeTournament) { closeOverlay(); return; }
+  if (!activeTournament.fights.length) {
+    // Aucun combat joué : on peut fermer sans confirmation
+    finalizeTournament();
+    return;
+  }
+  const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()">
+    <div class="modal" style="max-width:420px;text-align:center">
+      <h2>Abandonner le tournoi ?</h2>
+      <p class="desc">Les ${activeTournament.fights.length} combat${activeTournament.fights.length > 1 ? 's' : ''} restent enregistrés dans l'historique.</p>
+      <div class="modal-row">
+        <button class="btn" onclick="resumeTournamentModal()">Continuer le tournoi</button>
+        <button class="btn red" onclick="showTournamentSummary()">Voir le résumé</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('overlay').innerHTML = html;
+}
+
+/* Reprend l'affichage du tournoi après un retour arrière */
+function resumeTournamentModal() {
+  if (!activeTournament) { closeOverlay(); return; }
+  // Si un dernier résultat existe, on réaffiche le résultat — sinon on relance un combat
+  if (activeTournament.currentPair && activeTournament.lastResult) {
+    const aIdx = getFilmIndexById(activeTournament.currentPair.aId);
+    const bIdx = getFilmIndexById(activeTournament.currentPair.bId);
+    if (aIdx >= 0 && bIdx >= 0) {
+      const a = films[aIdx], b = films[bIdx];
+      const lr = activeTournament.lastResult;
+      const winner = lr.winnerId === a.fid ? a : b;
+      const loser = winner === a ? b : a;
+      showTournamentFightResultModal(winner, loser, {
+        winnerRank: lr.winnerRankBefore, loserRank: lr.loserRankBefore
+      }, lr.scoreGapBefore, lr.championWon, !!activeTournament.championId);
+      return;
+    }
+  }
+  nextTournamentFight();
+}
+
+/* Termine proprement le tournoi (clean state + ferme overlay) */
+function finalizeTournament() {
+  activeTournament = null;
+  currentDuelPair = null;
+  closeOverlay();
 }
 
 function showSuggestModal(f, idx, count, reason) {
