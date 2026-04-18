@@ -203,6 +203,19 @@ body::before {
   font-size:.82rem; color:var(--txt2);
 }
 .tournament-header .th-champion strong { color:var(--gold); }
+.duel-h2h-line {
+  margin-top: 4px;
+  font-size: .8rem;
+  color: var(--txt2);
+  line-height: 1.45;
+}
+.duel-h2h-line strong { color: #fff; }
+.duel-h2h-sep {
+  display: inline-block;
+  margin: 0 6px;
+  color: var(--gold);
+  font-weight: 700;
+}
 .tournament-streak {
   margin-left:auto; display:inline-flex; align-items:center; gap:6px;
   padding:6px 12px; border-radius:999px;
@@ -2094,6 +2107,19 @@ function getDuelPairKey(a, b) { return [a.fid, b.fid].sort().join('__'); }
 function getPairHistory(a, b) {
   const key = getDuelPairKey(a, b);
   return duelLog.filter(d => d.pairKey === key).sort((x,y) => y.ts.localeCompare(x.ts));
+}
+function getHeadToHeadStats(a, b) {
+  const entries = getPairHistory(a, b);
+  const stats = { total: entries.length, aWins: 0, bWins: 0 };
+  entries.forEach(e => {
+    if (e.winnerId === a.fid) stats.aWins += 1;
+    else if (e.winnerId === b.fid) stats.bWins += 1;
+  });
+  return stats;
+}
+function renderHeadToHeadLine(a, b) {
+  const stats = getHeadToHeadStats(a, b);
+  return `<div class="duel-h2h-line"><strong>${esc(a.titre)}</strong> ${stats.aWins} victoire${stats.aWins > 1 ? 's' : ''} · ${stats.bWins} défaite${stats.bWins > 1 ? 's' : ''} <span class="duel-h2h-sep">vs</span> <strong>${esc(b.titre)}</strong> ${stats.bWins} victoire${stats.bWins > 1 ? 's' : ''} · ${stats.aWins} défaite${stats.aWins > 1 ? 's' : ''}</div>`;
 }
 function getPersoBreakdown(f) {
   const techCriteria = getActiveTechCriteria(f, '');
@@ -5806,14 +5832,14 @@ function suggestAnother(skipIdx) {
 }
 function suggestStartupModal() {
   const canSuggest = startupSuggestEnabled && getFilmsToRate().length > 0;
-  const canDuel = startupDuelEnabled && !!pickDuelCandidates();
-  if (canSuggest && canDuel) {
-    if (Math.random() < 0.5) openDuelModal();
+  const canTournament = startupDuelEnabled && !!pickDuelCandidates();
+  if (canSuggest && canTournament) {
+    if (Math.random() < 0.5) startTournament();
     else suggestRating();
     return;
   }
   if (canSuggest) { suggestRating(); return; }
-  if (canDuel) openDuelModal();
+  if (canTournament) startTournament();
 }
 function openDuelModal() {
   const pair = pickDuelCandidates();
@@ -5856,6 +5882,7 @@ function showDuelModal(a, b) {
   currentDuelPair = { aId: a.fid, bId: b.fid };
   duelRevealed = false; // réinitialise à chaque nouveau duel
   const historyHtml = renderDuelHistoryHtml(a, b);
+  const headToHeadHtml = renderHeadToHeadLine(a, b);
   const blindClass = duelBlindMode ? ' duel-blind' : '';
   const marathonCls = duelMarathonMode ? ' active' : '';
   const revealHidden = !duelBlindMode ? 'style="display:none"' : '';
@@ -5866,6 +5893,7 @@ function showDuelModal(a, b) {
     <div class="modal breakdown-modal${blindClass}" style="max-width:980px">
       <div class="breakdown-modal-body">
         <h2>⚔ Duel de films</h2>
+        ${headToHeadHtml}
         <p class="desc duel-desc duel-desc-default">Cliquer sur le poster pour déterminer le gagnant</p>
         <p class="desc duel-desc duel-desc-blind">Mode aveugle — choisis à l'instinct, les notes sont masquées.</p>
         <div class="duel-toolbar">
@@ -6124,6 +6152,7 @@ function startTournament() {
 function showTournamentFightModal(a, b) {
   currentDuelPair = { aId: a.fid, bId: b.fid };
   const fightNum = activeTournament.fights.length + 1;
+  const headToHeadHtml = renderHeadToHeadLine(a, b);
   const champId = activeTournament.championId;
   const championFilm = champId ? films.find(f => f.fid === champId) : null;
   const blindClass = duelBlindMode ? ' duel-blind' : '';
@@ -6132,6 +6161,7 @@ function showTournamentFightModal(a, b) {
     ? `<div class="tournament-header">
         <div>
           <div class="th-title">🏟 Tournoi · Combat #${fightNum}</div>
+          ${headToHeadHtml}
           <div class="th-champion">Champion : <strong>${esc(championFilm.titre)}</strong></div>
         </div>
         <span class="tournament-streak"><span class="flames">🔥</span>${activeTournament.streak} victoire${activeTournament.streak > 1 ? 's' : ''} de suite</span>
@@ -6139,6 +6169,7 @@ function showTournamentFightModal(a, b) {
     : `<div class="tournament-header">
         <div>
           <div class="th-title">🏟 Tournoi · Combat #1</div>
+          ${headToHeadHtml}
           <div class="th-champion">Le vainqueur devient champion du tournoi</div>
         </div>
        </div>`;
