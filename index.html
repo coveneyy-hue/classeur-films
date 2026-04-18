@@ -227,6 +227,40 @@ body::before {
 .duel-history-time { color: var(--txt3); font-size: .72rem; margin-bottom: 3px; }
 .duel-history-flag { color: var(--gold); font-weight: 700; }
 .duel-result-note { margin-top: 10px; color: var(--txt2); font-size: .86rem; }
+.duel-progress-box {
+  margin-top: 14px; padding: 12px; border: 1px solid var(--border);
+  border-radius: 12px; background: var(--bg);
+}
+.duel-progress-heading {
+  font-family: var(--font-display); font-weight: 800; font-size: .9rem;
+  color: #fff; margin-bottom: 10px;
+}
+.duel-progress-grid {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;
+}
+.duel-progress-item {
+  padding: 10px; background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.duel-progress-title {
+  font-family: var(--font-display); font-weight: 700; font-size: .86rem;
+  color: #fff; margin-bottom: 8px; line-height: 1.3;
+}
+.duel-progress-metrics {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;
+}
+.duel-progress-metric {
+  padding: 8px; background: var(--bg3); border-radius: 8px; text-align: center;
+}
+.duel-progress-label {
+  display: block; font-size: .68rem; color: var(--txt2); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px;
+}
+.duel-progress-value {
+  font-family: var(--font-display); font-weight: 900; font-size: 1rem;
+}
+.duel-progress-value.up { color: var(--green); }
+.duel-progress-value.down { color: var(--red); }
+.duel-progress-value.same { color: var(--txt2); }
 
 /* Bannière "Victoire" en vert quand la carte est marquée gagnante,
    "Défaite" reste en rouge (défaut) pour les cartes perdantes */
@@ -5899,6 +5933,39 @@ function renderDuelCard(f, opts = {}) {
 }
 function renderFaceoffFinalScoreline(a, b, aScore, bScore) {
   return `<div class="duel-final-scoreline"><span>${esc(a.titre)}</span> <span class="score">${esc(String(aScore))}</span><span class="sep">·</span><span>${esc(b.titre)}</span> <span class="score">${esc(String(bScore))}</span></div>`;
+
+}
+function renderDuelProgressSummary(items) {
+  const safeItems = (items || []).filter(Boolean);
+  if (!safeItems.length) return '';
+  const rows = safeItems.map(item => {
+    const noteDelta = Number(item.noteAfter || 0) - Number(item.noteBefore || 0);
+    const rankBefore = item.rankBefore;
+    const rankAfter = item.rankAfter;
+    const rankDelta = (rankBefore != null && rankAfter != null) ? (Number(rankBefore) - Number(rankAfter)) : 0;
+    const noteCls = noteDelta > 0 ? 'up' : noteDelta < 0 ? 'down' : 'same';
+    const rankCls = rankDelta > 0 ? 'up' : rankDelta < 0 ? 'down' : 'same';
+    const noteText = noteDelta > 0 ? `+${fmtNum(noteDelta)}` : noteDelta < 0 ? fmtNum(noteDelta) : '0.00';
+    const rankText = rankDelta > 0 ? `+${rankDelta}` : rankDelta < 0 ? `${rankDelta}` : '=';
+    const rankLabel = rankDelta > 1 ? 'places' : 'place';
+    return `<div class="duel-progress-item">
+      <div class="duel-progress-title">${esc(item.title)}</div>
+      <div class="duel-progress-metrics">
+        <div class="duel-progress-metric">
+          <span class="duel-progress-label">Note</span>
+          <span class="duel-progress-value ${noteCls}">${noteText}</span>
+        </div>
+        <div class="duel-progress-metric">
+          <span class="duel-progress-label">Classement</span>
+          <span class="duel-progress-value ${rankCls}">${rankText}${rankText === '=' ? '' : ' ' + rankLabel}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  return `<div class="duel-progress-box">
+    <div class="duel-progress-heading">Progression après le duel</div>
+    <div class="duel-progress-grid">${rows}</div>
+  </div>`;
 }
 function getCurrentPairInDisplayOrder() {
   if (!currentDuelPair) return null;
@@ -6025,7 +6092,28 @@ function showDuelResultModal(winner, loser, changed, inverseConflict, scoreGapBe
   const rightOpts = rightFilm.fid === winner.fid
     ? { state:'winner', rankJump, faceScore: stats.bWins, clickable:false }
     : { state:'loser', faceScore: stats.bWins, clickable:false };
-  const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()"><div class="modal breakdown-modal" style="max-width:860px"><div class="breakdown-modal-body"><h2>Résultat du duel</h2><p class="desc">${resultText}</p><div class="duel-result-grid">${renderDuelCard(leftFilm, leftOpts)}${renderDuelCard(rightFilm, rightOpts)}</div>${renderFaceoffFinalScoreline(leftFilm, rightFilm, stats.aWins, stats.bWins)}${inverseConflict ? `<div class="duel-result-note"><strong>Historique croisé :</strong> ${esc(inverseConflict)}</div>` : ''}<div class="duel-result-note">Écart avant duel : ${fmtNum(scoreGapBefore)} point${Math.abs(scoreGapBefore) >= 2 ? 's' : ''}</div></div><div class="breakdown-modal-footer"><div class="modal-row"><button class="btn" onclick="closeOverlay()">Plus tard</button><button class="btn gold" onclick="closeOverlay();setTimeout(()=>openDuelModal(),20)">Relancer un duel</button></div></div></div></div>`;
+  const lastDuel = duelLog.length ? duelLog[duelLog.length - 1] : null;
+  const beforeLeftRank = lastDuel ? (leftFilm.fid === lastDuel.winnerId ? lastDuel.beforeWinnerRank : lastDuel.beforeLoserRank) : leftFilm.rank;
+  const beforeRightRank = lastDuel ? (rightFilm.fid === lastDuel.winnerId ? lastDuel.beforeWinnerRank : lastDuel.beforeLoserRank) : rightFilm.rank;
+  const beforeLeftNote = lastDuel ? (leftFilm.fid === lastDuel.winnerId ? Number(winner.notePerso || 0) + (winner.rank === beforeLeftRank ? 0 : 0) : Number(leftFilm.notePerso || 0)) : Number(leftFilm.notePerso || 0);
+  const beforeRightNote = lastDuel ? Number(rightFilm.notePerso || 0) : Number(rightFilm.notePerso || 0);
+  const progressHtml = renderDuelProgressSummary([
+    {
+      title: leftFilm.titre,
+      noteBefore: lastDuel && leftFilm.fid === lastDuel.winnerId ? Number(lastDuel.beforeSummary.match(/^[^\d]*?([0-9]+(?:\.[0-9]+)?)/)?.[1] || leftFilm.notePerso) : lastDuel && leftFilm.fid === lastDuel.loserId ? Number(lastDuel.beforeSummary.split('· ')[1]?.match(/([0-9]+(?:\.[0-9]+)?)/)?.[1] || leftFilm.notePerso) : Number(leftFilm.notePerso || 0),
+      noteAfter: Number(leftFilm.notePerso || 0),
+      rankBefore: beforeLeftRank,
+      rankAfter: leftFilm.rank
+    },
+    {
+      title: rightFilm.titre,
+      noteBefore: lastDuel && rightFilm.fid === lastDuel.winnerId ? Number(lastDuel.beforeSummary.match(/^[^\d]*?([0-9]+(?:\.[0-9]+)?)/)?.[1] || rightFilm.notePerso) : lastDuel && rightFilm.fid === lastDuel.loserId ? Number(lastDuel.beforeSummary.split('· ')[1]?.match(/([0-9]+(?:\.[0-9]+)?)/)?.[1] || rightFilm.notePerso) : Number(rightFilm.notePerso || 0),
+      noteAfter: Number(rightFilm.notePerso || 0),
+      rankBefore: beforeRightRank,
+      rankAfter: rightFilm.rank
+    }
+  ]);
+  const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()"><div class="modal breakdown-modal" style="max-width:860px"><div class="breakdown-modal-body"><h2>Résultat du duel</h2><p class="desc">${resultText}</p><div class="duel-result-grid">${renderDuelCard(leftFilm, leftOpts)}${renderDuelCard(rightFilm, rightOpts)}</div>${renderFaceoffFinalScoreline(leftFilm, rightFilm, stats.aWins, stats.bWins)}${progressHtml}${inverseConflict ? `<div class="duel-result-note"><strong>Historique croisé :</strong> ${esc(inverseConflict)}</div>` : ''}<div class="duel-result-note">Écart avant duel : ${fmtNum(scoreGapBefore)} point${Math.abs(scoreGapBefore) >= 2 ? 's' : ''}</div></div><div class="breakdown-modal-footer"><div class="modal-row"><button class="btn" onclick="closeOverlay()">Plus tard</button><button class="btn gold" onclick="closeOverlay();setTimeout(()=>openDuelModal(),20)">Relancer un duel</button></div></div></div></div>`;
   document.getElementById('overlay').innerHTML = html;
 }
 
@@ -6395,6 +6483,22 @@ function showTournamentFightResultModal(winner, loser, before, scoreGapBefore, c
           ${renderDuelCard(rightFilm, rightOpts)}
         </div>
         ${renderFaceoffFinalScoreline(leftFilm, rightFilm, stats.aWins, stats.bWins)}
+        ${renderDuelProgressSummary([
+          {
+            title: leftFilm.titre,
+            noteBefore: leftFilm.fid === winner.fid ? before.winnerNote : before.loserNote,
+            noteAfter: leftFilm.notePerso,
+            rankBefore: leftFilm.fid === winner.fid ? before.winnerRank : before.loserRank,
+            rankAfter: leftFilm.rank
+          },
+          {
+            title: rightFilm.titre,
+            noteBefore: rightFilm.fid === winner.fid ? before.winnerNote : before.loserNote,
+            noteAfter: rightFilm.notePerso,
+            rankBefore: rightFilm.fid === winner.fid ? before.winnerRank : before.loserRank,
+            rankAfter: rightFilm.rank
+          }
+        ])}
       </div>
       <div class="breakdown-modal-footer">
         ${actionsHtml}
