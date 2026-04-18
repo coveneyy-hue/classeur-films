@@ -380,7 +380,8 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.7); cursor
 .log-msg { font-size: .85rem; color: var(--txt); line-height: 1.4; }
 .log-msg strong { color: #fff; }
 .log-empty { text-align: center; padding: 40px; color: var(--txt3); font-style: italic; }
-.log-footer { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.log-footer { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; flex-wrap: wrap; }
+.log-footer-actions { display: inline-flex; align-items: center; gap: 8px; }
 
 /* ─── TOASTS ────────────────────────────────────── */
 .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 200; display: flex; flex-direction: column-reverse; gap: 8px; }
@@ -1383,6 +1384,9 @@ td.editing input {
   <div class="log-list" id="logList"></div>
   <div class="log-footer">
     <span style="font-size:.8rem;color:var(--txt3)" id="logFooterCount"></span>
+    <div class="log-footer-actions">
+      <button class="btn red" onclick="openClearLogModal()">Vider le journal</button>
+    </div>
   </div>
 </div>
 
@@ -1454,7 +1458,7 @@ function ensureFilmKeys(f) {
   f.dateVu = normalizeDateVu(f.dateVu);
 }
 const COLS = [
-  { key:'titre',       label:'Titre original',  align:'left',   w:90, edit:true  },
+  { key:'titre',       label:'Titre',           align:'left',   w:90, edit:true  },
   { key:'genre',       label:'Genre',           align:'left',   w:170, edit:true  },
   { key:'realisateur', label:'Réalisateur',     align:'left',   w:155, edit:true  },
   { key:'acteurs',     label:'Acteurs principaux', align:'left',w:210, edit:true  },
@@ -1996,7 +2000,7 @@ function render() {
         : `min-width:${titreReducedWidth}px;width:${titreReducedWidth}px;max-width:${titreReducedWidth}px`)
       : `min-width:${c.w}px`;
     const labelHtml = c.key === 'titre'
-      ? `${c.label}${arrow}<button class="col-expand-btn" onclick="event.stopPropagation();toggleTitleWidth()" title="${titleExpanded ? 'Réduire la colonne Titre original' : 'Agrandir la colonne Titre original'}" aria-label="${titleExpanded ? 'Réduire la colonne Titre original' : 'Agrandir la colonne Titre original'}">⤢</button>`
+      ? `${c.label}${arrow}<button class="col-expand-btn" onclick="event.stopPropagation();toggleTitleWidth()" title="${titleExpanded ? 'Réduire la colonne Titre' : 'Agrandir la colonne Titre'}" aria-label="${titleExpanded ? 'Réduire la colonne Titre' : 'Agrandir la colonne Titre'}">⤢</button>`
       : `${c.label}${arrow}`;
     html += `<th class="${cls}${frozenCls}" onclick="doSort('${c.key}')" style="text-align:${c.align};${widthStyle}">${labelHtml}</th>`;
   });
@@ -2338,7 +2342,7 @@ function bindFrozenHeader() {
 function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 function doSort(key) { if (sortCol===key) sortDir = sortDir==='asc'?'desc':'asc'; else { sortCol=key; sortDir='asc'; } render(); }
 function toggleHidden() { showHidden=!showHidden; savePrefs(); render(); toast(showHidden?'Colonnes détaillées affichées':'Colonnes détaillées masquées','info'); }
-function toggleTitleWidth() { titleExpanded = !titleExpanded; applyLayoutVars(); savePrefs(); render(); toast(titleExpanded ? 'Colonne Titre original agrandie' : 'Colonne Titre original réduite', 'info'); }
+function toggleTitleWidth() { titleExpanded = !titleExpanded; applyLayoutVars(); savePrefs(); render(); toast(titleExpanded ? 'Colonne Titre agrandie' : 'Colonne Titre réduite', 'info'); }
 
 function getRaterByKey(raterKey) {
   return RATERS.find(r => r.key === raterKey) || RATERS[0];
@@ -2381,8 +2385,8 @@ function openTitleBreakdown(idx) {
         ${f.watchlist ? '' : `<div class="note-summary-grid">${notesHtml}</div>
         <p class="desc" style="margin-top:4px;margin-bottom:14px;font-size:.78rem">💡 Cliquez sur une note ci-dessus pour modifier la ventilation.</p>`}
 
-        <label>Titre original *</label>
-        <input type="text" id="detailsTitre" value="${esc(f.titre || '')}" placeholder="Titre original du film">
+        <label>Titre *</label>
+        <input type="text" id="detailsTitre" value="${esc(f.titre || '')}" placeholder="Titre du film">
 
         <div style="display:flex;gap:10px;margin-top:10px">
           <div style="flex:2">
@@ -2528,7 +2532,7 @@ function saveFilmDetails(idx) {
     return;
   }
   const fields = [
-    { id: 'detailsTitre',   key: 'titre',       label: 'Titre original', type: 'text' },
+    { id: 'detailsTitre',   key: 'titre',       label: 'Titre',       type: 'text' },
     { id: 'detailsGenre',   key: 'genre',       label: 'Genre',       type: 'text' },
     { id: 'detailsAnnee',   key: 'annee',       label: 'Année',       type: 'num' },
     { id: 'detailsReal',    key: 'realisateur', label: 'Réalisateur', type: 'text' },
@@ -2904,7 +2908,7 @@ function openTmdbAssociate(filmIdx) {
       <h2>Associer à TMDb</h2>
       <p class="desc">Recherchez le film pour ajouter affiche, durée et note TMDb.</p>
       <label>Recherche TMDb</label>
-      <input type="text" id="tmdbAssocSearch" value="${esc(initialQuery)}" placeholder="Titre original du film..." oninput="onTmdbAssocSearchInput(${filmIdx}, this.value)" autocomplete="off">
+      <input type="text" id="tmdbAssocSearch" value="${esc(initialQuery)}" placeholder="Titre du film..." oninput="onTmdbAssocSearchInput(${filmIdx}, this.value)" autocomplete="off">
       <div id="tmdbAssocResults" class="tmdb-results" style="display:none"></div>
       <div class="modal-row">
         <button class="btn" onclick="closeOverlay();openTitleBreakdown(${filmIdx})">Retour</button>
@@ -2937,8 +2941,8 @@ function onTmdbAssocSearchInput(filmIdx, q) {
       box.innerHTML = results.slice(0, 10).map(r => {
         const poster = r.poster_path ? `background-image:url('${TMDB_IMG}${r.poster_path}')` : '';
         const year = r.release_date ? r.release_date.slice(0,4) : '—';
-        const title = esc(r.original_title || r.title || '');
-        const orig = r.title && r.original_title && r.original_title !== r.title ? ` <span style="color:var(--txt3)">(${esc(r.title)})</span>` : '';
+        const title = esc(r.title || r.original_title || '');
+        const orig = r.original_title && r.original_title !== r.title ? ` <span style="color:var(--txt3)">(${esc(r.original_title)})</span>` : '';
         return `<div class="tmdb-result" onclick="confirmTmdbAssoc(${filmIdx}, ${r.id})">
           <div class="tmdb-poster" style="${poster}"></div>
           <div class="tmdb-result-info">
@@ -2971,7 +2975,7 @@ function buildTmdbDiff(f, d) {
   const budget = d.budget ? parseFloat((d.budget / 1_000_000).toFixed(1)) : null;
   const boxOffice = d.revenue ? parseFloat((d.revenue / 1_000_000).toFixed(1)) : null;
   return [
-    { key: 'titre',       label: 'Titre original', oldVal: f.titre,    newVal: d.original_title || d.title || null, editable: true },
+    { key: 'titre',       label: 'Titre',       oldVal: f.titre,       newVal: d.title || d.original_title || null, editable: true },
     { key: 'annee',       label: 'Année',       oldVal: f.annee,       newVal: annee, editable: true },
     { key: 'genre',       label: 'Genre',       oldVal: f.genre,       newVal: genres, editable: true },
     { key: 'realisateur', label: 'Réalisateur', oldVal: f.realisateur, newVal: directors, editable: true },
@@ -3073,8 +3077,8 @@ function applyTmdbCompare() {
   });
   saveFilms();
   const summary = applied.length ? ` (${applied.length} champ${applied.length>1?'s':''} mis à jour)` : '';
-  addLog('edit', `<strong>${f.titre}</strong> — Associé à TMDb : ${esc(d.original_title || d.title)}${summary}`);
-  toast(`Associé : ${d.original_title || d.title}${summary}`, 'success');
+  addLog('edit', `<strong>${f.titre}</strong> — Associé à TMDb : ${esc(d.title)}${summary}`);
+  toast(`Associé : ${d.title}${summary}`, 'success');
   window._tmdbCompareData = null;
   closeOverlay();
   openTitleBreakdown(filmIdx);
@@ -3105,7 +3109,7 @@ const BATCH_FIELDS = [
   { key: 'posterPath', label: 'Affiche',          defaultOn: true,  alwaysFill: true },
   { key: 'runtime',    label: 'Durée (min)',      defaultOn: true,  alwaysFill: true },
   { key: 'tmdbVote',   label: 'Note TMDb ⭐',      defaultOn: true,  alwaysFill: true },
-  { key: 'titre',      label: 'Titre original',   defaultOn: false, alwaysFill: false },
+  { key: 'titre',      label: 'Titre',            defaultOn: false, alwaysFill: false },
   { key: 'genre',      label: 'Genre',            defaultOn: true,  alwaysFill: false },
   { key: 'realisateur',label: 'Réalisateur',      defaultOn: true,  alwaysFill: false },
   { key: 'acteurs',    label: 'Acteurs',          defaultOn: true,  alwaysFill: false },
@@ -3223,7 +3227,7 @@ function applyBatchFields(f, d, selectedFields, mode, actorsCount) {
     posterPath: d.poster_path || null,
     runtime: d.runtime || null,
     tmdbVote: d.vote_average || null,
-    titre: d.original_title || d.title || null,
+    titre: d.title || d.original_title || null,
     genre: genres,
     realisateur: directors,
     acteurs: actors,
@@ -3356,7 +3360,7 @@ async function processBatchNext() {
     const changedCount = applyBatchFields(f, d, s.selectedFields, s.mode, s.actorsCount);
     s.ok++;
     const suffix = changedCount > 0 ? ` (${changedCount} champ${changedCount>1?'s':''})` : ' (aucun changement)';
-    batchAddLog('ok', `✅ ${esc(f.titre)} → ${esc(d.original_title || d.title)}${suffix}`);
+    batchAddLog('ok', `✅ ${esc(f.titre)} → ${esc(d.title)}${suffix}`);
   } catch (err) {
     s.err++;
     batchAddLog('err', `❌ ${esc(f.titre)} — ${esc(err.message)}`);
@@ -3374,7 +3378,7 @@ function showBatchAmbigChoice(filmIdx, candidates) {
     return `<div class="ambig-choice">
       <div class="ambig-poster" style="${poster}"></div>
       <div class="ambig-info">
-        <div class="ambig-info-title">${esc(c.original_title || c.title || '')}</div>
+        <div class="ambig-info-title">${esc(c.title || c.original_title || '')}</div>
         <div class="ambig-info-meta">${year} · ⭐ ${c.vote_average ? c.vote_average.toFixed(1) : '—'}</div>
       </div>
       <div class="ambig-btns">
@@ -3404,7 +3408,7 @@ async function resolveBatchAmbig(filmIdx, tmdbId) {
     const changedCount = applyBatchFields(f, d, s.selectedFields, s.mode, s.actorsCount);
     s.ok++;
     const suffix = changedCount > 0 ? ` (${changedCount} champ${changedCount>1?'s':''})` : '';
-    batchAddLog('ok', `✅ ${esc(f.titre)} → ${esc(d.original_title || d.title)} (choix manuel${suffix ? ',' + suffix : ''})`);
+    batchAddLog('ok', `✅ ${esc(f.titre)} → ${esc(d.title)} (choix manuel${suffix ? ',' + suffix : ''})`);
   } catch (err) {
     s.err++;
     batchAddLog('err', `❌ ${esc(f.titre)} — ${esc(err.message)}`);
@@ -3453,7 +3457,7 @@ function openAddModal() {
       <div id="tmdbResults" class="tmdb-results" style="display:none"></div>
       ` : ''}
       <div id="addManualFields" style="margin-top:14px">
-        <label>Titre original *</label><input type="text" id="addTitre" placeholder="Ex: Blade Runner 2049">
+        <label>Titre *</label><input type="text" id="addTitre" placeholder="Ex: Blade Runner 2049">
         <label style="margin-top:10px">Genre</label><input type="text" id="addGenre" placeholder="Ex: Science-fiction, Drame">
         <label style="margin-top:10px">Réalisateur</label><input type="text" id="addReal" placeholder="Ex: Denis Villeneuve">
         <label style="margin-top:10px">Acteurs principaux</label><input type="text" id="addActeurs" placeholder="Séparés par des ;">
@@ -3503,8 +3507,8 @@ function onTmdbSearchInput(q) {
       box.innerHTML = results.slice(0, 10).map(r => {
         const poster = r.poster_path ? `background-image:url('${TMDB_IMG}${r.poster_path}')` : '';
         const year = r.release_date ? r.release_date.slice(0,4) : '—';
-        const title = esc(r.original_title || r.title || '');
-        const orig = r.title && r.original_title && r.original_title !== r.title ? ` <span style="color:var(--txt3)">(${esc(r.title)})</span>` : '';
+        const title = esc(r.title || r.original_title || '');
+        const orig = r.original_title && r.original_title !== r.title ? ` <span style="color:var(--txt3)">(${esc(r.original_title)})</span>` : '';
         const overview = r.overview ? esc(r.overview.slice(0, 90)) + (r.overview.length > 90 ? '…' : '') : '';
         return `<div class="tmdb-result" onclick="selectTmdbResult(${r.id}, this)">
           <div class="tmdb-poster" style="${poster}"></div>
@@ -3530,7 +3534,7 @@ async function selectTmdbResult(id, element) {
     const d = await tmdbDetails(id);
     tmdbSelected = d;
     // Populate manual fields
-    document.getElementById('addTitre').value = d.original_title || d.title || '';
+    document.getElementById('addTitre').value = d.title || d.original_title || '';
     document.getElementById('addGenre').value = (d.genres || []).map(g => g.name).join(', ');
     const directors = (d.credits?.crew || []).filter(c => c.job === 'Director').map(c => c.name);
     document.getElementById('addReal').value = directors.join(', ');
@@ -3541,7 +3545,7 @@ async function selectTmdbResult(id, element) {
     document.getElementById('addBO').value = d.revenue ? (d.revenue / 1_000_000).toFixed(1) : '';
     // Replace status with confirmation
     box.innerHTML = `<div class="tmdb-status" style="color:var(--green)">✓ Champs pré-remplis depuis TMDb — vérifiez et ajoutez.</div>`;
-    toast(`Données TMDb chargées : ${d.original_title || d.title}`, 'success');
+    toast(`Données TMDb chargées : ${d.title}`, 'success');
   } catch (err) {
     box.querySelector('.tmdb-status')?.remove();
     toast('Erreur TMDb : ' + err.message, 'error');
@@ -4572,7 +4576,7 @@ function openSettings() {
         <div class="settings-section">
           <div class="settings-section-title">Affichage</div>
           <div class="settings-section-desc">Réglez la présentation du tableau principal.</div>
-          <label>Largeur réduite de la colonne Titre original (px)</label>
+          <label>Largeur réduite de la colonne Titre (px)</label>
           <input type="number" id="settingsTitreWidth" min="50" max="600" step="10" value="${titreReducedWidth}" placeholder="90">
           <p style="font-size:.78rem;color:var(--txt3);margin-top:6px;margin-bottom:14px">Valeur par défaut : 90 px · Min 50 · Max 600</p>
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
@@ -4650,6 +4654,13 @@ function openSettings() {
                 <div class="settings-action-desc">Consultez, filtrez ou videz l'historique des opérations.</div>
               </div>
               <button class="btn" onclick="closeOverlay();toggleLog()">Ouvrir le journal</button>
+            </div>
+            <div class="settings-action-row">
+              <div>
+                <div class="settings-action-title">Vider le journal</div>
+                <div class="settings-action-desc">Supprime les entrées sur une période donnée après confirmation.</div>
+              </div>
+              <button class="btn red" onclick="openClearLogModal()">Vider le journal</button>
             </div>
           </div>
         </div>
@@ -4846,7 +4857,109 @@ function deleteLogEntry(idx) {
   renderLog();
   renderLogCount();
 }
-function clearLog() { log = []; saveLog(); renderLog(); renderLogCount(); toast('Journal vidé','info'); }
+function getLogCutoff(period) {
+  if (period === 'all') return null;
+  const now = Date.now();
+  const map = {
+    hour: 60 * 60 * 1000,
+    day: 24 * 60 * 60 * 1000,
+    week: 7 * 24 * 60 * 60 * 1000,
+    month: 30 * 24 * 60 * 60 * 1000,
+    year: 365 * 24 * 60 * 60 * 1000
+  };
+  return now - (map[period] || 0);
+}
+function getLogEntriesForPeriod(period) {
+  const cutoff = getLogCutoff(period);
+  if (cutoff == null) return log.slice();
+  return log.filter(e => {
+    const ts = new Date(e.ts).getTime();
+    return Number.isFinite(ts) && ts >= cutoff;
+  });
+}
+function getLogPeriodLabel(period) {
+  return {
+    hour: '1 heure',
+    day: '1 jour',
+    week: '1 semaine',
+    month: '1 mois',
+    year: '1 an',
+    all: 'tous'
+  }[period] || 'tous';
+}
+function updateClearLogPreview() {
+  const select = document.getElementById('clearLogPeriod');
+  const preview = document.getElementById('clearLogPreview');
+  if (!select || !preview) return;
+  const period = select.value || 'all';
+  const count = getLogEntriesForPeriod(period).length;
+  const label = getLogPeriodLabel(period);
+  preview.textContent = count
+    ? `${count} entrée${count > 1 ? 's' : ''} seront supprimée${count > 1 ? 's' : ''} pour la période : ${label}.`
+    : `Aucune entrée à supprimer pour la période : ${label}.`;
+}
+function openClearLogModal() {
+  const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay();">
+    <div class="modal" style="max-width:420px">
+      <h2>Vider le journal</h2>
+      <p class="desc">Choisissez la période à supprimer. Une confirmation sera demandée avant l'effacement.</p>
+      <label for="clearLogPeriod">Période</label>
+      <select id="clearLogPeriod" onchange="updateClearLogPreview()">
+        <option value="hour">1 heure</option>
+        <option value="day">1 jour</option>
+        <option value="week" selected>1 semaine</option>
+        <option value="month">1 mois</option>
+        <option value="year">1 an</option>
+        <option value="all">Tous</option>
+      </select>
+      <p class="desc" id="clearLogPreview" style="margin-top:12px"></p>
+      <div class="modal-row">
+        <button class="btn" onclick="closeOverlay()">Annuler</button>
+        <button class="btn red" onclick="confirmClearLogFromModal()">Continuer</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('overlay').innerHTML = html;
+  updateClearLogPreview();
+}
+function confirmClearLogFromModal() {
+  const period = document.getElementById('clearLogPeriod')?.value || 'all';
+  const count = getLogEntriesForPeriod(period).length;
+  const label = getLogPeriodLabel(period);
+  const html = `<div class="overlay" onclick="if(event.target===this)openClearLogModal();">
+    <div class="modal" style="max-width:420px">
+      <h2>Confirmation</h2>
+      <p class="desc">Confirmez-vous la suppression de <strong>${count}</strong> entrée${count > 1 ? 's' : ''} du journal pour la période <strong>${label}</strong> ?</p>
+      <div class="modal-row">
+        <button class="btn" onclick="openClearLogModal()">Retour</button>
+        <button class="btn red" onclick="clearLog('${period}')">Confirmer</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('overlay').innerHTML = html;
+}
+function clearLog(period = 'all') {
+  const entriesToRemove = getLogEntriesForPeriod(period);
+  if (!entriesToRemove.length) {
+    closeOverlay();
+    toast('Aucune entrée à supprimer pour cette période', 'info');
+    return;
+  }
+  if (period === 'all') {
+    log = [];
+  } else {
+    const cutoff = getLogCutoff(period);
+    log = log.filter(e => {
+      const ts = new Date(e.ts).getTime();
+      return !(Number.isFinite(ts) && ts >= cutoff);
+    });
+  }
+  saveLog();
+  renderLog();
+  renderLogCount();
+  closeOverlay();
+  toast(`Journal vidé : ${entriesToRemove.length} entrée${entriesToRemove.length > 1 ? 's' : ''} supprimée${entriesToRemove.length > 1 ? 's' : ''}`, 'info');
+}
 function renderLogCount() {
   const el = document.getElementById('logCount');
   if (!el) return;
@@ -4875,7 +4988,7 @@ function exportJSON() {
 }
 function buildExcelRows() {
   const baseCols = [
-    ['titre', 'Titre original'],
+    ['titre', 'Titre'],
     ['genre', 'Genre'],
     ['realisateur', 'Réalisateur'],
     ['acteurs', 'Acteurs principaux'],
@@ -4920,7 +5033,7 @@ function exportExcel() {
     ws['!autofilter'] = { ref: `A1:${XLSX.utils.encode_cell({ r: 0, c: headers.length - 1 })}` };
     ws['!cols'] = headers.map((h, idx) => {
       if (idx === 0) return { wch: 6 };
-      if (h === 'Titre original') return { wch: 28 };
+      if (h === 'Titre') return { wch: 28 };
       return { wch: Math.min(Math.max(h.length + 2, 12), 26) };
     });
     XLSX.utils.book_append_sheet(wb, ws, 'Films');
