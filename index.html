@@ -59,6 +59,18 @@ body::before {
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   padding-bottom: 14px; border-bottom: 1px solid var(--border); margin-bottom: 16px;
 }
+.topbar-title-row,
+.topbar-actions-row,
+.topbar-search-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.topbar-title-row { justify-content: flex-start; }
+.topbar-actions-row { justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.topbar-actions-row::-webkit-scrollbar { display: none; }
+.topbar-search-row { justify-content: space-between; }
 .topbar h1 {
   font-family: var(--font-display); font-weight: 900; font-size: 1.7rem;
   background: linear-gradient(135deg, var(--gold), var(--red));
@@ -78,7 +90,7 @@ body::before {
 .searchbox:focus { border-color: var(--gold-dim); box-shadow: 0 0 0 3px rgba(232,166,48,.1); }
 .search-inline-wrap {
   display: inline-flex; align-items: center; gap: 8px;
-  flex: 1; min-width: 240px; max-width: 430px;
+  flex: 0 1 430px; min-width: 240px; max-width: 430px;
 }
 .search-inline-wrap .searchbox {
   flex: 1; min-width: 0; max-width: none;
@@ -186,7 +198,6 @@ body::before {
 .topbar-actions {
   display: inline-flex; align-items: center; gap: 8px;
   flex-wrap: nowrap;
-  margin-left: auto;
 }
 .topbar-view-modes {
   display: inline-flex;
@@ -504,10 +515,15 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.7); cursor
 /* ─── RESPONSIVE ────────────────────────────────── */
 @media (max-width: 768px) {
   .topbar h1 { font-size: 1.3rem; }
-  .searchbox { max-width: 100%; order: 3; width: 100%; }
-  .count { margin-left: 0; }
-  .topbar-actions { margin-left: 0; width: 100%; flex-wrap: wrap; }
-  .topbar-view-modes { flex-wrap: wrap; }
+  .topbar-title-row,
+  .topbar-actions-row,
+  .topbar-search-row { gap: 8px; }
+  .search-inline-wrap { flex: 1 1 auto; min-width: 0; max-width: none; }
+  .searchbox { max-width: 100%; width: 100%; }
+  .count { margin-left: 0; flex: 0 0 auto; }
+  .topbar-actions-row { overflow-x: auto; }
+  .topbar-actions { flex: 0 0 auto; }
+  .topbar-view-modes { flex-wrap: nowrap; flex: 0 0 auto; }
   .btn { padding: 8px 10px; font-size: .78rem; }
   .btn-icon { width: 34px; height: 34px; }
   .topbar-mode-btn { min-height: 34px; }
@@ -1414,18 +1430,24 @@ td.editing input {
 <div id="app">
   <!-- Topbar -->
   <div class="topbar">
-    <h1><span>🎬</span> Classeur Films</h1>
-    <div class="search-inline-wrap">
-      <input type="text" class="searchbox" id="search" placeholder="Rechercher titre, genre, réalisateur, tag…" oninput="render()">
-      <button class="btn btn-icon" onclick="openDuelModal()" title="Lancer un duel" aria-label="Lancer un duel">⚔</button>
+    <div class="topbar-title-row">
+      <h1><span>🎬</span> Classeur Films</h1>
     </div>
-    <span class="count" id="counter"></span>
-    <div class="topbar-actions">
-      <button class="btn btn-icon gold" onclick="openAddModal()" title="Ajouter un film" aria-label="Ajouter un film">＋</button>
-      <button class="btn btn-icon" onclick="toggleHidden()" title="Afficher ou masquer les critères" aria-label="Afficher ou masquer les critères">👁</button>
-      <button class="btn btn-icon" onclick="openStats()" title="Statistiques" aria-label="Statistiques">📈</button>
-      <button class="btn btn-icon" onclick="openSettings()" title="Paramètres" aria-label="Paramètres">⚙</button>
+    <div class="topbar-actions-row">
+      <div class="topbar-actions">
+        <button class="btn btn-icon gold" onclick="openAddModal()" title="Ajouter un film" aria-label="Ajouter un film">＋</button>
+        <button class="btn btn-icon" onclick="toggleHidden()" title="Afficher ou masquer les critères" aria-label="Afficher ou masquer les critères">👁</button>
+        <button class="btn btn-icon" onclick="openStats()" title="Statistiques" aria-label="Statistiques">📈</button>
+        <button class="btn btn-icon" onclick="openSettings()" title="Paramètres" aria-label="Paramètres">⚙</button>
+      </div>
       <div id="topbarViewModes" class="topbar-view-modes"></div>
+    </div>
+    <div class="topbar-search-row">
+      <div class="search-inline-wrap">
+        <input type="text" class="searchbox" id="search" placeholder="Rechercher titre, genre, réalisateur, tag…" oninput="render()">
+        <button class="btn btn-icon" onclick="openDuelModal()" title="Lancer un duel" aria-label="Lancer un duel">⚔</button>
+      </div>
+      <span class="count" id="counter"></span>
     </div>
     <input type="file" id="importFile" class="file-input" accept=".json" onchange="importJSON(event)">
   </div>
@@ -5161,13 +5183,15 @@ function renderDuelCard(f, opts = {}) {
   const info = [f.rank != null ? `Rang #${f.rank}` : null, f.annee ? Math.round(f.annee) : null, f.realisateur].filter(Boolean).join(' · ');
   const cardCls = ['duel-card', opts.state || ''].filter(Boolean).join(' ');
   const banner = opts.banner ? `<div class="duel-poster-banner show">${esc(opts.banner)}</div>` : '';
-  const buttonLabel = opts.buttonLabel || 'Déclarer vainqueur';
-  return `<div class="${cardCls}"><div class="duel-poster" ${poster}>${f.posterPath ? '' : '🎬'}${banner}</div><div class="duel-title">${esc(f.titre)}</div><div class="duel-meta">${esc(info || 'Film classé')}</div><div class="duel-score"><div class="duel-score-box"><div class="duel-score-value">${fmtNum(f.notePerso)}</div><div class="duel-score-label">Note globale</div></div><div class="duel-score-box"><div class="duel-score-value">${fmtNum(bd.preferenceScore)}</div><div class="duel-score-label">Préférence</div></div></div><div class="duel-breakdown"><div class="duel-breakdown-row"><span>Moyenne technique</span><strong>${fmtNum(bd.avgTech)}</strong></div><div class="duel-breakdown-row"><span>Contribution technique</span><strong>${fmtNum(bd.techContribution)}</strong></div><div class="duel-breakdown-row"><span>Coup de cœur</span><strong>${fmtNum(bd.coeur)}</strong></div><div class="duel-breakdown-row"><span>Contribution coup de cœur</span><strong>${fmtNum(bd.coeurContribution)}</strong></div><div class="duel-breakdown-row"><span>Préférence</span><strong>${fmtNum(bd.preferenceScore)}</strong></div><div class="duel-breakdown-row"><span>Contribution préférence</span><strong>${fmtNum(bd.preferenceContribution)}</strong></div><div class="duel-breakdown-row total"><span>Total</span><strong>${fmtNum(bd.note)}</strong></div></div><button class="btn gold" style="width:100%;justify-content:center" onclick="resolveDuel('${f.fid}')">${buttonLabel}</button></div>`;
+  const interactivePoster = opts.clickable === false ?
+    `<div class="duel-poster" ${poster}>${f.posterPath ? '' : '🎬'}${banner}</div>` :
+    `<button type="button" class="duel-poster duel-poster-btn" ${poster} onclick="resolveDuel('${f.fid}')" aria-label="Choisir ${escAttr(f.titre)}">${f.posterPath ? '' : '🎬'}${banner}</button>`;
+  return `<div class="${cardCls}">${interactivePoster}<div class="duel-title">${esc(f.titre)}</div><div class="duel-meta">${esc(info || 'Film classé')}</div><div class="duel-score"><div class="duel-score-box"><div class="duel-score-value">${fmtNum(f.notePerso)}</div><div class="duel-score-label">Note globale</div></div><div class="duel-score-box"><div class="duel-score-value">${fmtNum(bd.preferenceScore)}</div><div class="duel-score-label">Préférence</div></div></div><div class="duel-breakdown"><div class="duel-breakdown-row"><span>Moyenne technique</span><strong>${fmtNum(bd.avgTech)}</strong></div><div class="duel-breakdown-row"><span>Contribution technique</span><strong>${fmtNum(bd.techContribution)}</strong></div><div class="duel-breakdown-row"><span>Coup de cœur</span><strong>${fmtNum(bd.coeur)}</strong></div><div class="duel-breakdown-row"><span>Contribution coup de cœur</span><strong>${fmtNum(bd.coeurContribution)}</strong></div><div class="duel-breakdown-row"><span>Préférence</span><strong>${fmtNum(bd.preferenceScore)}</strong></div><div class="duel-breakdown-row"><span>Contribution préférence</span><strong>${fmtNum(bd.preferenceContribution)}</strong></div><div class="duel-breakdown-row total"><span>Total</span><strong>${fmtNum(bd.note)}</strong></div></div></div>`;
 }
 function showDuelModal(a, b) {
   currentDuelPair = { aId: a.fid, bId: b.fid };
   const historyHtml = renderDuelHistoryHtml(a, b);
-  const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()"><div class="modal breakdown-modal" style="max-width:980px"><div class="breakdown-modal-body"><h2>⚔ Duel de films</h2><p class="desc">Compare deux films proches au classement. Choisis celui que tu préfères.</p><div class="duel-grid">${renderDuelCard(a)}${renderDuelCard(b)}</div>${historyHtml}</div><div class="breakdown-modal-footer"><div class="modal-row"><button class="btn" onclick="closeOverlay()">Plus tard</button><button class="btn" onclick="openDuelModal()">Autre duel 🎲</button></div></div></div></div>`;
+  const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()"><div class="modal breakdown-modal" style="max-width:980px"><div class="breakdown-modal-body"><h2>⚔ Duel de films</h2><p class="desc duel-desc">Cliquer sur le poster pour déterminer le gagnant</p><div class="duel-grid">${renderDuelCard(a)}${renderDuelCard(b)}</div>${historyHtml}</div><div class="breakdown-modal-footer"><div class="modal-row"><button class="btn" onclick="closeOverlay()">Plus tard</button><button class="btn" onclick="openDuelModal()">Autre duel 🎲</button></div></div></div></div>`;
   document.getElementById('overlay').innerHTML = html;
 }
 function resolveDuel(winnerId) {
