@@ -3196,9 +3196,13 @@ function openRatingBreakdown(idx, raterKey) {
   requestAnimationFrame(() => updateRatingBreakdownPreview());
 }
 
+function splitPeopleList(v) {
+  return String(v || '').split(/[,;]/).map(s => s.trim()).filter(Boolean);
+}
+
 function getCriterionPeopleInfo(film, critKey) {
   if (!film) return '';
-  const actors = splitList(film.acteurs || '');
+  const actors = splitPeopleList(film.acteurs || '');
   if (critKey === 'castPrincipal') {
     return actors[0] ? `Acteur principal : ${actors[0]}` : '';
   }
@@ -3207,7 +3211,7 @@ function getCriterionPeopleInfo(film, critKey) {
     return secondary.length ? `Acteurs secondaires : ${secondary.join(', ')}` : '';
   }
   if (critKey === 'realisation') {
-    const dirs = splitList(film.realisateur || '');
+    const dirs = splitPeopleList(film.realisateur || '');
     return dirs.length ? `Réalisateur${dirs.length > 1 ? 's' : ''} : ${dirs.join(', ')}` : '';
   }
   return '';
