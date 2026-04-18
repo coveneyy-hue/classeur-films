@@ -76,6 +76,98 @@ body::before {
   background-repeat: no-repeat; background-position: 12px center;
 }
 .searchbox:focus { border-color: var(--gold-dim); box-shadow: 0 0 0 3px rgba(232,166,48,.1); }
+.search-inline-wrap {
+  display: inline-flex; align-items: center; gap: 8px;
+  flex: 1; min-width: 240px; max-width: 430px;
+}
+.search-inline-wrap .searchbox {
+  flex: 1; min-width: 0; max-width: none;
+}
+.duel-grid {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px;
+  margin-top: 14px;
+}
+.duel-card {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 14px;
+  padding: 14px; min-width: 0;
+}
+.duel-poster {
+  width: 100%; aspect-ratio: 2 / 3; border-radius: 10px;
+  background: linear-gradient(135deg, var(--bg3), var(--bg4));
+  background-size: cover; background-position: center; margin-bottom: 12px;
+  display: flex; align-items: center; justify-content: center; color: var(--txt3);
+  font-size: 2rem; position: relative; overflow: hidden;
+}
+.duel-poster-banner {
+  position: absolute; inset: auto 8px 10px 8px;
+  padding: 10px 12px; border-radius: 10px;
+  background: rgba(232,64,64,.92); color: #fff;
+  text-align: center; font-family: var(--font-display); font-weight: 900;
+  font-size: 1.1rem; letter-spacing: .04em; text-transform: uppercase;
+  box-shadow: 0 10px 26px rgba(232,64,64,.35);
+  transform: scale(.82) translateY(10px);
+  opacity: 0;
+}
+.duel-poster-banner.show { animation: duelBannerIn .45s ease-out forwards; }
+.duel-card.winner {
+  border-color: var(--gold); box-shadow: 0 0 0 1px rgba(232,166,48,.18), 0 0 36px rgba(232,166,48,.22);
+  transform: translateY(-2px);
+}
+.duel-card.winner .duel-poster::after {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(circle at center, rgba(232,166,48,.16), transparent 62%);
+  pointer-events: none;
+}
+.duel-card.loser { opacity: .72; filter: saturate(.75); }
+.duel-result-grid {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 14px;
+}
+@keyframes duelBannerIn {
+  0% { opacity: 0; transform: scale(.7) translateY(16px); }
+  60% { opacity: 1; transform: scale(1.05) translateY(-2px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+.duel-title {
+  font-family: var(--font-display); font-weight: 800; font-size: 1rem; color: #fff;
+  line-height: 1.25; margin-bottom: 4px;
+}
+.duel-meta {
+  font-size: .8rem; color: var(--txt2); line-height: 1.4; margin-bottom: 10px;
+}
+.duel-score {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 10px;
+}
+.duel-score-box {
+  padding: 8px; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
+  text-align: center;
+}
+.duel-score-value {
+  font-family: var(--font-display); font-size: 1.15rem; font-weight: 800; color: var(--gold);
+}
+.duel-score-label {
+  font-size: .68rem; color: var(--txt2); text-transform: uppercase; letter-spacing: .06em;
+}
+.duel-breakdown {
+  border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 12px;
+}
+.duel-breakdown-row {
+  display: grid; grid-template-columns: 1fr auto; gap: 8px;
+  padding: 8px 10px; border-top: 1px solid var(--border); font-size: .8rem;
+}
+.duel-breakdown-row:first-child { border-top: none; }
+.duel-breakdown-row.total { background: rgba(232,166,48,.08); font-weight: 700; }
+.duel-history {
+  margin-top: 16px; padding: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
+}
+.duel-history h3 { margin: 0 0 10px; font-size: .95rem; }
+.duel-history-item {
+  padding: 10px 0; border-top: 1px solid var(--border); font-size: .82rem; line-height: 1.45;
+}
+.duel-history-item:first-child { border-top: none; padding-top: 0; }
+.duel-history-time { color: var(--txt3); font-size: .72rem; margin-bottom: 3px; }
+.duel-history-flag { color: var(--gold); font-weight: 700; }
+.duel-result-note { margin-top: 10px; color: var(--txt2); font-size: .86rem; }
+
 .btn {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 9px 16px; border-radius: var(--radius-sm);
@@ -380,8 +472,7 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.7); cursor
 .log-msg { font-size: .85rem; color: var(--txt); line-height: 1.4; }
 .log-msg strong { color: #fff; }
 .log-empty { text-align: center; padding: 40px; color: var(--txt3); font-style: italic; }
-.log-footer { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; flex-wrap: wrap; }
-.log-footer-actions { display: inline-flex; align-items: center; gap: 8px; }
+.log-footer { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 8px; min-height: 44px; }
 
 /* ─── TOASTS ────────────────────────────────────── */
 .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 200; display: flex; flex-direction: column-reverse; gap: 8px; }
@@ -415,20 +506,8 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.7); cursor
   .topbar h1 { font-size: 1.3rem; }
   .searchbox { max-width: 100%; order: 3; width: 100%; }
   .count { margin-left: 0; }
-  .topbar-actions {
-    margin-left: 0;
-    width: 100%;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    gap: 8px;
-  }
-  .topbar-actions::-webkit-scrollbar { display: none; }
-  .topbar-view-modes {
-    flex-wrap: nowrap;
-    flex: 0 0 auto;
-  }
+  .topbar-actions { margin-left: 0; width: 100%; flex-wrap: wrap; }
+  .topbar-view-modes { flex-wrap: wrap; }
   .btn { padding: 8px 10px; font-size: .78rem; }
   .btn-icon { width: 34px; height: 34px; }
   .topbar-mode-btn { min-height: 34px; }
@@ -1336,7 +1415,10 @@ td.editing input {
   <!-- Topbar -->
   <div class="topbar">
     <h1><span>🎬</span> Classeur Films</h1>
-    <input type="text" class="searchbox" id="search" placeholder="Rechercher titre, genre, réalisateur, tag…" oninput="render()">
+    <div class="search-inline-wrap">
+      <input type="text" class="searchbox" id="search" placeholder="Rechercher titre, genre, réalisateur, tag…" oninput="render()">
+      <button class="btn btn-icon" onclick="openDuelModal()" title="Lancer un duel" aria-label="Lancer un duel">⚔</button>
+    </div>
     <span class="count" id="counter"></span>
     <div class="topbar-actions">
       <button class="btn btn-icon gold" onclick="openAddModal()" title="Ajouter un film" aria-label="Ajouter un film">＋</button>
@@ -1384,9 +1466,6 @@ td.editing input {
   <div class="log-list" id="logList"></div>
   <div class="log-footer">
     <span style="font-size:.8rem;color:var(--txt3)" id="logFooterCount"></span>
-    <div class="log-footer-actions">
-      <button class="btn red" onclick="openClearLogModal()">Vider le journal</button>
-    </div>
   </div>
 </div>
 
@@ -1443,6 +1522,7 @@ function migratePositionToCoupDeCoeur(f) {
 function ensureFilmKeys(f) {
   ensureCriteriaKeys(f);
   migratePositionToCoupDeCoeur(f);
+  if (!('fid' in f) || !f.fid) f.fid = genFilmId();
   if (!('dateVu' in f)) f.dateVu = null;
   if (!('tiers' in f)) f.tiers = null;
   if (!('tmdbId' in f)) f.tmdbId = null;
@@ -1576,11 +1656,12 @@ const DEFAULT_FILMS=[
 /* ═══════════════════════════════════════════════════
    STATE
    ═══════════════════════════════════════════════════ */
-let films = [], log = [], showHidden = false, sortCol = 'notePerso', sortDir = 'desc', titleExpanded = false, titreReducedWidth = 90, showPosters = true;
+let films = [], log = [], duelLog = [], showHidden = false, sortCol = 'notePerso', sortDir = 'desc', titleExpanded = false, titreReducedWidth = 90, showPosters = true;
 let viewMode = 'classeur'; // 'classeur' or 'watchlist'
 let tags = []; // [{ id, name, color, emoji }]
 let tagFilter = null; // tag id or null
 let editCell = null; // {idx, key}
+let currentDuelPair = null;
 
 function loadState() {
   try {
@@ -1589,6 +1670,7 @@ function loadState() {
     films.forEach(f => ensureFilmKeys(f));
   } catch(e) { films = JSON.parse(JSON.stringify(DEFAULT_FILMS)); films.forEach(f => ensureFilmKeys(f)); }
   try { log = JSON.parse(localStorage.getItem('cf_log') || '[]'); } catch(e) { log = []; }
+  try { duelLog = JSON.parse(localStorage.getItem('cf_duelLog') || '[]'); } catch(e) { duelLog = []; }
   try {
     const t = localStorage.getItem('cf_tags');
     tags = t ? JSON.parse(t) : [];
@@ -1648,10 +1730,12 @@ function getDefaultTags() {
 }
 
 function genTagId() { return 'tag_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,7); }
+function genFilmId() { return 'film_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8); }
 function findTag(id) { return tags.find(t => t.id === id) || null; }
 
 function saveFilms() { localStorage.setItem('cf_films', JSON.stringify(films)); }
 function saveLog() { localStorage.setItem('cf_log', JSON.stringify(log)); }
+function saveDuelLog() { localStorage.setItem('cf_duelLog', JSON.stringify(duelLog)); }
 function savePrefs() {
   localStorage.setItem('cf_showHidden', showHidden ? '1' : '0');
   localStorage.setItem('cf_titleExpanded', titleExpanded ? '1' : '0');
@@ -1722,9 +1806,60 @@ function updateDateVu(idx, rawValue, sourceLabel) {
 function addLog(type, msg) {
   const entry = { ts: new Date().toISOString(), type, msg };
   log.unshift(entry);
-  if (log.length > 500) log.length = 500;
   saveLog();
   renderLogCount();
+}
+
+function getRankedFilmsSorted() {
+  return films.filter(f => !f.watchlist && f.rank != null && f.notePerso != null).sort((a,b) => a.rank - b.rank);
+}
+function getFilmIndexById(fid) { return films.findIndex(f => f.fid === fid); }
+function getDuelPairKey(a, b) { return [a.fid, b.fid].sort().join('__'); }
+function getPairHistory(a, b) {
+  const key = getDuelPairKey(a, b);
+  return duelLog.filter(d => d.pairKey === key).sort((x,y) => y.ts.localeCompare(x.ts));
+}
+function getPersoBreakdown(f) {
+  const techCriteria = CRITERIA.filter(c => !c.isPreference);
+  const techVals = techCriteria.map(c => Number(f[c.key]) || 0);
+  const avgTech = techVals.length ? techVals.reduce((a,b)=>a+b,0) / techVals.length : 0;
+  const coeur = Number(f.coupDeCoeur) || 0;
+  const techContribution = avgTech * 0.5;
+  const coeurContribution = coeur * 0.25;
+  const base = techContribution + coeurContribution;
+  const note = Number(f.notePerso) || 0;
+  const preferenceContribution = note - base;
+  const preferenceScore = preferenceContribution / 0.25;
+  return {
+    avgTech, coeur, base, note,
+    techContribution, coeurContribution, preferenceContribution, preferenceScore
+  };
+}
+function fmtNum(v) {
+  if (v == null || Number.isNaN(Number(v))) return '—';
+  return Number(v).toFixed(2);
+}
+function pickDuelCandidates() {
+  const ranked = getRankedFilmsSorted();
+  if (ranked.length < 2) return null;
+  const anchor = ranked[Math.floor(Math.random() * ranked.length)];
+  const nearby = ranked.filter(f => f.fid !== anchor.fid && Math.abs((f.rank || 0) - (anchor.rank || 0)) <= 5);
+  const pool = nearby.length ? nearby : ranked.filter(f => f.fid !== anchor.fid);
+  if (!pool.length) return null;
+  const other = pool[Math.floor(Math.random() * pool.length)];
+  return [anchor, other].sort((a,b) => a.rank - b.rank);
+}
+function recordDuel(entry) {
+  duelLog.unshift(entry);
+  saveDuelLog();
+}
+function renderDuelHistoryHtml(a, b) {
+  const entries = getPairHistory(a, b).slice(0, 5);
+  if (!entries.length) return '<div class="duel-history"><h3>Historique des confrontations</h3><div style="color:var(--txt3);font-size:.82rem">Aucune joute enregistrée entre ces deux films.</div></div>';
+  return `<div class="duel-history"><h3>Historique des confrontations</h3>${entries.map(e => {
+    const inverse = e.inverseConflict ? `<div class="duel-history-flag">${esc(e.inverseConflict)}</div>` : '';
+    return `<div class="duel-history-item"><div class="duel-history-time">${new Date(e.ts).toLocaleDateString('fr-CA')} ${new Date(e.ts).toLocaleTimeString('fr-CA',{hour:'2-digit',minute:'2-digit'})}</div><div><strong>${esc(e.winnerTitle)}</strong> préféré à <strong>${esc(e.loserTitle)}</strong></div><div>Avant : ${esc(e.beforeSummary)}</div><div>Après : ${esc(e.afterSummary)}</div>${inverse}</div>`;
+  }).join('')}</div>`;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -2975,7 +3110,7 @@ function buildTmdbDiff(f, d) {
   const budget = d.budget ? parseFloat((d.budget / 1_000_000).toFixed(1)) : null;
   const boxOffice = d.revenue ? parseFloat((d.revenue / 1_000_000).toFixed(1)) : null;
   return [
-    { key: 'titre',       label: 'Titre',       oldVal: f.titre,       newVal: d.title || d.original_title || null, editable: true },
+    { key: 'titre',       label: 'Titre original',       oldVal: f.titre,       newVal: d.original_title || d.title || null, editable: true },
     { key: 'annee',       label: 'Année',       oldVal: f.annee,       newVal: annee, editable: true },
     { key: 'genre',       label: 'Genre',       oldVal: f.genre,       newVal: genres, editable: true },
     { key: 'realisateur', label: 'Réalisateur', oldVal: f.realisateur, newVal: directors, editable: true },
@@ -3077,8 +3212,8 @@ function applyTmdbCompare() {
   });
   saveFilms();
   const summary = applied.length ? ` (${applied.length} champ${applied.length>1?'s':''} mis à jour)` : '';
-  addLog('edit', `<strong>${f.titre}</strong> — Associé à TMDb : ${esc(d.title)}${summary}`);
-  toast(`Associé : ${d.title}${summary}`, 'success');
+  addLog('edit', `<strong>${f.titre}</strong> — Associé à TMDb : ${esc(d.original_title || d.title)}${summary}`);
+  toast(`Associé : ${d.original_title || d.title}${summary}`, 'success');
   window._tmdbCompareData = null;
   closeOverlay();
   openTitleBreakdown(filmIdx);
@@ -3109,7 +3244,7 @@ const BATCH_FIELDS = [
   { key: 'posterPath', label: 'Affiche',          defaultOn: true,  alwaysFill: true },
   { key: 'runtime',    label: 'Durée (min)',      defaultOn: true,  alwaysFill: true },
   { key: 'tmdbVote',   label: 'Note TMDb ⭐',      defaultOn: true,  alwaysFill: true },
-  { key: 'titre',      label: 'Titre',            defaultOn: false, alwaysFill: false },
+  { key: 'titre',      label: 'Titre original',   defaultOn: false, alwaysFill: false },
   { key: 'genre',      label: 'Genre',            defaultOn: true,  alwaysFill: false },
   { key: 'realisateur',label: 'Réalisateur',      defaultOn: true,  alwaysFill: false },
   { key: 'acteurs',    label: 'Acteurs',          defaultOn: true,  alwaysFill: false },
@@ -3227,7 +3362,7 @@ function applyBatchFields(f, d, selectedFields, mode, actorsCount) {
     posterPath: d.poster_path || null,
     runtime: d.runtime || null,
     tmdbVote: d.vote_average || null,
-    titre: d.title || d.original_title || null,
+    titre: d.original_title || d.title || null,
     genre: genres,
     realisateur: directors,
     acteurs: actors,
@@ -3360,7 +3495,7 @@ async function processBatchNext() {
     const changedCount = applyBatchFields(f, d, s.selectedFields, s.mode, s.actorsCount);
     s.ok++;
     const suffix = changedCount > 0 ? ` (${changedCount} champ${changedCount>1?'s':''})` : ' (aucun changement)';
-    batchAddLog('ok', `✅ ${esc(f.titre)} → ${esc(d.title)}${suffix}`);
+    batchAddLog('ok', `✅ ${esc(f.titre)} → ${esc(d.original_title || d.title)}${suffix}`);
   } catch (err) {
     s.err++;
     batchAddLog('err', `❌ ${esc(f.titre)} — ${esc(err.message)}`);
@@ -3408,7 +3543,7 @@ async function resolveBatchAmbig(filmIdx, tmdbId) {
     const changedCount = applyBatchFields(f, d, s.selectedFields, s.mode, s.actorsCount);
     s.ok++;
     const suffix = changedCount > 0 ? ` (${changedCount} champ${changedCount>1?'s':''})` : '';
-    batchAddLog('ok', `✅ ${esc(f.titre)} → ${esc(d.title)} (choix manuel${suffix ? ',' + suffix : ''})`);
+    batchAddLog('ok', `✅ ${esc(f.titre)} → ${esc(d.original_title || d.title)} (choix manuel${suffix ? ',' + suffix : ''})`);
   } catch (err) {
     s.err++;
     batchAddLog('err', `❌ ${esc(f.titre)} — ${esc(err.message)}`);
@@ -3457,7 +3592,7 @@ function openAddModal() {
       <div id="tmdbResults" class="tmdb-results" style="display:none"></div>
       ` : ''}
       <div id="addManualFields" style="margin-top:14px">
-        <label>Titre *</label><input type="text" id="addTitre" placeholder="Ex: Blade Runner 2049">
+        <label>Titre original *</label><input type="text" id="addTitre" placeholder="Ex: Blade Runner 2049">
         <label style="margin-top:10px">Genre</label><input type="text" id="addGenre" placeholder="Ex: Science-fiction, Drame">
         <label style="margin-top:10px">Réalisateur</label><input type="text" id="addReal" placeholder="Ex: Denis Villeneuve">
         <label style="margin-top:10px">Acteurs principaux</label><input type="text" id="addActeurs" placeholder="Séparés par des ;">
@@ -3534,7 +3669,7 @@ async function selectTmdbResult(id, element) {
     const d = await tmdbDetails(id);
     tmdbSelected = d;
     // Populate manual fields
-    document.getElementById('addTitre').value = d.title || d.original_title || '';
+    document.getElementById('addTitre').value = d.original_title || d.title || '';
     document.getElementById('addGenre').value = (d.genres || []).map(g => g.name).join(', ');
     const directors = (d.credits?.crew || []).filter(c => c.job === 'Director').map(c => c.name);
     document.getElementById('addReal').value = directors.join(', ');
@@ -3545,7 +3680,7 @@ async function selectTmdbResult(id, element) {
     document.getElementById('addBO').value = d.revenue ? (d.revenue / 1_000_000).toFixed(1) : '';
     // Replace status with confirmation
     box.innerHTML = `<div class="tmdb-status" style="color:var(--green)">✓ Champs pré-remplis depuis TMDb — vérifiez et ajoutez.</div>`;
-    toast(`Données TMDb chargées : ${d.title}`, 'success');
+    toast(`Données TMDb chargées : ${d.original_title || d.title}`, 'success');
   } catch (err) {
     box.querySelector('.tmdb-status')?.remove();
     toast('Erreur TMDb : ' + err.message, 'error');
@@ -4653,14 +4788,7 @@ function openSettings() {
                 <div class="settings-action-title">Journal d'activité ${log.length ? `<span class="settings-badge">${log.length > 99 ? '99+' : log.length}</span>` : ''}</div>
                 <div class="settings-action-desc">Consultez, filtrez ou videz l'historique des opérations.</div>
               </div>
-              <button class="btn" onclick="closeOverlay();toggleLog()">Ouvrir le journal</button>
-            </div>
-            <div class="settings-action-row">
-              <div>
-                <div class="settings-action-title">Vider le journal</div>
-                <div class="settings-action-desc">Supprime les entrées sur une période donnée après confirmation.</div>
-              </div>
-              <button class="btn red" onclick="openClearLogModal()">Vider le journal</button>
+              <button class="btn" onclick="openLogFromSettings()">Ouvrir le journal</button>
             </div>
           </div>
         </div>
@@ -4831,7 +4959,14 @@ async function clearImageCache() {
 /* ═══════════════════════════════════════════════════
    LOG PANEL
    ═══════════════════════════════════════════════════ */
-function toggleLog() { document.getElementById('logPanel').classList.toggle('open'); renderLog(); }
+function toggleLog(forceOpen) {
+  const panel = document.getElementById('logPanel');
+  if (!panel) return;
+  if (typeof forceOpen === 'boolean') panel.classList.toggle('open', forceOpen);
+  else panel.classList.toggle('open');
+  renderLog();
+}
+function openLogFromSettings() { closeOverlay(); setTimeout(() => toggleLog(true), 20); }
 function renderLog() {
   const el = document.getElementById('logList');
   const fc = document.getElementById('logFooterCount');
@@ -4857,109 +4992,7 @@ function deleteLogEntry(idx) {
   renderLog();
   renderLogCount();
 }
-function getLogCutoff(period) {
-  if (period === 'all') return null;
-  const now = Date.now();
-  const map = {
-    hour: 60 * 60 * 1000,
-    day: 24 * 60 * 60 * 1000,
-    week: 7 * 24 * 60 * 60 * 1000,
-    month: 30 * 24 * 60 * 60 * 1000,
-    year: 365 * 24 * 60 * 60 * 1000
-  };
-  return now - (map[period] || 0);
-}
-function getLogEntriesForPeriod(period) {
-  const cutoff = getLogCutoff(period);
-  if (cutoff == null) return log.slice();
-  return log.filter(e => {
-    const ts = new Date(e.ts).getTime();
-    return Number.isFinite(ts) && ts >= cutoff;
-  });
-}
-function getLogPeriodLabel(period) {
-  return {
-    hour: '1 heure',
-    day: '1 jour',
-    week: '1 semaine',
-    month: '1 mois',
-    year: '1 an',
-    all: 'tous'
-  }[period] || 'tous';
-}
-function updateClearLogPreview() {
-  const select = document.getElementById('clearLogPeriod');
-  const preview = document.getElementById('clearLogPreview');
-  if (!select || !preview) return;
-  const period = select.value || 'all';
-  const count = getLogEntriesForPeriod(period).length;
-  const label = getLogPeriodLabel(period);
-  preview.textContent = count
-    ? `${count} entrée${count > 1 ? 's' : ''} seront supprimée${count > 1 ? 's' : ''} pour la période : ${label}.`
-    : `Aucune entrée à supprimer pour la période : ${label}.`;
-}
-function openClearLogModal() {
-  const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay();">
-    <div class="modal" style="max-width:420px">
-      <h2>Vider le journal</h2>
-      <p class="desc">Choisissez la période à supprimer. Une confirmation sera demandée avant l'effacement.</p>
-      <label for="clearLogPeriod">Période</label>
-      <select id="clearLogPeriod" onchange="updateClearLogPreview()">
-        <option value="hour">1 heure</option>
-        <option value="day">1 jour</option>
-        <option value="week" selected>1 semaine</option>
-        <option value="month">1 mois</option>
-        <option value="year">1 an</option>
-        <option value="all">Tous</option>
-      </select>
-      <p class="desc" id="clearLogPreview" style="margin-top:12px"></p>
-      <div class="modal-row">
-        <button class="btn" onclick="closeOverlay()">Annuler</button>
-        <button class="btn red" onclick="confirmClearLogFromModal()">Continuer</button>
-      </div>
-    </div>
-  </div>`;
-  document.getElementById('overlay').innerHTML = html;
-  updateClearLogPreview();
-}
-function confirmClearLogFromModal() {
-  const period = document.getElementById('clearLogPeriod')?.value || 'all';
-  const count = getLogEntriesForPeriod(period).length;
-  const label = getLogPeriodLabel(period);
-  const html = `<div class="overlay" onclick="if(event.target===this)openClearLogModal();">
-    <div class="modal" style="max-width:420px">
-      <h2>Confirmation</h2>
-      <p class="desc">Confirmez-vous la suppression de <strong>${count}</strong> entrée${count > 1 ? 's' : ''} du journal pour la période <strong>${label}</strong> ?</p>
-      <div class="modal-row">
-        <button class="btn" onclick="openClearLogModal()">Retour</button>
-        <button class="btn red" onclick="clearLog('${period}')">Confirmer</button>
-      </div>
-    </div>
-  </div>`;
-  document.getElementById('overlay').innerHTML = html;
-}
-function clearLog(period = 'all') {
-  const entriesToRemove = getLogEntriesForPeriod(period);
-  if (!entriesToRemove.length) {
-    closeOverlay();
-    toast('Aucune entrée à supprimer pour cette période', 'info');
-    return;
-  }
-  if (period === 'all') {
-    log = [];
-  } else {
-    const cutoff = getLogCutoff(period);
-    log = log.filter(e => {
-      const ts = new Date(e.ts).getTime();
-      return !(Number.isFinite(ts) && ts >= cutoff);
-    });
-  }
-  saveLog();
-  renderLog();
-  renderLogCount();
-  closeOverlay();
-  toast(`Journal vidé : ${entriesToRemove.length} entrée${entriesToRemove.length > 1 ? 's' : ''} supprimée${entriesToRemove.length > 1 ? 's' : ''}`, 'info');
-}
+function clearLog() { log = []; saveLog(); renderLog(); renderLogCount(); toast('Journal vidé','info'); }
 function renderLogCount() {
   const el = document.getElementById('logCount');
   if (!el) return;
@@ -4976,7 +5009,7 @@ function renderLogCount() {
    IMPORT / EXPORT
    ═══════════════════════════════════════════════════ */
 function exportJSON() {
-  const data = { version: 4, exportDate: new Date().toISOString(), films, log, tags };
+  const data = { version: 5, exportDate: new Date().toISOString(), films, log, duelLog, tags };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -5057,9 +5090,10 @@ function importJSON(e) {
       films = data.films;
       films.forEach(f => ensureFilmKeys(f));
       if (data.log && Array.isArray(data.log)) log = data.log;
+      if (data.duelLog && Array.isArray(data.duelLog)) duelLog = data.duelLog;
       if (data.tags && Array.isArray(data.tags)) { tags = data.tags; saveTags(); }
-      saveFilms(); saveLog();
-      addLog('backup', `Importation JSON : ${count} films restaurés${data.tags?` + ${data.tags.length} tags`:''}`);
+      saveFilms(); saveLog(); saveDuelLog();
+      addLog('backup', `Importation JSON : ${count} films restaurés${data.tags?` + ${data.tags.length} tags`:''}${data.duelLog?` + ${data.duelLog.length} duels`:''}`);
       toast(`${count} films importés avec succès`, 'success');
       render(); renderLogCount();
     } catch(err) { toast('Erreur : fichier JSON invalide — ' + err.message, 'error'); }
@@ -5095,6 +5129,91 @@ function suggestAnother(skipIdx) {
   if (!toRate.length) { suggestRating(); return; }
   const pick = toRate[Math.floor(Math.random() * toRate.length)];
   showSuggestModal(pick.f, pick.i, getFilmsToRate().length, pick.reason);
+}
+function suggestStartupModal() {
+  const hasRating = getFilmsToRate().length > 0;
+  const hasDuel = !!pickDuelCandidates();
+  if (hasRating && hasDuel) {
+    if (Math.random() < 0.5) openDuelModal();
+    else suggestRating();
+    return;
+  }
+  if (hasRating) { suggestRating(); return; }
+  if (hasDuel) openDuelModal();
+}
+function openDuelModal() {
+  const pair = pickDuelCandidates();
+  if (!pair) {
+    toast('Pas assez de films classés pour lancer un duel', 'info');
+    return;
+  }
+  showDuelModal(pair[0], pair[1]);
+}
+function getDuelOutcomeLabel(diff) {
+  const gap = Math.abs(Number(diff) || 0);
+  if (gap >= 0.40) return 'Massacre !';
+  if (gap >= 0.15) return 'Domination !';
+  return 'Victoire !';
+}
+function renderDuelCard(f, opts = {}) {
+  const bd = getPersoBreakdown(f);
+  const poster = f.posterPath ? `style="background-image:url('${TMDB_IMG}${f.posterPath}')"` : '';
+  const info = [f.rank != null ? `Rang #${f.rank}` : null, f.annee ? Math.round(f.annee) : null, f.realisateur].filter(Boolean).join(' · ');
+  const cardCls = ['duel-card', opts.state || ''].filter(Boolean).join(' ');
+  const banner = opts.banner ? `<div class="duel-poster-banner show">${esc(opts.banner)}</div>` : '';
+  const buttonLabel = opts.buttonLabel || 'Déclarer vainqueur';
+  return `<div class="${cardCls}"><div class="duel-poster" ${poster}>${f.posterPath ? '' : '🎬'}${banner}</div><div class="duel-title">${esc(f.titre)}</div><div class="duel-meta">${esc(info || 'Film classé')}</div><div class="duel-score"><div class="duel-score-box"><div class="duel-score-value">${fmtNum(f.notePerso)}</div><div class="duel-score-label">Note globale</div></div><div class="duel-score-box"><div class="duel-score-value">${fmtNum(bd.preferenceScore)}</div><div class="duel-score-label">Préférence</div></div></div><div class="duel-breakdown"><div class="duel-breakdown-row"><span>Moyenne technique</span><strong>${fmtNum(bd.avgTech)}</strong></div><div class="duel-breakdown-row"><span>Contribution technique</span><strong>${fmtNum(bd.techContribution)}</strong></div><div class="duel-breakdown-row"><span>Coup de cœur</span><strong>${fmtNum(bd.coeur)}</strong></div><div class="duel-breakdown-row"><span>Contribution coup de cœur</span><strong>${fmtNum(bd.coeurContribution)}</strong></div><div class="duel-breakdown-row"><span>Préférence</span><strong>${fmtNum(bd.preferenceScore)}</strong></div><div class="duel-breakdown-row"><span>Contribution préférence</span><strong>${fmtNum(bd.preferenceContribution)}</strong></div><div class="duel-breakdown-row total"><span>Total</span><strong>${fmtNum(bd.note)}</strong></div></div><button class="btn gold" style="width:100%;justify-content:center" onclick="resolveDuel('${f.fid}')">${buttonLabel}</button></div>`;
+}
+function showDuelModal(a, b) {
+  currentDuelPair = { aId: a.fid, bId: b.fid };
+  const historyHtml = renderDuelHistoryHtml(a, b);
+  const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()"><div class="modal breakdown-modal" style="max-width:980px"><div class="breakdown-modal-body"><h2>⚔ Duel de films</h2><p class="desc">Compare deux films proches au classement. Choisis celui que tu préfères.</p><div class="duel-grid">${renderDuelCard(a)}${renderDuelCard(b)}</div>${historyHtml}</div><div class="breakdown-modal-footer"><div class="modal-row"><button class="btn" onclick="closeOverlay()">Plus tard</button><button class="btn" onclick="openDuelModal()">Autre duel 🎲</button></div></div></div></div>`;
+  document.getElementById('overlay').innerHTML = html;
+}
+function resolveDuel(winnerId) {
+  if (!currentDuelPair) return;
+  const aIdx = getFilmIndexById(currentDuelPair.aId);
+  const bIdx = getFilmIndexById(currentDuelPair.bId);
+  if (aIdx < 0 || bIdx < 0) return;
+  const a = films[aIdx], b = films[bIdx];
+  const winner = winnerId === a.fid ? a : b;
+  const loser = winner === a ? b : a;
+  const before = {
+    winnerRank: winner.rank, loserRank: loser.rank,
+    winnerNote: winner.notePerso, loserNote: loser.notePerso
+  };
+  const scoreGapBefore = Math.abs((Number(before.winnerNote) || 0) - (Number(before.loserNote) || 0));
+  const changed = winner.rank > loser.rank ? moveFilmToRank(getFilmIndexById(winner.fid), loser.rank) : false;
+  const afterWinner = films[getFilmIndexById(winner.fid)];
+  const afterLoser = films[getFilmIndexById(loser.fid)];
+  const pairHistory = getPairHistory(winner, loser);
+  const opposite = pairHistory.find(h => h.winnerId === loser.fid);
+  const inverseConflict = opposite ? `DUEL ${winner.titre} ${pairHistory.filter(h=>h.winnerId===winner.fid).length + 1} - ${loser.titre} ${pairHistory.filter(h=>h.winnerId===loser.fid).length}` : '';
+  const duelEntry = {
+    ts: new Date().toISOString(),
+    pairKey: getDuelPairKey(winner, loser),
+    aId: a.fid, aTitle: a.titre, bId: b.fid, bTitle: b.titre,
+    winnerId: winner.fid, winnerTitle: winner.titre, loserId: loser.fid, loserTitle: loser.titre,
+    changed,
+    beforeSummary: `${winner.titre} ${fmtNum(before.winnerNote)} (#${before.winnerRank}) · ${loser.titre} ${fmtNum(before.loserNote)} (#${before.loserRank})`,
+    afterSummary: `${afterWinner.titre} ${fmtNum(afterWinner.notePerso)} (#${afterWinner.rank}) · ${afterLoser.titre} ${fmtNum(afterLoser.notePerso)} (#${afterLoser.rank})`,
+    inverseConflict
+  };
+  recordDuel(duelEntry);
+  let msg = `<strong>DUEL</strong> ${esc(winner.titre)} vainqueur face à <strong>${esc(loser.titre)}</strong> · avant ${fmtNum(before.winnerNote)}/#${before.winnerRank} vs ${fmtNum(before.loserNote)}/#${before.loserRank} · après ${fmtNum(afterWinner.notePerso)}/#${afterWinner.rank} vs ${fmtNum(afterLoser.notePerso)}/#${afterLoser.rank}`;
+  if (!changed) msg += ' · classement inchangé';
+  if (inverseConflict) msg += ` · <span style="color:var(--gold)">${esc(inverseConflict)}</span>`;
+  addLog('note', msg);
+  showDuelResultModal(afterWinner, afterLoser, changed, inverseConflict, scoreGapBefore);
+  render();
+}
+function showDuelResultModal(winner, loser, changed, inverseConflict, scoreGapBefore = 0) {
+  const outcomeLabel = getDuelOutcomeLabel(scoreGapBefore);
+  const resultText = changed
+    ? `<strong>${esc(winner.titre)}</strong> renverse <strong>${esc(loser.titre)}</strong> et passe devant après ajustement du classement.`
+    : `<strong>${esc(winner.titre)}</strong> confirme son avantage face à <strong>${esc(loser.titre)}</strong>.`;
+  const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()"><div class="modal breakdown-modal" style="max-width:860px"><div class="breakdown-modal-body"><h2>Résultat du duel</h2><p class="desc">${resultText}</p><div class="duel-result-grid">${renderDuelCard(winner, { state:'winner', banner: outcomeLabel, buttonLabel:'Déjà vainqueur' })}${renderDuelCard(loser, { state:'loser', buttonLabel:'Battu' })}</div>${inverseConflict ? `<div class="duel-result-note"><strong>Historique croisé :</strong> ${esc(inverseConflict)}</div>` : ''}<div class="duel-result-note">Écart avant duel : ${fmtNum(scoreGapBefore)} point${Math.abs(scoreGapBefore) >= 2 ? 's' : ''} · Notes actuelles : ${esc(winner.titre)} ${fmtNum(winner.notePerso)} · ${esc(loser.titre)} ${fmtNum(loser.notePerso)}</div></div><div class="breakdown-modal-footer"><div class="modal-row"><button class="btn" onclick="closeOverlay()">Plus tard</button><button class="btn gold" onclick="openDuelModal()">Relancer un duel</button></div></div></div></div>`;
+  document.getElementById('overlay').innerHTML = html;
 }
 function showSuggestModal(f, idx, count, reason) {
   const info = [f.genre, f.annee ? Math.round(f.annee) : null, f.realisateur].filter(Boolean).join(' · ');
@@ -5142,7 +5261,7 @@ render();
 renderLogCount();
 bindFrozenHeader();
 syncFrozenHeader();
-setTimeout(() => { try { suggestRating(); } catch(e) { console.error('suggestRating error:', e); } }, 600);
+setTimeout(() => { try { suggestStartupModal(); } catch(e) { console.error('suggestStartupModal error:', e); } }, 600);
 
 // PWA Service Worker
 if ('serviceWorker' in navigator) {
