@@ -5923,7 +5923,6 @@ function showDuelModal(a, b) {
     <div class="modal breakdown-modal${blindClass}" style="max-width:980px">
       <div class="breakdown-modal-body">
         <h2>⚔ Duel de films</h2>
-        ${headToHeadHtml}
         <p class="desc duel-desc duel-desc-default">Cliquer sur le poster pour déterminer le gagnant</p>
         <p class="desc duel-desc duel-desc-blind">Mode aveugle — choisis à l'instinct, les notes sont masquées.</p>
         <div class="duel-toolbar">
@@ -6201,16 +6200,14 @@ function showTournamentFightModal(a, b) {
     ? `<div class="tournament-header">
         <div>
           <div class="th-title">🏟 Tournoi · Combat #${fightNum}</div>
-          ${headToHeadHtml}
-          <div class="th-champion">Champion : <strong>${esc(championFilm.titre)}</strong></div>
+            <div class="th-champion">Champion : <strong>${esc(championFilm.titre)}</strong></div>
         </div>
         <span class="tournament-streak"><span class="flames">🔥</span>${activeTournament.streak} victoire${activeTournament.streak > 1 ? 's' : ''} de suite</span>
        </div>`
     : `<div class="tournament-header">
         <div>
           <div class="th-title">🏟 Tournoi · Combat #1</div>
-          ${headToHeadHtml}
-          <div class="th-champion">Le vainqueur devient champion du tournoi</div>
+            <div class="th-champion">Le vainqueur devient champion du tournoi</div>
         </div>
        </div>`;
   const html = `<div class="overlay" onclick="if(event.target===this)confirmAbandonTournament()">
