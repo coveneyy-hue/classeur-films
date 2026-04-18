@@ -6305,6 +6305,7 @@ function showTournamentFightModal(a, b) {
         <p class="desc duel-desc duel-desc-blind">Mode aveugle — choisis à l'instinct, les notes sont masquées.</p>
         <div class="duel-toolbar">
           <button class="btn" id="btnRevealDuel" ${revealHidden} onclick="revealDuelScores()" title="Afficher les notes et rangs">👁 Révéler</button>
+          <button class="btn" onclick="openDuelPodium()" title="Top 20 des films qui gagnent le plus">🏆 Podium</button>
           <button class="btn red" onclick="confirmAbandonTournament()" title="Terminer le tournoi sans combattre">Abandonner</button>
         </div>
         <div class="duel-grid">${renderDuelCard(a, { faceScore: stats.aWins })}${renderDuelCard(b, { faceScore: stats.bWins })}</div>
@@ -6459,6 +6460,7 @@ function showTournamentFightResultModal(winner, loser, before, scoreGapBefore, c
     ? `<div class="tournament-actions">
         <button class="btn" onclick="closeOverlay()">Fermer</button>
         <button class="btn" onclick="showTournamentSummary()">📋 Résumé du tournoi</button>
+        <button class="btn" onclick="openDuelPodium()" title="Top 20 des films qui gagnent le plus">🏆 Podium</button>
         <button class="btn gold" onclick="closeOverlay();setTimeout(startTournament,20)">Nouveau tournoi 🏟</button>
        </div>`
     : `<div class="tournament-actions">
