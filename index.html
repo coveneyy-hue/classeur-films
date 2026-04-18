@@ -1446,6 +1446,7 @@ td.editing input {
       <div class="search-inline-wrap">
         <input type="text" class="searchbox" id="search" placeholder="Rechercher titre, genre, réalisateur, tag…" oninput="render()">
         <button class="btn btn-icon" onclick="openDuelModal()" title="Lancer un duel" aria-label="Lancer un duel">⚔</button>
+        <button class="btn btn-icon" onclick="openSuggestModalManual()" title="Classer un film non classé" aria-label="Classer un film non classé">🏁</button>
       </div>
       <span class="count" id="counter"></span>
     </div>
@@ -1678,7 +1679,7 @@ const DEFAULT_FILMS=[
 /* ═══════════════════════════════════════════════════
    STATE
    ═══════════════════════════════════════════════════ */
-let films = [], log = [], duelLog = [], showHidden = false, sortCol = 'notePerso', sortDir = 'desc', titleExpanded = false, titreReducedWidth = 90, showPosters = true;
+let films = [], log = [], duelLog = [], showHidden = false, sortCol = 'notePerso', sortDir = 'desc', titleExpanded = false, titreReducedWidth = 90, showPosters = true, startupSuggestEnabled = true, startupDuelEnabled = true;
 let viewMode = 'classeur'; // 'classeur' or 'watchlist'
 let tags = []; // [{ id, name, color, emoji }]
 let tagFilter = null; // tag id or null
@@ -1708,6 +1709,8 @@ function loadState() {
   showHidden = localStorage.getItem('cf_showHidden') === '1';
   titleExpanded = localStorage.getItem('cf_titleExpanded') === '1';
   showPosters = localStorage.getItem('cf_showPosters') !== '0'; // default true
+  startupSuggestEnabled = localStorage.getItem('cf_startupSuggestEnabled') !== '0';
+  startupDuelEnabled = localStorage.getItem('cf_startupDuelEnabled') !== '0';
   const savedTRW = parseInt(localStorage.getItem('cf_titreReducedWidth'));
   if (!isNaN(savedTRW) && savedTRW >= 50 && savedTRW <= 600) titreReducedWidth = savedTRW;
   applyLayoutVars();
@@ -1763,6 +1766,8 @@ function savePrefs() {
   localStorage.setItem('cf_titleExpanded', titleExpanded ? '1' : '0');
   localStorage.setItem('cf_titreReducedWidth', String(titreReducedWidth));
   localStorage.setItem('cf_showPosters', showPosters ? '1' : '0');
+  localStorage.setItem('cf_startupSuggestEnabled', startupSuggestEnabled ? '1' : '0');
+  localStorage.setItem('cf_startupDuelEnabled', startupDuelEnabled ? '1' : '0');
 }
 function applyLayoutVars() {
   const titreWidth = titleExpanded ? 'min(calc(100vw - 124px), 1000px)' : titreReducedWidth + 'px';
@@ -4744,6 +4749,19 @@ function openSettings() {
         </div>
 
         <div class="settings-section">
+          <div class="settings-section-title">Modaux au démarrage</div>
+          <div class="settings-section-desc">Activez ou désactivez chaque suggestion affichée automatiquement à l'ouverture.</div>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px">
+            <input type="checkbox" id="settingsStartupSuggest" ${startupSuggestEnabled ? 'checked' : ''} style="width:auto;margin:0">
+            <span>Proposer le modal de classement d'un film non classé</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" id="settingsStartupDuel" ${startupDuelEnabled ? 'checked' : ''} style="width:auto;margin:0">
+            <span>Proposer le modal de duel</span>
+          </label>
+        </div>
+
+        <div class="settings-section">
           <div class="settings-section-title">TMDb</div>
           <div class="settings-section-desc">Configuration des recherches de films, affiches et enrichissements.</div>
           <label>Clé API TMDb (v3)</label>
@@ -4949,8 +4967,9 @@ function saveSettings() {
   }
   titreReducedWidth = raw;
   showPosters = document.getElementById('settingsShowPosters').checked;
-  localStorage.setItem('cf_titreReducedWidth', String(titreReducedWidth));
-  localStorage.setItem('cf_showPosters', showPosters ? '1' : '0');
+  startupSuggestEnabled = document.getElementById('settingsStartupSuggest').checked;
+  startupDuelEnabled = document.getElementById('settingsStartupDuel').checked;
+  savePrefs();
   const tmdbKey = document.getElementById('settingsTmdbKey').value.trim();
   const tmdbLang = document.getElementById('settingsTmdbLang').value;
   localStorage.setItem('cf_tmdbKey', tmdbKey);
@@ -5142,34 +5161,48 @@ function getFilmsToRate() {
 }
 function suggestRating() {
   const toRate = getFilmsToRate();
-  if (!toRate.length) return;
+  if (!toRate.length) return false;
   const pick = toRate[Math.floor(Math.random() * toRate.length)];
   showSuggestModal(pick.f, pick.i, toRate.length, pick.reason);
+  return true;
+}
+function openSuggestModalManual() {
+  if (!suggestRating()) toast('Aucun film non classé à proposer', 'info');
+}
+function disableStartupSuggestPrompts() {
+  startupSuggestEnabled = false;
+  savePrefs();
+  closeOverlay();
+  toast('Le modal de classement au démarrage est désactivé', 'success');
 }
 function suggestAnother(skipIdx) {
   const toRate = getFilmsToRate().filter(x => x.i !== skipIdx);
-  if (!toRate.length) { suggestRating(); return; }
+  if (!toRate.length) {
+    if (!suggestRating()) toast('Aucun autre film à proposer', 'info');
+    return;
+  }
   const pick = toRate[Math.floor(Math.random() * toRate.length)];
   showSuggestModal(pick.f, pick.i, getFilmsToRate().length, pick.reason);
 }
 function suggestStartupModal() {
-  const hasRating = getFilmsToRate().length > 0;
-  const hasDuel = !!pickDuelCandidates();
-  if (hasRating && hasDuel) {
+  const canSuggest = startupSuggestEnabled && getFilmsToRate().length > 0;
+  const canDuel = startupDuelEnabled && !!pickDuelCandidates();
+  if (canSuggest && canDuel) {
     if (Math.random() < 0.5) openDuelModal();
     else suggestRating();
     return;
   }
-  if (hasRating) { suggestRating(); return; }
-  if (hasDuel) openDuelModal();
+  if (canSuggest) { suggestRating(); return; }
+  if (canDuel) openDuelModal();
 }
 function openDuelModal() {
   const pair = pickDuelCandidates();
   if (!pair) {
     toast('Pas assez de films classés pour lancer un duel', 'info');
-    return;
+    return false;
   }
   showDuelModal(pair[0], pair[1]);
+  return true;
 }
 function getDuelOutcomeLabel(diff) {
   const gap = Math.abs(Number(diff) || 0);
@@ -5191,7 +5224,7 @@ function renderDuelCard(f, opts = {}) {
 function showDuelModal(a, b) {
   currentDuelPair = { aId: a.fid, bId: b.fid };
   const historyHtml = renderDuelHistoryHtml(a, b);
-  const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()"><div class="modal breakdown-modal" style="max-width:980px"><div class="breakdown-modal-body"><h2>⚔ Duel de films</h2><p class="desc duel-desc">Cliquer sur le poster pour déterminer le gagnant</p><div class="duel-grid">${renderDuelCard(a)}${renderDuelCard(b)}</div>${historyHtml}</div><div class="breakdown-modal-footer"><div class="modal-row"><button class="btn" onclick="closeOverlay()">Plus tard</button><button class="btn" onclick="openDuelModal()">Autre duel 🎲</button></div></div></div></div>`;
+  const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()"><div class="modal breakdown-modal" style="max-width:980px"><div class="breakdown-modal-body"><h2>⚔ Duel de films</h2><p class="desc duel-desc">Cliquer sur le poster pour déterminer le gagnant</p><div class="duel-grid">${renderDuelCard(a)}${renderDuelCard(b)}</div>${historyHtml}</div><div class="breakdown-modal-footer"><div class="modal-row"><button class="btn" onclick="closeOverlay()">Plus tard</button><button class="btn" onclick="closeOverlay();setTimeout(()=>openDuelModal(),20)">Autre duel 🎲</button></div></div></div></div>`;
   document.getElementById('overlay').innerHTML = html;
 }
 function resolveDuel(winnerId) {
@@ -5236,7 +5269,7 @@ function showDuelResultModal(winner, loser, changed, inverseConflict, scoreGapBe
   const resultText = changed
     ? `<strong>${esc(winner.titre)}</strong> renverse <strong>${esc(loser.titre)}</strong> et passe devant après ajustement du classement.`
     : `<strong>${esc(winner.titre)}</strong> confirme son avantage face à <strong>${esc(loser.titre)}</strong>.`;
-  const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()"><div class="modal breakdown-modal" style="max-width:860px"><div class="breakdown-modal-body"><h2>Résultat du duel</h2><p class="desc">${resultText}</p><div class="duel-result-grid">${renderDuelCard(winner, { state:'winner', banner: outcomeLabel, buttonLabel:'Déjà vainqueur' })}${renderDuelCard(loser, { state:'loser', buttonLabel:'Battu' })}</div>${inverseConflict ? `<div class="duel-result-note"><strong>Historique croisé :</strong> ${esc(inverseConflict)}</div>` : ''}<div class="duel-result-note">Écart avant duel : ${fmtNum(scoreGapBefore)} point${Math.abs(scoreGapBefore) >= 2 ? 's' : ''} · Notes actuelles : ${esc(winner.titre)} ${fmtNum(winner.notePerso)} · ${esc(loser.titre)} ${fmtNum(loser.notePerso)}</div></div><div class="breakdown-modal-footer"><div class="modal-row"><button class="btn" onclick="closeOverlay()">Plus tard</button><button class="btn gold" onclick="openDuelModal()">Relancer un duel</button></div></div></div></div>`;
+  const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()"><div class="modal breakdown-modal" style="max-width:860px"><div class="breakdown-modal-body"><h2>Résultat du duel</h2><p class="desc">${resultText}</p><div class="duel-result-grid">${renderDuelCard(winner, { state:'winner', banner: outcomeLabel, buttonLabel:'Déjà vainqueur' })}${renderDuelCard(loser, { state:'loser', buttonLabel:'Battu' })}</div>${inverseConflict ? `<div class="duel-result-note"><strong>Historique croisé :</strong> ${esc(inverseConflict)}</div>` : ''}<div class="duel-result-note">Écart avant duel : ${fmtNum(scoreGapBefore)} point${Math.abs(scoreGapBefore) >= 2 ? 's' : ''} · Notes actuelles : ${esc(winner.titre)} ${fmtNum(winner.notePerso)} · ${esc(loser.titre)} ${fmtNum(loser.notePerso)}</div></div><div class="breakdown-modal-footer"><div class="modal-row"><button class="btn" onclick="closeOverlay()">Plus tard</button><button class="btn gold" onclick="closeOverlay();setTimeout(()=>openDuelModal(),20)">Relancer un duel</button></div></div></div></div>`;
   document.getElementById('overlay').innerHTML = html;
 }
 function showSuggestModal(f, idx, count, reason) {
@@ -5266,10 +5299,11 @@ function showSuggestModal(f, idx, count, reason) {
         ${reason === 'incomplete' && f.notePerso != null ? '<div style="font-size:.85rem;color:var(--gold);margin-top:8px">Note actuelle : <strong>'+Number(f.notePerso).toFixed(2)+'/10</strong></div>' : ''}
       </div>
       <p style="color:var(--txt2);font-size:.9rem;margin-bottom:18px">${question}</p>
-      <div class="modal-row" style="margin-top:0">
+      <div class="modal-row wrap" style="margin-top:0">
         <button class="btn" onclick="closeOverlay();" style="flex:1">Plus tard</button>
         <button class="btn" onclick="closeOverlay();suggestAnother(${idx});" style="flex:1">Autre film 🎲</button>
         <button class="btn gold" onclick="${actionFn}" style="flex:1.3">${actionLabel}</button>
+        <button class="btn btn-grow" onclick="disableStartupSuggestPrompts()">Ne plus proposer au démarrage</button>
       </div>
     </div>
   </div>`;
