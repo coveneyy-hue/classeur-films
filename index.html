@@ -1421,6 +1421,46 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.7); cursor
   .breakdown-header-poster { width: 140px; height: 210px; }
 }
 
+.poster-tag-btn {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.18);
+  background: rgba(10,10,22,.72);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 4;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 4px 14px rgba(0,0,0,.28);
+  transition: transform .15s, border-color .15s, background .15s;
+}
+.poster-tag-btn:hover { transform: translateY(-1px) scale(1.03); border-color: var(--gold-dim); }
+.poster-tag-btn.has-tags { color: #ff6b8d; }
+.poster-tag-btn .heart { font-size: 1rem; line-height: 1; }
+.poster-tag-btn .badge {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: #000;
+  font-size: .62rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.quick-tags-modal .modal-row .btn { flex: 1; }
+
 /* ─── NOTES SUMMARY GRID (in details modal) ───────── */
 .note-summary-grid {
   display: grid;
@@ -2938,8 +2978,8 @@ function openTitleBreakdown(idx) {
   const pUrl = posterUrl(f, 'large');
   const hasKey = hasTmdbKey();
   const posterHtml = pUrl
-    ? `<div class="breakdown-header-poster" style="background-image:url('${pUrl}')" onclick="openTmdbAssociate(${idx})"><div class="hover-label">Remplacer l'affiche</div></div>`
-    : `<div class="breakdown-header-poster empty" onclick="openTmdbAssociate(${idx})" title="${hasKey ? 'Associer à TMDb' : 'Configurez votre clé API TMDb dans les Paramètres'}">🎬<div style="font-size:.7rem;color:var(--gold)">Associer TMDb</div></div>`;
+    ? `<div class="breakdown-header-poster" style="background-image:url('${pUrl}')" onclick="openTmdbAssociate(${idx})">${buildPosterTagButton(idx)}<div class="hover-label">Remplacer l'affiche</div></div>`
+    : `<div class="breakdown-header-poster empty" onclick="openTmdbAssociate(${idx})" title="${hasKey ? 'Associer à TMDb' : 'Configurez votre clé API TMDb dans les Paramètres'}">${buildPosterTagButton(idx)}🎬<div style="font-size:.7rem;color:var(--gold)">Associer TMDb</div></div>`;
   const info = [f.genre, f.annee ? Math.round(f.annee) : null, f.realisateur].filter(Boolean).join(' · ');
   const runtimeStr = f.runtime ? `${f.runtime} min` : null;
   const tmdbVote = f.tmdbVote ? `⭐ TMDb ${f.tmdbVote.toFixed(1)}` : null;
@@ -2965,7 +3005,6 @@ function openTitleBreakdown(idx) {
             ${info ? `<div class="breakdown-header-meta">${esc(info)}</div>` : ''}
             ${extras ? `<div class="breakdown-header-meta" style="color:var(--txt3)">${extras}</div>` : ''}
             ${tmdbLink}
-            ${buildInlineTagEditor(idx, { compact: true })}
           </div>
         </div>
         ${f.watchlist ? '' : `<div class="note-summary-grid">${notesHtml}</div>
@@ -3009,11 +3048,6 @@ function openTitleBreakdown(idx) {
         ${f.watchlist ? '' : `<label style="margin-top:10px">Date vu</label>
         <input type="date" id="detailsDateVu" value="${dateVuToIso(f.dateVu)}">`}
 
-        <label style="margin-top:14px">Tags</label>
-        <p style="font-size:.75rem;color:var(--txt3);margin-top:-4px;margin-bottom:4px">Cliquez sur ☆ pour désigner un tag principal (affiché sous le titre dans le tableau)</p>
-        <div id="detailsTagsList" class="tag-chips-list"></div>
-        <div id="detailsTagsPicker" class="tag-picker-grid"></div>
-
         <div style="margin-top:16px;padding:12px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)">
           ${f.watchlist
             ? `<div style="font-size:.85rem;font-weight:700;color:#fff;margin-bottom:4px">🎯 Ce film est dans la watchlist</div>
@@ -3036,11 +3070,109 @@ function openTitleBreakdown(idx) {
     </div>
   </div>`;
   document.getElementById('overlay').innerHTML = html;
-  // Initialize tag picker state
-  window._detailsTagsDraft = [...(f.tags || [])];
-  window._detailsPrimaryDraft = f.primaryTag || null;
-  renderDetailsTagsList(idx);
-  renderDetailsTagsPicker(idx);
+}
+
+
+function buildPosterTagButton(idx) {
+  const f = films[idx];
+  if (!f) return '';
+  const count = Array.isArray(f.tags) ? f.tags.length : 0;
+  return `<span class="poster-tag-btn ${count ? 'has-tags' : ''}" title="Modifier les tags" onclick="event.stopPropagation();event.preventDefault();openQuickTagModal(${idx})"><span class="heart">❤</span>${count ? `<span class="badge">${count}</span>` : ''}</span>`;
+}
+
+function openQuickTagModal(idx) {
+  const f = films[idx];
+  if (!f) return;
+  window._quickTagFilmIdx = idx;
+  window._quickTagsDraft = [...(f.tags || [])];
+  window._quickPrimaryDraft = f.primaryTag || null;
+  const html = `<div class="overlay" onclick="if(event.target===this)closeQuickTagModal()">
+    <div class="modal quick-tags-modal" style="max-width:560px">
+      <h2>❤ Tags</h2>
+      <p class="desc">Sélectionnez les tags puis cliquez sur ☆ pour définir le tag principal.</p>
+      <div id="quickTagsList" class="tag-chips-list"></div>
+      <div id="quickTagsPicker" class="tag-picker-grid"></div>
+      <div class="modal-row" style="margin-top:18px">
+        <button class="btn" onclick="closeQuickTagModal()">Fermer</button>
+        <button class="btn gold" onclick="saveQuickTags()">Enregistrer</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('overlay').innerHTML = html;
+  renderQuickTagsList();
+  renderQuickTagsPicker();
+}
+
+function closeQuickTagModal() {
+  window._quickTagFilmIdx = null;
+  window._quickTagsDraft = null;
+  window._quickPrimaryDraft = null;
+  closeOverlay();
+}
+
+function renderQuickTagsList() {
+  const list = document.getElementById('quickTagsList');
+  if (!list) return;
+  const draft = window._quickTagsDraft || [];
+  const primaryId = window._quickPrimaryDraft;
+  const selectedTags = draft.map(tid => findTag(tid)).filter(Boolean);
+  if (!selectedTags.length) {
+    list.className = 'tag-chips-list empty';
+    list.innerHTML = '';
+    return;
+  }
+  list.className = 'tag-chips-list';
+  list.innerHTML = selectedTags.map(t => {
+    const isPrimary = t.id === primaryId;
+    return `<span class="tag-chip large${isPrimary ? ' is-primary' : ''}" style="--tag-color:${t.color}"><span class="tag-star" title="${isPrimary ? 'Tag principal' : 'Définir comme tag principal'}" onclick="toggleQuickPrimary('${t.id}')" style="cursor:pointer;color:${isPrimary ? t.color : 'var(--txt3)'};font-weight:800">${isPrimary ? '★' : '☆'}</span><span class="emoji">${t.emoji || '🏷'}</span>${esc(t.name)}<span class="remove" onclick="toggleQuickTag('${t.id}')">✕</span></span>`;
+  }).join('');
+}
+
+function renderQuickTagsPicker() {
+  const box = document.getElementById('quickTagsPicker');
+  if (!box) return;
+  if (!tags.length) {
+    box.innerHTML = '<div class="tag-picker-empty">Aucun tag défini — gérez vos tags dans les Paramètres ⚙</div>';
+    return;
+  }
+  const draft = window._quickTagsDraft || [];
+  box.innerHTML = tags.map(t => {
+    const selected = draft.includes(t.id);
+    return `<span class="tag-chip large ${selected ? 'selected' : ''}" style="--tag-color:${t.color}" onclick="toggleQuickTag('${t.id}')"><span class="emoji">${t.emoji || '🏷'}</span>${esc(t.name)}</span>`;
+  }).join('');
+}
+
+function toggleQuickTag(tagId) {
+  const draft = window._quickTagsDraft || [];
+  const i = draft.indexOf(tagId);
+  if (i >= 0) {
+    draft.splice(i, 1);
+    if (window._quickPrimaryDraft === tagId) window._quickPrimaryDraft = null;
+  } else {
+    draft.push(tagId);
+  }
+  window._quickTagsDraft = draft;
+  renderQuickTagsList();
+  renderQuickTagsPicker();
+}
+
+function toggleQuickPrimary(tagId) {
+  window._quickPrimaryDraft = window._quickPrimaryDraft === tagId ? null : tagId;
+  renderQuickTagsList();
+}
+
+function saveQuickTags() {
+  const idx = window._quickTagFilmIdx;
+  const f = films[idx];
+  if (!f) return closeQuickTagModal();
+  f.tags = [...(window._quickTagsDraft || [])];
+  let primary = window._quickPrimaryDraft || null;
+  if (primary && !f.tags.includes(primary)) primary = null;
+  f.primaryTag = primary;
+  saveFilms();
+  if (typeof render === 'function') render();
+  closeQuickTagModal();
+  toast(`Tags mis à jour pour ${f.titre}`, 'success');
 }
 
 function renderDetailsTagsList(idx) {
@@ -3195,31 +3327,6 @@ function saveFilmDetails(idx) {
     }
   });
   if (!films[idx].watchlist) updateDateVu(idx, rawDateVu, '(détails)');
-  // Save tag changes
-  const oldTags = f.tags || [];
-  const newTags = window._detailsTagsDraft || oldTags;
-  const tagsChanged = oldTags.length !== newTags.length
-    || oldTags.some(t => !newTags.includes(t))
-    || newTags.some(t => !oldTags.includes(t));
-  if (tagsChanged) {
-    const oldNames = oldTags.map(id => findTag(id)?.name).filter(Boolean).join(', ') || '—';
-    const newNames = newTags.map(id => findTag(id)?.name).filter(Boolean).join(', ') || '—';
-    changes.push(`Tags: ${oldNames} → ${newNames}`);
-    f.tags = [...newTags];
-  }
-  // Save primary tag change
-  const oldPrimary = f.primaryTag || null;
-  let newPrimary = window._detailsPrimaryDraft ?? oldPrimary;
-  // Sanity: primary must be in the selected tags list; if not, clear it
-  if (newPrimary && !(f.tags || []).includes(newPrimary)) newPrimary = null;
-  if (oldPrimary !== newPrimary) {
-    const oldPName = oldPrimary ? (findTag(oldPrimary)?.name || '—') : '—';
-    const newPName = newPrimary ? (findTag(newPrimary)?.name || '—') : '—';
-    changes.push(`Tag principal: ${oldPName} → ${newPName}`);
-    f.primaryTag = newPrimary;
-  }
-  window._detailsTagsDraft = null;
-  window._detailsPrimaryDraft = null;
   saveFilms();
   if (changes.length) {
     addLog('edit', `<strong>${newTitle}</strong> — ${changes.length} champ${changes.length>1?'s':''} modifié${changes.length>1?'s':''}`);
@@ -3378,10 +3485,9 @@ function openRatingBreakdown(idx, raterKey) {
     <div class="modal breakdown-modal" style="max-width:760px">
       <div class="breakdown-modal-body">
         <div class="rating-breakdown-header">
-          <div class="rating-breakdown-poster" ${posterStyle}>${f.posterPath ? '' : '🎬'}</div>
+          <div class="rating-breakdown-poster" ${posterStyle}>${buildPosterTagButton(idx)}${f.posterPath ? '' : '🎬'}</div>
           <div style="flex:1;min-width:0">
             <div class="step-label" style="color:${rater.color};margin-bottom:8px">${rater.label} — ${esc(f.titre)}</div>
-            ${buildInlineTagEditor(idx, { compact: true })}
           </div>
         </div>
         ${showTopNoteCard ? `<div class="breakdown-top" style="grid-template-columns:1fr">
@@ -6041,18 +6147,18 @@ function renderDuelCard(f, opts = {}) {
   const cardCls = ['duel-card', opts.state || '', opts.compact ? 'duel-card-compact' : ''].filter(Boolean).join(' ');
   const subBanner = opts.rankJump ? `<div class="duel-poster-banner-sub">${esc(opts.rankJump)}</div>` : '';
   const banner = opts.banner ? `<div class="duel-poster-banner show">${esc(opts.banner)}${subBanner}</div>` : '';
+  const tagButtonHtml = buildPosterTagButton(getFilmIndexById(f.fid));
   const interactivePoster = opts.clickable === false ?
-    `<div class="duel-poster" ${poster}>${f.posterPath ? '' : '🎬'}${banner}</div>` :
-    `<button type="button" class="duel-poster duel-poster-btn" ${poster} onclick="duelPosterClick('${f.fid}')" aria-label="Choisir ${escAttr(f.titre)}">${f.posterPath ? '' : '🎬'}${banner}</button>`;
+    `<div class="duel-poster" ${poster}>${tagButtonHtml}${f.posterPath ? '' : '🎬'}${banner}</div>` :
+    `<button type="button" class="duel-poster duel-poster-btn" ${poster} onclick="duelPosterClick('${f.fid}')" aria-label="Choisir ${escAttr(f.titre)}">${tagButtonHtml}${f.posterPath ? '' : '🎬'}${banner}</button>`;
   const faceScoreHtml = opts.faceScore != null
     ? `<div class="duel-face-score"><div class="duel-face-score-value">${esc(String(opts.faceScore))}</div><div class="duel-face-score-label">Victoires</div></div>`
     : '';
-  const tagsEditorHtml = opts.showTagEditor === false ? '' : buildInlineTagEditor(getFilmIndexById(f.fid), { compact: true });
   const rightLabel = opts.secondaryLabel || 'Préférence';
   const rightValue = opts.secondaryValue != null ? opts.secondaryValue : bd.preferenceScore;
   const scoreHtml = opts.hideScoreBoxes ? '' : `<div class="duel-score"><div class="duel-score-box"><div class="duel-score-value">${fmtNum(f.notePerso)}</div><div class="duel-score-label">Note globale</div></div><div class="duel-score-box"><div class="duel-score-value">${fmtNum(rightValue)}</div><div class="duel-score-label">${esc(rightLabel)}</div></div></div>`;
   const breakdownHtml = opts.hideBreakdown ? '' : `<div class="duel-breakdown"><div class="duel-breakdown-row"><span>Moyenne technique</span><strong>${fmtNum(bd.avgTech)}</strong></div><div class="duel-breakdown-row"><span>Contribution technique</span><strong>${fmtNum(bd.techContribution)}</strong></div><div class="duel-breakdown-row"><span>Coup de cœur</span><strong>${fmtNum(bd.coeur)}</strong></div><div class="duel-breakdown-row"><span>Contribution coup de cœur</span><strong>${fmtNum(bd.coeurContribution)}</strong></div><div class="duel-breakdown-row"><span>Préférence</span><strong>${fmtNum(bd.preferenceScore)}</strong></div><div class="duel-breakdown-row"><span>Contribution préférence</span><strong>${fmtNum(bd.preferenceContribution)}</strong></div><div class="duel-breakdown-row total"><span>Total</span><strong>${fmtNum(bd.note)}</strong></div></div>`;
-  return `<div class="${cardCls}">${interactivePoster}${faceScoreHtml}${tagsEditorHtml}<div class="duel-title">${esc(f.titre)}</div>${metaHtml}${scoreHtml}${breakdownHtml}</div>`;
+  return `<div class="${cardCls}">${interactivePoster}${faceScoreHtml}<div class="duel-title">${esc(f.titre)}</div>${metaHtml}${scoreHtml}${breakdownHtml}</div>`;
 }
 function renderFaceoffFinalScoreline(a, b, aScore, bScore) {
   return `<div class="duel-final-scoreline"><span>${esc(a.titre)}</span> <span class="score">${esc(String(aScore))}</span><span class="sep">·</span><span>${esc(b.titre)}</span> <span class="score">${esc(String(bScore))}</span></div>`;
