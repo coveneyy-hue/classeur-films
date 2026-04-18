@@ -3077,8 +3077,29 @@ function computeDraftNote(draft, raterKey, filmIdx) {
    RATING BREAKDOWN (per rater — opened from rater column)
    ═══════════════════════════════════════════════════ */
 function openRatingBreakdown(idx, raterKey) {
-  const rater = getRaterByKey(raterKey);
+  const overlayRoot = document.getElementById('overlay');
+  if (!overlayRoot) {
+    console.error('Erreur openRatingBreakdown: conteneur #overlay introuvable', { idx, raterKey });
+    toast('Conteneur du modal introuvable.', 'error');
+    return;
+  }
+  if (!Array.isArray(films)) {
+    console.error('Erreur openRatingBreakdown: films indisponible', { idx, raterKey, films });
+    toast('Liste des films indisponible.', 'error');
+    return;
+  }
   const f = films[idx];
+  if (!f) {
+    console.error('Erreur openRatingBreakdown: film introuvable', { idx, raterKey, filmsLength: films.length });
+    toast('Film introuvable pour ouvrir les notes.', 'error');
+    return;
+  }
+  const rater = getRaterByKey(raterKey);
+  if (!rater || !rater.key) {
+    console.error('Erreur openRatingBreakdown: évaluateur introuvable', { idx, raterKey, raters: RATERS });
+    toast('Evaluateur introuvable.', 'error');
+    return;
+  }
   const note = f[rater.key];
   window._ratingBreakdownCtx = { idx, raterKey };
   const currentIgnored = getIgnoredTech(f, rater.prefix);
@@ -4208,7 +4229,22 @@ function closeOverlay() { document.getElementById('overlay').innerHTML = ''; }
    RATING MODAL — now opens the new breakdown modal
    ═══════════════════════════════════════════════════ */
 function openRating(idx, raterKey) {
-  openRatingBreakdown(idx, raterKey);
+  try {
+    if (!Array.isArray(films)) throw new Error('La collection films est indisponible.');
+    if (!Number.isInteger(idx) || idx < 0 || idx >= films.length) {
+      throw new Error(`Index de film invalide : ${idx}`);
+    }
+    const film = films[idx];
+    if (!film) throw new Error(`Aucun film trouvé à l'index ${idx}`);
+    const rater = getRaterByKey(raterKey);
+    if (!rater || !rater.key) {
+      throw new Error(`Evaluateur introuvable : ${raterKey}`);
+    }
+    openRatingBreakdown(idx, rater.key);
+  } catch (err) {
+    console.error('Erreur openRating', { idx, raterKey, err, film: Array.isArray(films) ? films[idx] : null });
+    toast("Impossible d'ouvrir le modal Notes. Voir console.", 'error');
+  }
 }
 
 /* ═══════════════════════════════════════════════════
@@ -5609,7 +5645,9 @@ function stopRatingRafale() {
 function openRatingFromSuggest(idx, preserveRafale = false) {
   if (!preserveRafale) stopRatingRafale();
   closeOverlay();
-  openRating(idx,'notePerso');
+  window._ratingBreakdownInfoReturn = null;
+  window._ratingBreakdownCtx = null;
+  setTimeout(() => openRating(idx,'notePerso'), 10);
 }
 
 function openNextRafaleRating(skipIdx = null) {
@@ -6387,11 +6425,11 @@ function showSuggestModal(f, idx, count, reason) {
   }
   const actionLabel = reason === 'incomplete' ? 'Compléter 🎯' : 'Allons-y ! 🎯';
   const actionFn = reason === 'incomplete'
-    ? `closeOverlay();openTitleBreakdown(${idx});`
-    : `openRatingFromSuggest(${idx});`;
+    ? `event.stopPropagation();closeOverlay();setTimeout(()=>openTitleBreakdown(${idx}),10);return false;`
+    : `event.stopPropagation();openRatingFromSuggest(${idx});return false;`;
   const rafaleBtn = reason === 'incomplete'
     ? ''
-    : `<button class="btn gold" onclick="startRatingRafale(${idx})" style="flex:1">Rafale ⚡</button>`;
+    : `<button class="btn gold" onclick="event.stopPropagation();startRatingRafale(${idx});return false;" style="flex:1">Rafale ⚡</button>`;
   const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay();">
     <div class="modal" style="max-width:420px;text-align:center">
       <div style="font-size:2.8rem;margin-bottom:10px">${reason === 'incomplete' ? '🔧' : '🎬'}</div>
