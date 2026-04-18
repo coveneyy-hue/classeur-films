@@ -5927,7 +5927,7 @@ function renderDuelCard(f, opts = {}) {
     : '';
   const rightLabel = opts.secondaryLabel || 'Préférence';
   const rightValue = opts.secondaryValue != null ? opts.secondaryValue : bd.preferenceScore;
-  const scoreHtml = `<div class="duel-score"><div class="duel-score-box"><div class="duel-score-value">${fmtNum(f.notePerso)}</div><div class="duel-score-label">Note globale</div></div><div class="duel-score-box"><div class="duel-score-value">${fmtNum(rightValue)}</div><div class="duel-score-label">${esc(rightLabel)}</div></div></div>`;
+  const scoreHtml = opts.hideScoreBoxes ? '' : `<div class="duel-score"><div class="duel-score-box"><div class="duel-score-value">${fmtNum(f.notePerso)}</div><div class="duel-score-label">Note globale</div></div><div class="duel-score-box"><div class="duel-score-value">${fmtNum(rightValue)}</div><div class="duel-score-label">${esc(rightLabel)}</div></div></div>`;
   const breakdownHtml = opts.hideBreakdown ? '' : `<div class="duel-breakdown"><div class="duel-breakdown-row"><span>Moyenne technique</span><strong>${fmtNum(bd.avgTech)}</strong></div><div class="duel-breakdown-row"><span>Contribution technique</span><strong>${fmtNum(bd.techContribution)}</strong></div><div class="duel-breakdown-row"><span>Coup de cœur</span><strong>${fmtNum(bd.coeur)}</strong></div><div class="duel-breakdown-row"><span>Contribution coup de cœur</span><strong>${fmtNum(bd.coeurContribution)}</strong></div><div class="duel-breakdown-row"><span>Préférence</span><strong>${fmtNum(bd.preferenceScore)}</strong></div><div class="duel-breakdown-row"><span>Contribution préférence</span><strong>${fmtNum(bd.preferenceContribution)}</strong></div><div class="duel-breakdown-row total"><span>Total</span><strong>${fmtNum(bd.note)}</strong></div></div>`;
   return `<div class="${cardCls}">${interactivePoster}${faceScoreHtml}<div class="duel-title">${esc(f.titre)}</div>${metaHtml}${scoreHtml}${breakdownHtml}</div>`;
 }
@@ -5949,7 +5949,6 @@ function renderDuelProgressSummary(items) {
     const rankText = rankDelta > 0 ? `+${rankDelta}` : rankDelta < 0 ? `${rankDelta}` : '=';
     const rankLabel = rankDelta > 1 ? 'places' : 'place';
     return `<div class="duel-progress-item">
-      <div class="duel-progress-title">${esc(item.title)}</div>
       <div class="duel-progress-metrics">
         <div class="duel-progress-metric">
           <span class="duel-progress-label">Note</span>
@@ -6087,11 +6086,11 @@ function showDuelResultModal(winner, loser, changed, inverseConflict, scoreGapBe
     rankJump = `rang #${winner.rank} confirmé`;
   }
   const leftOpts = leftFilm.fid === winner.fid
-    ? { state:'winner', rankJump, faceScore: stats.aWins, clickable:false }
-    : { state:'loser', faceScore: stats.aWins, clickable:false };
+    ? { state:'winner', rankJump, faceScore: stats.aWins, clickable:false, hideScoreBoxes:true }
+    : { state:'loser', faceScore: stats.aWins, clickable:false, hideScoreBoxes:true };
   const rightOpts = rightFilm.fid === winner.fid
-    ? { state:'winner', rankJump, faceScore: stats.bWins, clickable:false }
-    : { state:'loser', faceScore: stats.bWins, clickable:false };
+    ? { state:'winner', rankJump, faceScore: stats.bWins, clickable:false, hideScoreBoxes:true }
+    : { state:'loser', faceScore: stats.bWins, clickable:false, hideScoreBoxes:true };
   const lastDuel = duelLog.length ? duelLog[duelLog.length - 1] : null;
   const beforeLeftRank = lastDuel ? (leftFilm.fid === lastDuel.winnerId ? lastDuel.beforeWinnerRank : lastDuel.beforeLoserRank) : leftFilm.rank;
   const beforeRightRank = lastDuel ? (rightFilm.fid === lastDuel.winnerId ? lastDuel.beforeWinnerRank : lastDuel.beforeLoserRank) : rightFilm.rank;
@@ -6113,7 +6112,7 @@ function showDuelResultModal(winner, loser, changed, inverseConflict, scoreGapBe
       rankAfter: rightFilm.rank
     }
   ]);
-  const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()"><div class="modal breakdown-modal" style="max-width:860px"><div class="breakdown-modal-body"><h2>Résultat du duel</h2><p class="desc">${resultText}</p><div class="duel-result-grid">${renderDuelCard(leftFilm, leftOpts)}${renderDuelCard(rightFilm, rightOpts)}</div>${renderFaceoffFinalScoreline(leftFilm, rightFilm, stats.aWins, stats.bWins)}${progressHtml}${inverseConflict ? `<div class="duel-result-note"><strong>Historique croisé :</strong> ${esc(inverseConflict)}</div>` : ''}<div class="duel-result-note">Écart avant duel : ${fmtNum(scoreGapBefore)} point${Math.abs(scoreGapBefore) >= 2 ? 's' : ''}</div></div><div class="breakdown-modal-footer"><div class="modal-row"><button class="btn" onclick="closeOverlay()">Plus tard</button><button class="btn gold" onclick="closeOverlay();setTimeout(()=>openDuelModal(),20)">Relancer un duel</button></div></div></div></div>`;
+  const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()"><div class="modal breakdown-modal" style="max-width:860px"><div class="breakdown-modal-body"><h2>Résultat du duel</h2><p class="desc">${resultText}</p><div class="duel-result-grid">${renderDuelCard(leftFilm, leftOpts)}${renderDuelCard(rightFilm, rightOpts)}</div>${progressHtml}${inverseConflict ? `<div class="duel-result-note"><strong>Historique croisé :</strong> ${esc(inverseConflict)}</div>` : ''}<div class="duel-result-note">Écart avant duel : ${fmtNum(scoreGapBefore)} point${Math.abs(scoreGapBefore) >= 2 ? 's' : ''}</div></div><div class="breakdown-modal-footer"><div class="modal-row"><button class="btn" onclick="closeOverlay()">Plus tard</button><button class="btn gold" onclick="closeOverlay();setTimeout(()=>openDuelModal(),20)">Relancer un duel</button></div></div></div></div>`;
   document.getElementById('overlay').innerHTML = html;
 }
 
@@ -6468,11 +6467,11 @@ function showTournamentFightResultModal(winner, loser, before, scoreGapBefore, c
        </div>`;
 
   const leftOpts = leftFilm.fid === winner.fid
-    ? { state:'winner', rankJump: winnerJump, clickable: false, compact: true, hideBreakdown: true, secondaryLabel:'Coup de cœur sur 10', secondaryValue: leftFilm.coupDeCoeur, faceScore: stats.aWins }
-    : { state:'loser', rankJump: loserJump, clickable: false, compact: true, hideBreakdown: true, secondaryLabel:'Coup de cœur sur 10', secondaryValue: leftFilm.coupDeCoeur, faceScore: stats.aWins };
+    ? { state:'winner', rankJump: winnerJump, clickable: false, compact: true, hideBreakdown: true, hideScoreBoxes:true, secondaryLabel:'Coup de cœur sur 10', secondaryValue: leftFilm.coupDeCoeur, faceScore: stats.aWins }
+    : { state:'loser', rankJump: loserJump, clickable: false, compact: true, hideBreakdown: true, hideScoreBoxes:true, secondaryLabel:'Coup de cœur sur 10', secondaryValue: leftFilm.coupDeCoeur, faceScore: stats.aWins };
   const rightOpts = rightFilm.fid === winner.fid
-    ? { state:'winner', rankJump: winnerJump, clickable: false, compact: true, hideBreakdown: true, secondaryLabel:'Coup de cœur sur 10', secondaryValue: rightFilm.coupDeCoeur, faceScore: stats.bWins }
-    : { state:'loser', rankJump: loserJump, clickable: false, compact: true, hideBreakdown: true, secondaryLabel:'Coup de cœur sur 10', secondaryValue: rightFilm.coupDeCoeur, faceScore: stats.bWins };
+    ? { state:'winner', rankJump: winnerJump, clickable: false, compact: true, hideBreakdown: true, hideScoreBoxes:true, secondaryLabel:'Coup de cœur sur 10', secondaryValue: rightFilm.coupDeCoeur, faceScore: stats.bWins }
+    : { state:'loser', rankJump: loserJump, clickable: false, compact: true, hideBreakdown: true, hideScoreBoxes:true, secondaryLabel:'Coup de cœur sur 10', secondaryValue: rightFilm.coupDeCoeur, faceScore: stats.bWins };
 
   const html = `<div class="overlay" onclick="if(event.target===this)${tournamentEnded ? 'closeOverlay()' : 'confirmAbandonTournament()'}">
     <div class="modal breakdown-modal" style="max-width:880px">
@@ -6482,7 +6481,7 @@ function showTournamentFightResultModal(winner, loser, before, scoreGapBefore, c
           ${renderDuelCard(leftFilm, leftOpts)}
           ${renderDuelCard(rightFilm, rightOpts)}
         </div>
-        ${renderFaceoffFinalScoreline(leftFilm, rightFilm, stats.aWins, stats.bWins)}
+        
         ${renderDuelProgressSummary([
           {
             title: leftFilm.titre,
