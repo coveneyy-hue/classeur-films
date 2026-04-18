@@ -1256,7 +1256,7 @@ td.editing input {
       <strong style="color:var(--gold)">Ma note</strong> combine 3 composantes :<br>
       • <strong>8 critères techniques (50 %)</strong> — Acteur principal · Acteur secondaire · Antagoniste · Trame sonore · Fluidité · Scénario · Réalisation · La fin<br>
       • <strong>Coup de cœur (25 %)</strong> — Attachement personnel au film, indépendant de la qualité objective (0-10)<br>
-      • <strong>Préférence relative (25 %)</strong> — Issue du classement manuel par glisser-déposer (courbe log : rang #1 = 10, rang #N = 0)<br>
+      • <strong>Préférence relative (25 %)</strong> — Ajustée automatiquement à partir de votre classement manuel pour garantir l'ordre exact : rang #1 obtient la note la plus haute, chaque rang suivant baisse d'au moins 0.01.<br>
       <br>
       <strong style="color:var(--txt2)">Victor · Lily-Rose · Julie</strong> : 8 critères techniques (67 %) + coup de cœur (33 %), sans classement manuel.
     </p>
@@ -1643,20 +1643,71 @@ function computeNote(f, prefix) {
   return Math.round(note * 100) / 100;
 }
 
-// Logarithmic preference curve from rank (1 = top → 10, N = last → 0)
+// Preference approximation from rank (used only for preview in modal).
+// Final notes are computed by recomputeAllPersoNotes which guarantees monotonic ordering.
 function computePrefFromRank(rank) {
   if (rank == null || rank < 1) return 0;
   const totalRanked = films.filter(ff => !ff.watchlist && ff.rank != null && ff.rank >= 1).length;
   if (totalRanked <= 1) return 10;
-  const val = 10 * (1 - Math.log(rank) / Math.log(totalRanked));
+  // Linear curve: top rank = 10, bottom = 0
+  const val = 10 * (1 - (rank - 1) / Math.max(1, totalRanked - 1));
   return Math.max(0, Math.min(10, val));
 }
 
-// Recompute notePerso for ALL classeur films (call after ranks change, or N changes)
+// Compute the "base" note (50% tech + 25% coup de cœur) for a film. Range: [0, 7.5].
+function computeBaseNote(f, prefix) {
+  prefix = prefix || '';
+  const coeur = f[prefix + 'coupDeCoeur'];
+  if (coeur == null) return null;
+  const techCriteria = CRITERIA.filter(c => !c.isPreference);
+  const techVals = techCriteria.map(c => f[prefix + c.key] ?? 0);
+  const avgTech = techVals.reduce((a,b) => a+b, 0) / techVals.length;
+  return avgTech * 0.5 + coeur * 0.25;
+}
+
+/* Recompute ALL persoNotes using top-down iterative algorithm.
+   Guarantees that final notes respect the manual ranking:
+   rank #1 gets the highest note, rank #2 slightly lower, etc., with min 0.01 gap.
+   Each film's note stays in [base, base + 2.5] range when possible, but
+   the monotonic constraint takes priority if the user's ranking demands it. */
 function recomputeAllPersoNotes() {
+  // Phase 1: compute base for all classeur films (reset notePerso for unrated)
   films.forEach(f => {
-    if (f.watchlist) return;
-    if (f.coupDeCoeur != null) f.notePerso = computeNote(f, '');
+    if (f.watchlist) { return; }
+    if (f.coupDeCoeur == null) { f.notePerso = null; return; }
+    f._base = computeBaseNote(f, '');
+  });
+
+  // Phase 2: top-down for ranked films
+  const ranked = films
+    .filter(f => !f.watchlist && f.rank != null && f._base != null)
+    .sort((a, b) => a.rank - b.rank);
+
+  for (let i = 0; i < ranked.length; i++) {
+    const f = ranked[i];
+    // Max reachable given base + max pref (10): base + 2.5 (capped at 10)
+    const maxReachable = Math.min(10, f._base + 2.5);
+    if (i === 0) {
+      // Top rank gets max reachable
+      f.notePerso = Math.round(maxReachable * 100) / 100;
+    } else {
+      const prev = ranked[i - 1];
+      // Must be strictly below prev (by 0.01). Natural ceiling is maxReachable.
+      const targetMax = prev.notePerso - 0.01;
+      // Take the smaller of the two; allow slight sub-base values if ranking demands
+      let note = Math.min(maxReachable, targetMax);
+      // Safety: never below 0
+      note = Math.max(0, note);
+      f.notePerso = Math.round(note * 100) / 100;
+    }
+  }
+
+  // Phase 3: unranked rated films — use base only (no preference contribution)
+  films.forEach(f => {
+    if (!f.watchlist && f._base != null && f.rank == null) {
+      f.notePerso = Math.round(f._base * 100) / 100;
+    }
+    delete f._base;
   });
 }
 
@@ -2423,12 +2474,27 @@ function computeDraftNote(draft, raterKey, filmIdx) {
   const avgTech = techVals.reduce((a,b) => a + b, 0) / techVals.length;
 
   if (raterKey === 'notePerso' || raterKey == null) {
-    // Ma note — 50/25/25
+    // Ma note — respect monotonic constraint from neighbors in the manual ranking
+    const base = avgTech * 0.5 + coeur * 0.25;
+    const maxReachable = Math.min(10, base + 2.5);
     const f = filmIdx != null ? films[filmIdx] : null;
-    const prefVal = f ? computePrefFromRank(f.rank) : 0;
-    return Math.round((avgTech * 0.50 + coeur * 0.25 + prefVal * 0.25) * 100) / 100;
+    if (!f || f.rank == null) {
+      // No rank yet: preview shows max reachable (will be placed at end after save)
+      return Math.round(base * 100) / 100;
+    }
+    // Find neighbors by rank
+    const ranked = films.filter(ff => !ff.watchlist && ff.rank != null && ff !== f)
+                        .sort((a,b) => a.rank - b.rank);
+    const prev = ranked.filter(ff => ff.rank < f.rank).pop(); // closest above
+    const next = ranked.find(ff => ff.rank > f.rank);        // closest below
+    let upper = prev && prev.notePerso != null ? prev.notePerso - 0.01 : 10;
+    let lower = next && next.notePerso != null ? next.notePerso + 0.01 : 0;
+    let note = Math.min(maxReachable, upper);
+    note = Math.max(lower, note);
+    note = Math.max(0, Math.min(10, note));
+    return Math.round(note * 100) / 100;
   }
-  // Autres raters — 67/33
+  // Autres raters — 67/33 simple
   return Math.round((avgTech * 0.67 + coeur * 0.33) * 100) / 100;
 }
 
