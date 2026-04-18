@@ -2502,6 +2502,7 @@ function bindFrozenHeader() {
 }
 
 function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+function escAttr(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function doSort(key) { if (sortCol===key) sortDir = sortDir==='asc'?'desc':'asc'; else { sortCol=key; sortDir='asc'; } render(); }
 function toggleHidden() { showHidden=!showHidden; savePrefs(); render(); toast(showHidden?'Colonnes détaillées affichées':'Colonnes détaillées masquées','info'); }
 function toggleTitleWidth() { titleExpanded = !titleExpanded; applyLayoutVars(); savePrefs(); render(); toast(titleExpanded ? 'Colonne Titre agrandie' : 'Colonne Titre réduite', 'info'); }
