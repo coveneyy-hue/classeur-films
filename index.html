@@ -168,6 +168,13 @@ body::before {
 }
 .duel-breakdown-row:first-child { border-top: none; }
 .duel-breakdown-row.total { background: rgba(232,166,48,.08); font-weight: 700; }
+.duel-card.compact { padding: 12px; }
+.duel-card.compact .duel-poster { margin-bottom: 10px; }
+.duel-card.compact .duel-meta { margin-bottom: 8px; }
+.duel-card.compact .duel-score { margin-bottom: 0; }
+.duel-card.compact .duel-score-box { padding: 7px 8px; }
+.duel-card.compact .duel-score-value { font-size: 1.05rem; }
+.duel-card.compact .duel-score-label { font-size: .64rem; }
 .duel-history {
   margin-top: 16px; padding: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
 }
@@ -5514,6 +5521,9 @@ function getDuelOutcomeLabel(diff) {
 }
 function renderDuelCard(f, opts = {}) {
   const bd = getPersoBreakdown(f);
+  const showBreakdown = opts.showBreakdown !== false;
+  const secondaryValue = opts.secondaryMetric === 'coeur' ? bd.coeur : bd.preferenceScore;
+  const secondaryLabel = opts.secondaryMetric === 'coeur' ? 'Coup de cœur sur 10' : 'Préférence';
   const poster = f.posterPath ? `style="background-image:url('${TMDB_IMG}${f.posterPath}')"` : '';
   const year = f.annee ? Math.round(f.annee) : null;
   const yearHtml = year ? esc(String(year)) : 'Film classé';
@@ -5522,13 +5532,14 @@ function renderDuelCard(f, opts = {}) {
   if (f.realisateur) extraParts.push(esc(f.realisateur));
   const extraHtml = extraParts.length ? `<span class="duel-meta-extra"> · ${extraParts.join(' · ')}</span>` : '';
   const metaHtml = `<div class="duel-meta"><span class="duel-meta-year">${yearHtml}</span>${extraHtml}</div>`;
-  const cardCls = ['duel-card', opts.state || ''].filter(Boolean).join(' ');
+  const cardCls = ['duel-card', opts.state || '', opts.compact ? 'compact' : ''].filter(Boolean).join(' ');
   const subBanner = opts.rankJump ? `<div class="duel-poster-banner-sub">${esc(opts.rankJump)}</div>` : '';
   const banner = opts.banner ? `<div class="duel-poster-banner show">${esc(opts.banner)}${subBanner}</div>` : '';
   const interactivePoster = opts.clickable === false ?
     `<div class="duel-poster" ${poster}>${f.posterPath ? '' : '🎬'}${banner}</div>` :
     `<button type="button" class="duel-poster duel-poster-btn" ${poster} onclick="duelPosterClick('${f.fid}')" aria-label="Choisir ${escAttr(f.titre)}">${f.posterPath ? '' : '🎬'}${banner}</button>`;
-  return `<div class="${cardCls}">${interactivePoster}<div class="duel-title">${esc(f.titre)}</div>${metaHtml}<div class="duel-score"><div class="duel-score-box"><div class="duel-score-value">${fmtNum(f.notePerso)}</div><div class="duel-score-label">Note globale</div></div><div class="duel-score-box"><div class="duel-score-value">${fmtNum(bd.preferenceScore)}</div><div class="duel-score-label">Préférence</div></div></div><div class="duel-breakdown"><div class="duel-breakdown-row"><span>Moyenne technique</span><strong>${fmtNum(bd.avgTech)}</strong></div><div class="duel-breakdown-row"><span>Contribution technique</span><strong>${fmtNum(bd.techContribution)}</strong></div><div class="duel-breakdown-row"><span>Coup de cœur</span><strong>${fmtNum(bd.coeur)}</strong></div><div class="duel-breakdown-row"><span>Contribution coup de cœur</span><strong>${fmtNum(bd.coeurContribution)}</strong></div><div class="duel-breakdown-row"><span>Préférence</span><strong>${fmtNum(bd.preferenceScore)}</strong></div><div class="duel-breakdown-row"><span>Contribution préférence</span><strong>${fmtNum(bd.preferenceContribution)}</strong></div><div class="duel-breakdown-row total"><span>Total</span><strong>${fmtNum(bd.note)}</strong></div></div></div>`;
+  const breakdownHtml = showBreakdown ? `<div class="duel-breakdown"><div class="duel-breakdown-row"><span>Moyenne technique</span><strong>${fmtNum(bd.avgTech)}</strong></div><div class="duel-breakdown-row"><span>Contribution technique</span><strong>${fmtNum(bd.techContribution)}</strong></div><div class="duel-breakdown-row"><span>Coup de cœur</span><strong>${fmtNum(bd.coeur)}</strong></div><div class="duel-breakdown-row"><span>Contribution coup de cœur</span><strong>${fmtNum(bd.coeurContribution)}</strong></div><div class="duel-breakdown-row"><span>Préférence</span><strong>${fmtNum(bd.preferenceScore)}</strong></div><div class="duel-breakdown-row"><span>Contribution préférence</span><strong>${fmtNum(bd.preferenceContribution)}</strong></div><div class="duel-breakdown-row total"><span>Total</span><strong>${fmtNum(bd.note)}</strong></div></div>` : '';
+  return `<div class="${cardCls}">${interactivePoster}<div class="duel-title">${esc(f.titre)}</div>${metaHtml}<div class="duel-score"><div class="duel-score-box"><div class="duel-score-value">${fmtNum(f.notePerso)}</div><div class="duel-score-label">Note globale</div></div><div class="duel-score-box"><div class="duel-score-value">${fmtNum(secondaryValue)}</div><div class="duel-score-label">${secondaryLabel}</div></div></div>${breakdownHtml}</div>`;
 }
 function showDuelModal(a, b) {
   currentDuelPair = { aId: a.fid, bId: b.fid };
@@ -5637,7 +5648,7 @@ function showDuelResultModal(winner, loser, changed, inverseConflict, scoreGapBe
   } else if (winner.rank != null) {
     rankJump = `rang #${winner.rank} confirmé`;
   }
-  const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()"><div class="modal breakdown-modal" style="max-width:860px"><div class="breakdown-modal-body"><h2>Résultat du duel</h2><p class="desc">${resultText}</p><div class="duel-result-grid">${renderDuelCard(winner, { state:'winner', banner: outcomeLabel, rankJump, buttonLabel:'Déjà vainqueur' })}${renderDuelCard(loser, { state:'loser', buttonLabel:'Battu' })}</div>${inverseConflict ? `<div class="duel-result-note"><strong>Historique croisé :</strong> ${esc(inverseConflict)}</div>` : ''}<div class="duel-result-note">Écart avant duel : ${fmtNum(scoreGapBefore)} point${Math.abs(scoreGapBefore) >= 2 ? 's' : ''} · Notes actuelles : ${esc(winner.titre)} ${fmtNum(winner.notePerso)} · ${esc(loser.titre)} ${fmtNum(loser.notePerso)}</div></div><div class="breakdown-modal-footer"><div class="modal-row"><button class="btn" onclick="closeOverlay()">Plus tard</button><button class="btn gold" onclick="closeOverlay();setTimeout(()=>openDuelModal(),20)">Relancer un duel</button></div></div></div></div>`;
+  const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()"><div class="modal breakdown-modal" style="max-width:860px"><div class="breakdown-modal-body"><h2>Résultat du duel</h2><p class="desc">${resultText}</p><div class="duel-result-grid">${renderDuelCard(winner, { state:'winner', banner: outcomeLabel, rankJump, compact:true, showBreakdown:false, secondaryMetric:'coeur', buttonLabel:'Déjà vainqueur' })}${renderDuelCard(loser, { state:'loser', compact:true, showBreakdown:false, secondaryMetric:'coeur', buttonLabel:'Battu' })}</div>${inverseConflict ? `<div class="duel-result-note"><strong>Historique croisé :</strong> ${esc(inverseConflict)}</div>` : ''}<div class="duel-result-note">Écart avant duel : ${fmtNum(scoreGapBefore)} point${Math.abs(scoreGapBefore) >= 2 ? 's' : ''} · Notes actuelles : ${esc(winner.titre)} ${fmtNum(winner.notePerso)} · ${esc(loser.titre)} ${fmtNum(loser.notePerso)}</div></div><div class="breakdown-modal-footer"><div class="modal-row"><button class="btn" onclick="closeOverlay()">Abandonner</button><button class="btn gold" onclick="closeOverlay();setTimeout(()=>openDuelModal(),20)">Prochain adversaire</button></div></div></div></div>`;
   document.getElementById('overlay').innerHTML = html;
 }
 
