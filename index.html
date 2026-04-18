@@ -191,6 +191,44 @@ body::before {
    "Défaite" reste en rouge (défaut) pour les cartes perdantes */
 .duel-card.winner .duel-poster-banner { background: rgba(64,200,144,.92); box-shadow: 0 10px 26px rgba(64,200,144,.32); }
 
+.duel-card-topbar {
+  display: flex; align-items: center; justify-content: flex-end;
+  margin: 0 0 8px; min-height: 28px;
+}
+.duel-tag-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--bg2); color: var(--txt2);
+  font-size: .74rem; font-weight: 700; cursor: pointer; transition: all .15s;
+}
+.duel-tag-btn:hover {
+  color: var(--gold); border-color: var(--gold-dim); background: var(--bg3);
+}
+.duel-tag-btn.has-tags { color: #fff; }
+.duel-tag-btn .tag-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 6px; border-radius: 999px;
+  background: rgba(232,166,48,.14); color: var(--gold); font-size: .68rem; font-weight: 800;
+}
+.quick-tag-overlay {
+  position: fixed; inset: 0; z-index: 260;
+  background: rgba(0,0,0,.72); backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center; padding: 18px;
+}
+.quick-tag-modal {
+  width: min(560px, 100%); max-height: min(82vh, 760px); overflow: auto;
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 16px;
+  box-shadow: 0 30px 80px rgba(0,0,0,.7), 0 0 60px rgba(232,166,48,.06);
+  padding: 22px 24px;
+}
+.quick-tag-head {
+  display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom: 14px;
+}
+.quick-tag-head h3 { margin: 0; }
+.quick-tag-film-meta { font-size: .8rem; color: var(--txt2); margin-top: 4px; }
+.quick-tag-help { font-size:.75rem; color:var(--txt3); margin: 4px 0 8px; }
+.quick-tag-actions { margin-top: 16px; }
+
 /* Tournoi : carte champion et résumé */
 .tournament-header {
   display:flex; align-items:center; gap:12px; flex-wrap:wrap;
@@ -2864,7 +2902,7 @@ function renderDetailsTagsList(idx) {
   if (!list) return;
   const draft = window._detailsTagsDraft || [];
   const primaryId = window._detailsPrimaryDraft;
-  const selectedTags = draft.map(tid => findTag(tid)).filter(Boolean);
+  const selectedTags = getSortedSelectedTags(draft, primaryId);
   if (!selectedTags.length) {
     list.className = 'tag-chips-list empty';
     list.innerHTML = '';
@@ -2921,6 +2959,159 @@ function togglePrimaryTag(idx, tagId) {
     window._detailsPrimaryDraft = tagId;
   }
   renderDetailsTagsList(idx);
+}
+
+
+function getSortedSelectedTags(tagIds, primaryId) {
+  return (tagIds || [])
+    .map(tid => findTag(tid))
+    .filter(Boolean)
+    .sort((a, b) => {
+      if (a.id === primaryId && b.id !== primaryId) return -1;
+      if (b.id === primaryId && a.id !== primaryId) return 1;
+      return (a.name || '').localeCompare(b.name || '', 'fr', { sensitivity: 'base' });
+    });
+}
+
+function getQuickTagFilm() {
+  return films.find(f => f.fid === window._quickTagFilmId) || null;
+}
+
+function openQuickTagModal(fid) {
+  const f = films.find(ff => ff.fid === fid);
+  if (!f) return;
+  closeQuickTagModal();
+  window._quickTagFilmId = fid;
+  window._quickTagsDraft = [...(f.tags || [])];
+  window._quickPrimaryDraft = f.primaryTag || null;
+  const host = document.createElement('div');
+  host.id = 'quickTagOverlay';
+  host.className = 'quick-tag-overlay';
+  host.onclick = (event) => { if (event.target === host) closeQuickTagModal(); };
+  host.innerHTML = `<div class="quick-tag-modal" onclick="event.stopPropagation()">
+    <div class="quick-tag-head">
+      <div>
+        <h3>🏷 Tags du film</h3>
+        <div class="quick-tag-film-meta"><strong>${esc(f.titre)}</strong></div>
+      </div>
+      <button class="btn" type="button" onclick="closeQuickTagModal()">Fermer</button>
+    </div>
+    <p class="quick-tag-help">Le tag prioritaire apparaît en premier. Cliquez sur ☆ pour le définir comme tag principal.</p>
+    <div id="quickTagsList" class="tag-chips-list"></div>
+    <div id="quickTagsPicker" class="tag-picker-grid"></div>
+    <div class="quick-tag-actions modal-row">
+      <button class="btn" type="button" onclick="closeQuickTagModal()">Annuler</button>
+      <button class="btn gold" type="button" onclick="saveQuickTags()">Enregistrer</button>
+    </div>
+  </div>`;
+  document.body.appendChild(host);
+  renderQuickTagsList();
+  renderQuickTagsPicker();
+}
+
+function closeQuickTagModal() {
+  const el = document.getElementById('quickTagOverlay');
+  if (el) el.remove();
+  window._quickTagFilmId = null;
+  window._quickTagsDraft = null;
+  window._quickPrimaryDraft = null;
+}
+
+function renderQuickTagsList() {
+  const list = document.getElementById('quickTagsList');
+  if (!list) return;
+  const draft = window._quickTagsDraft || [];
+  const primaryId = window._quickPrimaryDraft || null;
+  const selectedTags = getSortedSelectedTags(draft, primaryId);
+  if (!selectedTags.length) {
+    list.className = 'tag-chips-list empty';
+    list.innerHTML = '';
+    return;
+  }
+  list.className = 'tag-chips-list';
+  list.innerHTML = selectedTags.map(t => {
+    const isPrimary = t.id === primaryId;
+    const starIcon = isPrimary ? '★' : '☆';
+    const starTitle = isPrimary ? 'Tag principal — cliquer pour le retirer' : 'Définir comme tag principal';
+    return `<span class="tag-chip large${isPrimary ? ' is-primary' : ''}" style="--tag-color:${t.color}">
+      <span class="tag-star" title="${starTitle}" onclick="toggleQuickPrimary('${t.id}')" style="cursor:pointer;color:${isPrimary ? t.color : 'var(--txt3)'};font-weight:800">${starIcon}</span>
+      <span class="emoji">${t.emoji || '🏷'}</span>${esc(t.name)}
+      <span class="remove" onclick="toggleQuickTag('${t.id}')">✕</span>
+    </span>`;
+  }).join('');
+}
+
+function renderQuickTagsPicker() {
+  const box = document.getElementById('quickTagsPicker');
+  if (!box) return;
+  if (!tags.length) {
+    box.innerHTML = '<div class="tag-picker-empty">Aucun tag défini. Gère-les dans les paramètres.</div>';
+    return;
+  }
+  const draft = window._quickTagsDraft || [];
+  const primaryId = window._quickPrimaryDraft || null;
+  const ordered = [...tags].sort((a, b) => {
+    const aPrimary = a.id === primaryId ? 1 : 0;
+    const bPrimary = b.id === primaryId ? 1 : 0;
+    if (aPrimary !== bPrimary) return bPrimary - aPrimary;
+    const aSelected = draft.includes(a.id) ? 1 : 0;
+    const bSelected = draft.includes(b.id) ? 1 : 0;
+    if (aSelected !== bSelected) return bSelected - aSelected;
+    return (a.name || '').localeCompare(b.name || '', 'fr', { sensitivity: 'base' });
+  });
+  box.innerHTML = ordered.map(t => {
+    const selected = draft.includes(t.id);
+    const prefix = t.id === primaryId ? '★ ' : '';
+    return `<span class="tag-chip large ${selected ? 'selected' : ''}" style="--tag-color:${t.color}" onclick="toggleQuickTag('${t.id}')">
+      <span class="emoji">${t.emoji || '🏷'}</span>${prefix}${esc(t.name)}
+    </span>`;
+  }).join('');
+}
+
+function toggleQuickTag(tagId) {
+  const draft = window._quickTagsDraft || [];
+  const i = draft.indexOf(tagId);
+  if (i >= 0) {
+    draft.splice(i, 1);
+    if (window._quickPrimaryDraft === tagId) window._quickPrimaryDraft = null;
+  } else {
+    draft.push(tagId);
+  }
+  window._quickTagsDraft = draft;
+  renderQuickTagsList();
+  renderQuickTagsPicker();
+}
+
+function toggleQuickPrimary(tagId) {
+  if (window._quickPrimaryDraft === tagId) window._quickPrimaryDraft = null;
+  else window._quickPrimaryDraft = tagId;
+  renderQuickTagsList();
+  renderQuickTagsPicker();
+}
+
+function saveQuickTags() {
+  const f = getQuickTagFilm();
+  if (!f) { closeQuickTagModal(); return; }
+  const oldTags = [...(f.tags || [])];
+  const newTags = [...(window._quickTagsDraft || [])];
+  let newPrimary = window._quickPrimaryDraft || null;
+  if (newPrimary && !newTags.includes(newPrimary)) newPrimary = null;
+  const tagsChanged = oldTags.length !== newTags.length
+    || oldTags.some(t => !newTags.includes(t))
+    || newTags.some(t => !oldTags.includes(t));
+  const primaryChanged = (f.primaryTag || null) !== newPrimary;
+  if (!tagsChanged && !primaryChanged) {
+    closeQuickTagModal();
+    return;
+  }
+  f.tags = newTags;
+  f.primaryTag = newPrimary;
+  saveFilms();
+  const label = esc(f.titre);
+  addLog('edit', `<strong>${label}</strong> — tags mis à jour depuis le duel`);
+  toast(`Tags mis à jour pour ${f.titre}`, 'success');
+  render();
+  closeQuickTagModal();
 }
 
 function saveFilmDetails(idx) {
@@ -5538,8 +5729,12 @@ function renderDuelCard(f, opts = {}) {
   const interactivePoster = opts.clickable === false ?
     `<div class="duel-poster" ${poster}>${f.posterPath ? '' : '🎬'}${banner}</div>` :
     `<button type="button" class="duel-poster duel-poster-btn" ${poster} onclick="duelPosterClick('${f.fid}')" aria-label="Choisir ${escAttr(f.titre)}">${f.posterPath ? '' : '🎬'}${banner}</button>`;
+  const tagCount = Array.isArray(f.tags) ? f.tags.length : 0;
+  const tagBtnCls = `duel-tag-btn${tagCount ? ' has-tags' : ''}`;
+  const tagCountHtml = tagCount ? `<span class="tag-count">${tagCount}</span>` : '';
+  const tagButton = `<button type="button" class="${tagBtnCls}" onclick="event.stopPropagation();openQuickTagModal('${f.fid}')" title="Voir et modifier les tags de ${escAttr(f.titre)}" aria-label="Tags pour ${escAttr(f.titre)}">🏷 ${tagCountHtml}</button>`;
   const breakdownHtml = showBreakdown ? `<div class="duel-breakdown"><div class="duel-breakdown-row"><span>Moyenne technique</span><strong>${fmtNum(bd.avgTech)}</strong></div><div class="duel-breakdown-row"><span>Contribution technique</span><strong>${fmtNum(bd.techContribution)}</strong></div><div class="duel-breakdown-row"><span>Coup de cœur</span><strong>${fmtNum(bd.coeur)}</strong></div><div class="duel-breakdown-row"><span>Contribution coup de cœur</span><strong>${fmtNum(bd.coeurContribution)}</strong></div><div class="duel-breakdown-row"><span>Préférence</span><strong>${fmtNum(bd.preferenceScore)}</strong></div><div class="duel-breakdown-row"><span>Contribution préférence</span><strong>${fmtNum(bd.preferenceContribution)}</strong></div><div class="duel-breakdown-row total"><span>Total</span><strong>${fmtNum(bd.note)}</strong></div></div>` : '';
-  return `<div class="${cardCls}">${interactivePoster}<div class="duel-title">${esc(f.titre)}</div>${metaHtml}<div class="duel-score"><div class="duel-score-box"><div class="duel-score-value">${fmtNum(f.notePerso)}</div><div class="duel-score-label">Note globale</div></div><div class="duel-score-box"><div class="duel-score-value">${fmtNum(secondaryValue)}</div><div class="duel-score-label">${secondaryLabel}</div></div></div>${breakdownHtml}</div>`;
+  return `<div class="${cardCls}"><div class="duel-card-topbar">${tagButton}</div>${interactivePoster}<div class="duel-title">${esc(f.titre)}</div>${metaHtml}<div class="duel-score"><div class="duel-score-box"><div class="duel-score-value">${fmtNum(f.notePerso)}</div><div class="duel-score-label">Note globale</div></div><div class="duel-score-box"><div class="duel-score-value">${fmtNum(secondaryValue)}</div><div class="duel-score-label">${secondaryLabel}</div></div></div>${breakdownHtml}</div>`;
 }
 function showDuelModal(a, b) {
   currentDuelPair = { aId: a.fid, bId: b.fid };
