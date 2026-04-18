@@ -4649,7 +4649,7 @@ function openSettings() {
                 <div class="settings-action-title">Journal d'activité ${log.length ? `<span class="settings-badge">${log.length > 99 ? '99+' : log.length}</span>` : ''}</div>
                 <div class="settings-action-desc">Consultez, filtrez ou videz l'historique des opérations.</div>
               </div>
-              <button class="btn" onclick="toggleLog()">Ouvrir le journal</button>
+              <button class="btn" onclick="closeOverlay();toggleLog()">Ouvrir le journal</button>
             </div>
           </div>
         </div>
