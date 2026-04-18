@@ -6187,12 +6187,12 @@ function showTournamentFightResultModal(winner, loser, before, scoreGapBefore, c
   const actionsHtml = tournamentEnded
     ? `<div class="tournament-actions">
         <button class="btn" onclick="closeOverlay()">Fermer</button>
-        <button class="btn" onclick="showTournamentSummary()">📋 Résumé du tournoi</button>
-        <button class="btn gold" onclick="closeOverlay();setTimeout(startTournament,20)">Nouveau tournoi 🏟</button>
+        <button class="btn" onclick="showTournamentSummary()">Résumé du tournoi</button>
+        <button class="btn gold" onclick="closeOverlay();setTimeout(startTournament,20)">Nouveau tournoi</button>
        </div>`
     : `<div class="tournament-actions">
         <button class="btn red" onclick="confirmAbandonTournament()">Abandonner</button>
-        <button class="btn gold" onclick="nextTournamentFight()">Prochain adversaire ▶</button>
+        <button class="btn gold" onclick="nextTournamentFight()">Prochain adversaire</button>
        </div>`;
 
   const html = `<div class="overlay" onclick="if(event.target===this)${tournamentEnded ? 'closeOverlay()' : 'confirmAbandonTournament()'}">
@@ -6200,9 +6200,11 @@ function showTournamentFightResultModal(winner, loser, before, scoreGapBefore, c
       <div class="breakdown-modal-body">
         ${headerHtml}
         <div class="duel-result-grid">
-          ${renderDuelCard(winner, { state:'winner', banner: winnerLabel, rankJump: winnerJump, clickable: false })}
-          ${renderDuelCard(loser,  { state:'loser',  banner: loserLabel,  rankJump: loserJump,  clickable: false })}
+          ${renderDuelCard(winner, { state:'winner', banner: winnerLabel, rankJump: winnerJump, clickable: false, compact:true, showBreakdown:false, secondaryMetric:'coeur' })}
+          ${renderDuelCard(loser,  { state:'loser',  banner: loserLabel,  rankJump: loserJump,  clickable: false, compact:true, showBreakdown:false, secondaryMetric:'coeur' })}
         </div>
+      </div>
+      <div class="breakdown-modal-footer">
         ${actionsHtml}
       </div>
     </div>
