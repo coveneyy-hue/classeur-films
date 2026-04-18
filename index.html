@@ -1500,6 +1500,48 @@ td.editing input {
   font-weight:700;
   color:#fff;
   line-height:1.25;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.breakdown-label-text {
+  min-width:0;
+}
+.breakdown-label-actions {
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  flex-shrink:0;
+}
+.breakdown-info-btn {
+  width:22px;
+  height:22px;
+  border-radius:50%;
+  border:1px solid var(--border);
+  background:var(--bg3);
+  color:var(--txt2);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-size:.72rem;
+  font-weight:800;
+  cursor:pointer;
+  transition:all .15s;
+}
+.breakdown-info-btn:hover {
+  color:var(--gold);
+  border-color:var(--gold-dim);
+  background:rgba(232,166,48,.08);
+}
+.breakdown-info-btn[disabled] {
+  opacity:.35;
+  cursor:default;
+}
+.breakdown-info-btn[disabled]:hover {
+  color:var(--txt2);
+  border-color:var(--border);
+  background:var(--bg3);
 }
 .breakdown-desc {
   font-size:.82rem;
@@ -3052,10 +3094,19 @@ function openRatingBreakdown(idx, raterKey) {
       ? `<button type="button" class="breakdown-ignore-btn" onclick="toggleIgnoreCriterion('${c.key}')" title="Exclure ce critère du calcul de la note globale">${isIgnored ? '↺ Réactiver' : '🚫 Ignorer'}</button>`
       : '';
     const suffixHtml = isIgnored ? '<em>Ignoré dans la moyenne</em>' : c.suffix;
+    const peopleInfo = getCriterionPeopleInfo(f, c.key);
+    const peopleBtn = peopleInfo
+      ? `<button type="button" class="breakdown-info-btn" onclick="openCriterionInfo(${idx}, '${c.key}', 'people')" title="Voir les noms concernés">👥</button>`
+      : `<button type="button" class="breakdown-info-btn" disabled title="Aucun nom lié à ce critère">👥</button>`;
     return `<div class="${rowCls}" data-criterion="${c.key}">
       <div class="breakdown-meta">
-        <div class="breakdown-label">${c.label}${weight}</div>
-        <div class="breakdown-desc">${c.desc}</div>
+        <div class="breakdown-label">
+          <span class="breakdown-label-text">${c.label}${weight}</span>
+          <span class="breakdown-label-actions">
+            <button type="button" class="breakdown-info-btn" onclick="openCriterionInfo(${idx}, '${c.key}', 'desc')" title="Voir la description du critère">i</button>
+            ${peopleBtn}
+          </span>
+        </div>
       </div>
       <div class="breakdown-value-wrap">
         <input
@@ -3086,18 +3137,19 @@ function openRatingBreakdown(idx, raterKey) {
       rankInfo = `<p style="font-size:.78rem;color:var(--txt3);margin-top:8px">💡 Le film sera classé à la fin après enregistrement. Triez par Ma note ↓ pour glisser-déposer ensuite.</p>`;
     }
   }
+  const showTopNoteCard = note != null;
   const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()">
     <div class="modal breakdown-modal" style="max-width:760px">
       <div class="breakdown-modal-body">
         <div class="step-label" style="color:${rater.color};margin-bottom:8px">${rater.label} — ${esc(f.titre)}</div>
-        <div class="breakdown-top" style="grid-template-columns:1fr">
+        ${showTopNoteCard ? `<div class="breakdown-top" style="grid-template-columns:1fr">
           <div class="breakdown-note-card" style="text-align:center">
             <div class="breakdown-note-label">Note globale ${rater.label}</div>
-            <div id="ratingBreakdownPreview" class="breakdown-note-value" style="color:${rater.color}">${note != null ? note.toFixed(2) + '/10' : 'n/a'}</div>
+            <div id="ratingBreakdownPreview" class="breakdown-note-value" style="color:${rater.color}">${note.toFixed(2)}/10</div>
             ${rankInfo}
           </div>
-        </div>
-        <div class="breakdown-list" style="margin-top:14px">
+        </div>` : ''}
+        <div class="breakdown-list" style="margin-top:${showTopNoteCard ? '14px' : '0'}">
           <div class="breakdown-head">
             <div>Critère</div>
             <div style="color:${rater.color}">Valeur</div>
@@ -3118,6 +3170,51 @@ function openRatingBreakdown(idx, raterKey) {
   </div>`;
   document.getElementById('overlay').innerHTML = html;
   requestAnimationFrame(() => updateRatingBreakdownPreview());
+}
+
+function getCriterionPeopleInfo(film, critKey) {
+  if (!film) return '';
+  const actors = splitList(film.acteurs || '');
+  if (critKey === 'castPrincipal') {
+    return actors[0] ? `Acteur principal : ${actors[0]}` : '';
+  }
+  if (critKey === 'castSecondaire') {
+    const secondary = actors.slice(1);
+    return secondary.length ? `Acteurs secondaires : ${secondary.join(', ')}` : '';
+  }
+  if (critKey === 'realisation') {
+    const dirs = splitList(film.realisateur || '');
+    return dirs.length ? `Réalisateur${dirs.length > 1 ? 's' : ''} : ${dirs.join(', ')}` : '';
+  }
+  return '';
+}
+
+function openCriterionInfo(idx, critKey, infoType) {
+  const film = films[idx];
+  const criterion = CRITERIA.find(c => c.key === critKey);
+  if (!film || !criterion) return;
+  const title = infoType === 'people' ? `Noms liés · ${criterion.label}` : `Description · ${criterion.label}`;
+  const body = infoType === 'people'
+    ? (getCriterionPeopleInfo(film, critKey) || 'Aucun nom précis n’est lié à ce critère pour ce film.')
+    : criterion.desc;
+  const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()">
+    <div class="modal" style="max-width:520px">
+      <h2>${esc(title)}</h2>
+      <p class="desc" style="margin-bottom:18px">${esc(film.titre)}</p>
+      <div style="padding:14px 16px;background:var(--bg);border:1px solid var(--border);border-radius:12px;line-height:1.6;color:var(--txt);white-space:pre-wrap">${esc(body)}</div>
+      <div class="modal-row">
+        <button class="btn gold" onclick="reopenRatingBreakdownAfterInfo()">Fermer</button>
+      </div>
+    </div>
+  </div>`;
+  window._ratingBreakdownInfoReturn = { idx, raterKey: (window._ratingBreakdownCtx || {}).raterKey || 'notePerso' };
+  document.getElementById('overlay').innerHTML = html;
+}
+
+function reopenRatingBreakdownAfterInfo() {
+  const ctx = window._ratingBreakdownInfoReturn;
+  if (!ctx) { closeOverlay(); return; }
+  openRatingBreakdown(ctx.idx, ctx.raterKey);
 }
 
 function getRatingBreakdownDraft() {
