@@ -94,6 +94,12 @@ body::before {
 .topbar-actions {
   display: inline-flex; align-items: center; gap: 8px;
   flex-wrap: nowrap;
+  margin-left: auto;
+}
+.topbar-view-modes {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 .btn-icon {
   width: 36px; height: 36px; padding: 0;
@@ -119,6 +125,102 @@ body::before {
 .btn-icon-wrap {
   position: relative;
   display: inline-flex;
+}
+.topbar-mode-btn {
+  min-height: 36px;
+  padding: 0 12px;
+  gap: 8px;
+  border-radius: 999px;
+}
+.topbar-mode-btn .mode-icon {
+  font-size: .95rem;
+  line-height: 1;
+}
+.topbar-mode-btn .mode-label {
+  font-weight: 700;
+}
+.topbar-mode-btn .mode-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: rgba(0,0,0,.18);
+  color: inherit;
+  font-size: .75rem;
+  font-weight: 800;
+}
+.topbar-mode-btn.active {
+  background: linear-gradient(135deg, var(--gold), #d08820);
+  color: #000;
+  border-color: transparent;
+  box-shadow: 0 4px 14px rgba(232,166,48,.35);
+}
+.topbar-mode-btn.active .mode-count {
+  background: rgba(0,0,0,.22);
+}
+.settings-section {
+  margin-top: 18px;
+  padding: 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.settings-section:first-of-type {
+  margin-top: 16px;
+}
+.settings-section-title {
+  font-size: .85rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 4px;
+}
+.settings-section-desc {
+  font-size: .78rem;
+  color: var(--txt2);
+  margin-bottom: 12px;
+  line-height: 1.45;
+}
+.settings-action-list {
+  display: grid;
+  gap: 10px;
+}
+.settings-action-row {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.settings-action-title {
+  font-size: .85rem;
+  font-weight: 700;
+  color: #fff;
+}
+.settings-action-desc {
+  font-size: .76rem;
+  color: var(--txt2);
+  margin-top: 3px;
+  line-height: 1.35;
+}
+.settings-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: #000;
+  font-size: .74rem;
+  font-weight: 800;
+  margin-left: 8px;
 }
 .toolbar { display: none; }
 
@@ -312,9 +414,12 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.7); cursor
   .topbar h1 { font-size: 1.3rem; }
   .searchbox { max-width: 100%; order: 3; width: 100%; }
   .count { margin-left: 0; }
-  .topbar-actions { margin-left: auto; }
+  .topbar-actions { margin-left: 0; width: 100%; flex-wrap: wrap; }
+  .topbar-view-modes { flex-wrap: wrap; }
   .btn { padding: 8px 10px; font-size: .78rem; }
   .btn-icon { width: 34px; height: 34px; }
+  .topbar-mode-btn { min-height: 34px; }
+  .settings-action-row { grid-template-columns: 1fr; }
   .log-panel { width: 100vw; max-width: 100vw; }
 }
 
@@ -1218,26 +1323,17 @@ td.editing input {
   <!-- Topbar -->
   <div class="topbar">
     <h1><span>🎬</span> Classeur Films</h1>
-    <input type="text" class="searchbox" id="search" placeholder="Rechercher titre, genre, réalisateur…" oninput="render()">
+    <input type="text" class="searchbox" id="search" placeholder="Rechercher titre, genre, réalisateur, tag…" oninput="render()">
     <span class="count" id="counter"></span>
     <div class="topbar-actions">
       <button class="btn btn-icon gold" onclick="openAddModal()" title="Ajouter un film" aria-label="Ajouter un film">＋</button>
       <button class="btn btn-icon" onclick="toggleHidden()" title="Afficher ou masquer les critères" aria-label="Afficher ou masquer les critères">👁</button>
-      <button class="btn btn-icon" onclick="exportJSON()" title="Exporter JSON" aria-label="Exporter JSON">⬇</button>
-      <button class="btn btn-icon" onclick="exportExcel()" title="Exporter Excel" aria-label="Exporter Excel">📊</button>
-      <button class="btn btn-icon" onclick="document.getElementById('importFile').click()" title="Importer JSON" aria-label="Importer JSON">⬆</button>
-      <input type="file" id="importFile" class="file-input" accept=".json" onchange="importJSON(event)">
-      <span class="btn-icon-wrap">
-        <button class="btn btn-icon" onclick="toggleLog()" id="logBtn" title="Journal d'activité" aria-label="Journal d'activité">📋</button>
-        <span class="log-badge" id="logCount"></span>
-      </span>
-      <button class="btn btn-icon" onclick="openStats()" title="Statistiques" aria-label="Statistiques">📊</button>
+      <button class="btn btn-icon" onclick="openStats()" title="Statistiques" aria-label="Statistiques">📈</button>
       <button class="btn btn-icon" onclick="openSettings()" title="Paramètres" aria-label="Paramètres">⚙</button>
+      <div id="topbarViewModes" class="topbar-view-modes"></div>
     </div>
+    <input type="file" id="importFile" class="file-input" accept=".json" onchange="importJSON(event)">
   </div>
-
-  <!-- View Mode Toggle -->
-  <div id="viewModeBar" class="view-mode-bar"></div>
 
   <!-- Toolbar -->
   <div class="toolbar"></div>
@@ -1795,7 +1891,7 @@ function toast(msg, type='info') {
    ═══════════════════════════════════════════════════ */
 function render() {
   renderViewModeBar();
-  const q = document.getElementById('search').value.toLowerCase();
+  const q = document.getElementById('search').value.trim().toLowerCase();
   // Filter by view mode
   let list = films.map((f, i) => ({ ...f, _idx: i }))
     .filter(f => viewMode === 'watchlist' ? f.watchlist : !f.watchlist);
@@ -1856,7 +1952,15 @@ function render() {
   }
 
   // Apply search filter AFTER ranks are computed
-  if (q) list = list.filter(f => (f.titre+f.genre+f.realisateur+f.acteurs).toLowerCase().includes(q));
+  if (q) list = list.filter(f => {
+    const tagNames = (f.tags || []).map(tid => findTag(tid)?.name || '').join(' ');
+    const primaryTagName = f.primaryTag ? (findTag(f.primaryTag)?.name || '') : '';
+    const haystack = [f.titre, f.genre, f.realisateur, f.acteurs, tagNames, primaryTagName]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return haystack.includes(q);
+  });
   if (tagFilter) list = list.filter(f => (f.tags || []).includes(tagFilter));
 
   document.getElementById('counter').textContent = list.length + ' / ' + films.length + ' films';
@@ -2002,17 +2106,21 @@ function render() {
 }
 
 function renderViewModeBar() {
-  const bar = document.getElementById('viewModeBar');
+  const bar = document.getElementById('topbarViewModes');
   if (!bar) return;
   const classeurCount = films.filter(f => !f.watchlist).length;
   const wlCount = films.filter(f => f.watchlist).length;
   bar.innerHTML = `
-    <div class="view-mode-btn ${viewMode === 'classeur' ? 'active' : ''}" onclick="setViewMode('classeur')">
-      📽 Classeur <span class="count">${classeurCount}</span>
-    </div>
-    <div class="view-mode-btn ${viewMode === 'watchlist' ? 'active' : ''}" onclick="setViewMode('watchlist')">
-      🎯 À voir <span class="count">${wlCount}</span>
-    </div>
+    <button class="btn topbar-mode-btn ${viewMode === 'classeur' ? 'active' : ''}" onclick="setViewMode('classeur')" title="Afficher le classeur" aria-label="Afficher le classeur">
+      <span class="mode-icon">📽</span>
+      <span class="mode-label">Classeur</span>
+      <span class="mode-count">${classeurCount}</span>
+    </button>
+    <button class="btn topbar-mode-btn ${viewMode === 'watchlist' ? 'active' : ''}" onclick="setViewMode('watchlist')" title="Afficher la liste À voir" aria-label="Afficher la liste À voir">
+      <span class="mode-icon">🎯</span>
+      <span class="mode-label">À voir</span>
+      <span class="mode-count">${wlCount}</span>
+    </button>
   `;
 }
 
@@ -4444,43 +4552,108 @@ function openSettings() {
   const apiKey = localStorage.getItem('cf_tmdbKey') || '';
   const lang = localStorage.getItem('cf_tmdbLang') || 'fr-FR';
   const html = `<div class="overlay" onclick="if(event.target===this)closeOverlay()">
-    <div class="modal breakdown-modal" style="max-width:520px">
+    <div class="modal breakdown-modal" style="max-width:620px">
       <div class="breakdown-modal-body">
         <h2>⚙ Paramètres</h2>
-        <p class="desc">Ajustez les préférences d'affichage du classeur.</p>
-        <label>Largeur réduite de la colonne Titre (px)</label>
-        <input type="number" id="settingsTitreWidth" min="50" max="600" step="10" value="${titreReducedWidth}" placeholder="90">
-        <p style="font-size:.78rem;color:var(--txt3);margin-top:6px;margin-bottom:14px">Valeur par défaut : 90 px · Min 50 · Max 600</p>
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-          <input type="checkbox" id="settingsShowPosters" ${showPosters ? 'checked' : ''} style="width:auto;margin:0">
-          <span>Afficher les mini-affiches dans le tableau</span>
-        </label>
-        <p style="font-size:.78rem;color:var(--txt3);margin-top:6px;margin-bottom:14px">Les affiches apparaissent à gauche du titre (nécessite TMDb)</p>
-        <label>Clé API TMDb (v3)</label>
-        <input type="text" id="settingsTmdbKey" value="${esc(apiKey)}" placeholder="Votre clé API TMDb">
-        <p style="font-size:.78rem;color:var(--txt3);margin-top:6px;margin-bottom:14px">Gratuite sur <span style="color:var(--gold)">themoviedb.org</span> · Utilisée pour chercher films et affiches</p>
-        <label>Langue TMDb</label>
-        <select id="settingsTmdbLang">
-          <option value="fr-FR" ${lang==='fr-FR'?'selected':''}>Français (fr-FR)</option>
-          <option value="en-US" ${lang==='en-US'?'selected':''}>Anglais (en-US)</option>
-          <option value="fr-CA" ${lang==='fr-CA'?'selected':''}>Français Canada (fr-CA)</option>
-        </select>
+        <p class="desc">Ajustez l'affichage, les données externes et les outils de maintenance.</p>
 
-        <div style="margin-top:18px;padding:12px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)">
-          <div style="font-size:.85rem;font-weight:700;color:#fff;margin-bottom:4px">🏷 Gestion des tags</div>
-          <div style="font-size:.78rem;color:var(--txt2);margin-bottom:10px">Créez, renommez ou supprimez vos tags (${tags.length} tag${tags.length>1?'s':''} actuellement).</div>
-          <button class="btn" onclick="openTagManager()" style="width:100%">Gérer les tags</button>
+        <div class="settings-section">
+          <div class="settings-section-title">Affichage</div>
+          <div class="settings-section-desc">Réglez la présentation du tableau principal.</div>
+          <label>Largeur réduite de la colonne Titre (px)</label>
+          <input type="number" id="settingsTitreWidth" min="50" max="600" step="10" value="${titreReducedWidth}" placeholder="90">
+          <p style="font-size:.78rem;color:var(--txt3);margin-top:6px;margin-bottom:14px">Valeur par défaut : 90 px · Min 50 · Max 600</p>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" id="settingsShowPosters" ${showPosters ? 'checked' : ''} style="width:auto;margin:0">
+            <span>Afficher les mini-affiches dans le tableau</span>
+          </label>
+          <p style="font-size:.78rem;color:var(--txt3);margin-top:6px">Les affiches apparaissent à gauche du titre et utilisent TMDb quand disponible.</p>
         </div>
 
-        ${hasTmdbKey() ? `<div style="margin-top:12px;padding:12px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)">
-          <div style="font-size:.85rem;font-weight:700;color:#fff;margin-bottom:4px">🔄 Enrichissement batch TMDb</div>
-          <div style="font-size:.78rem;color:var(--txt2);margin-bottom:10px">Charger massivement les données TMDb (affiches, casting, genres, etc.). Vous choisirez les champs à remplir.</div>
-          <button class="btn" onclick="closeOverlay();startBatchEnrich()" style="width:100%">Configurer et lancer</button>
-        </div>` : ''}
-        <div style="margin-top:12px;padding:12px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)">
-          <div style="font-size:.85rem;font-weight:700;color:#fff;margin-bottom:4px">📦 Cache PWA</div>
-          <div style="font-size:.78rem;color:var(--txt2);margin-bottom:10px">Vider le cache des affiches TMDb (libère de l'espace).</div>
-          <button class="btn" onclick="clearImageCache()" style="width:100%">Vider le cache des affiches</button>
+        <div class="settings-section">
+          <div class="settings-section-title">TMDb</div>
+          <div class="settings-section-desc">Configuration des recherches de films, affiches et enrichissements.</div>
+          <label>Clé API TMDb (v3)</label>
+          <input type="text" id="settingsTmdbKey" value="${esc(apiKey)}" placeholder="Votre clé API TMDb">
+          <p style="font-size:.78rem;color:var(--txt3);margin-top:6px;margin-bottom:14px">Gratuite sur <span style="color:var(--gold)">themoviedb.org</span> · Utilisée pour chercher films et affiches</p>
+          <label>Langue TMDb</label>
+          <select id="settingsTmdbLang">
+            <option value="fr-FR" ${lang==='fr-FR'?'selected':''}>Français (fr-FR)</option>
+            <option value="en-US" ${lang==='en-US'?'selected':''}>Anglais (en-US)</option>
+            <option value="fr-CA" ${lang==='fr-CA'?'selected':''}>Français Canada (fr-CA)</option>
+          </select>
+          ${hasTmdbKey() ? `<div class="settings-action-list" style="margin-top:12px">
+            <div class="settings-action-row">
+              <div>
+                <div class="settings-action-title">Enrichissement batch TMDb</div>
+                <div class="settings-action-desc">Charge massivement les données TMDb et vous laisse choisir les champs à remplir.</div>
+              </div>
+              <button class="btn" onclick="closeOverlay();startBatchEnrich()">Configurer et lancer</button>
+            </div>
+          </div>` : ''}
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">Tags</div>
+          <div class="settings-section-desc">Créez, renommez et supprimez vos tags. La recherche tient aussi compte de leurs libellés.</div>
+          <div class="settings-action-list">
+            <div class="settings-action-row">
+              <div>
+                <div class="settings-action-title">Gestion des tags</div>
+                <div class="settings-action-desc">${tags.length} tag${tags.length>1?'s':''} enregistré${tags.length>1?'s':''} actuellement.</div>
+              </div>
+              <button class="btn" onclick="openTagManager()">Gérer les tags</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">Import, export et journal</div>
+          <div class="settings-section-desc">Toutes les opérations de sauvegarde et de journalisation sont regroupées ici.</div>
+          <div class="settings-action-list">
+            <div class="settings-action-row">
+              <div>
+                <div class="settings-action-title">Exporter en JSON</div>
+                <div class="settings-action-desc">Crée une sauvegarde complète avec films, tags et journal.</div>
+              </div>
+              <button class="btn" onclick="exportJSON()">Exporter JSON</button>
+            </div>
+            <div class="settings-action-row">
+              <div>
+                <div class="settings-action-title">Importer un JSON</div>
+                <div class="settings-action-desc">Restaure une sauvegarde depuis un fichier JSON.</div>
+              </div>
+              <button class="btn" onclick="document.getElementById('importFile').click()">Importer JSON</button>
+            </div>
+            <div class="settings-action-row">
+              <div>
+                <div class="settings-action-title">Exporter en Excel</div>
+                <div class="settings-action-desc">Génère un fichier Excel avec les films et les critères détaillés.</div>
+              </div>
+              <button class="btn" onclick="exportExcel()">Exporter Excel</button>
+            </div>
+            <div class="settings-action-row">
+              <div>
+                <div class="settings-action-title">Journal d'activité ${log.length ? `<span class="settings-badge">${log.length > 99 ? '99+' : log.length}</span>` : ''}</div>
+                <div class="settings-action-desc">Consultez, filtrez ou videz l'historique des opérations.</div>
+              </div>
+              <button class="btn" onclick="toggleLog()">Ouvrir le journal</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">Cache PWA</div>
+          <div class="settings-section-desc">Maintenance locale pour libérer l'espace occupé par les affiches en cache.</div>
+          <div class="settings-action-list">
+            <div class="settings-action-row">
+              <div>
+                <div class="settings-action-title">Vider le cache des affiches</div>
+                <div class="settings-action-desc">Supprime les affiches TMDb mises en cache sur l'appareil.</div>
+              </div>
+              <button class="btn" onclick="clearImageCache()">Vider le cache</button>
+            </div>
+          </div>
         </div>
         <div style="height:20px"></div>
       </div>
