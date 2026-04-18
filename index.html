@@ -1468,6 +1468,44 @@ td.editing input {
   margin-top:4px;
   text-align:right;
 }
+.breakdown-ignore-btn {
+  display:block;
+  margin-top:8px;
+  width:100%;
+  padding:5px 10px;
+  border-radius:6px;
+  border:1px solid var(--border);
+  background:transparent;
+  color:var(--txt2);
+  font-family:var(--font-body);
+  font-size:.74rem;
+  font-weight:600;
+  cursor:pointer;
+  transition: all .15s;
+}
+.breakdown-ignore-btn:hover {
+  color:var(--red);
+  border-color:var(--red);
+  background:rgba(232,64,64,.06);
+}
+.breakdown-row.ignored { opacity:.5; }
+.breakdown-row.ignored .breakdown-input {
+  background:var(--bg3);
+  color:var(--txt3);
+  text-decoration:line-through;
+}
+.breakdown-row.ignored .breakdown-suffix { color:var(--txt3) !important; font-style:italic; }
+.breakdown-row.ignored .breakdown-ignore-btn {
+  color:var(--gold);
+  border-color:var(--gold-dim);
+  background:rgba(232,166,48,.06);
+  opacity:1.8; /* boost visibility against the row's opacity */
+}
+.breakdown-row.ignored .breakdown-ignore-btn:hover {
+  color:var(--gold2);
+  border-color:var(--gold);
+  background:rgba(232,166,48,.12);
+}
 @media (max-width: 768px) {
   .breakdown-modal {
     width:calc(100vw - 24px);
@@ -1605,6 +1643,11 @@ function allCriteriaKeys() {
 }
 function ensureCriteriaKeys(f) {
   RATERS.forEach(r => CRITERIA.forEach(c => { const k = r.prefix + c.key; if (!(k in f)) f[k] = null; }));
+  // Init ignoredTech arrays per rater (critères techniques à exclure de la moyenne)
+  RATERS.forEach(r => {
+    const k = r.prefix + 'ignoredTech';
+    if (!(k in f) || !Array.isArray(f[k])) f[k] = [];
+  });
 }
 
 // Migration: convert old position100 → coupDeCoeur (0-10 equivalence)
@@ -1924,25 +1967,39 @@ function getRankedFilmsSorted() {
   return films.filter(f => !f.watchlist && f.rank != null && f.notePerso != null).sort((a,b) => a.rank - b.rank);
 }
 function getFilmIndexById(fid) { return films.findIndex(f => f.fid === fid); }
+
+/* Retourne la liste des clés de critères techniques ignorés pour un film et un rater donné */
+function getIgnoredTech(f, prefix) {
+  const arr = f[(prefix || '') + 'ignoredTech'];
+  return Array.isArray(arr) ? arr : [];
+}
+/* Retourne les critères techniques à utiliser dans le calcul (exclut les ignorés) */
+function getActiveTechCriteria(f, prefix) {
+  const ignored = getIgnoredTech(f, prefix);
+  return CRITERIA.filter(c => !c.isPreference && !ignored.includes(c.key));
+}
 function getDuelPairKey(a, b) { return [a.fid, b.fid].sort().join('__'); }
 function getPairHistory(a, b) {
   const key = getDuelPairKey(a, b);
   return duelLog.filter(d => d.pairKey === key).sort((x,y) => y.ts.localeCompare(x.ts));
 }
 function getPersoBreakdown(f) {
-  const techCriteria = CRITERIA.filter(c => !c.isPreference);
+  const techCriteria = getActiveTechCriteria(f, '');
   const techVals = techCriteria.map(c => Number(f[c.key]) || 0);
   const avgTech = techVals.length ? techVals.reduce((a,b)=>a+b,0) / techVals.length : 0;
   const coeur = Number(f.coupDeCoeur) || 0;
-  const techContribution = avgTech * 0.5;
-  const coeurContribution = coeur * 0.25;
+  // Si tous les critères techniques sont ignorés, le poids est transféré vers coup de cœur et préférence
+  const hasTech = techVals.length > 0;
+  const techContribution = hasTech ? avgTech * 0.5 : 0;
+  const coeurContribution = hasTech ? coeur * 0.25 : coeur * 0.5;
   const base = techContribution + coeurContribution;
   const note = Number(f.notePerso) || 0;
   const preferenceContribution = note - base;
-  const preferenceScore = preferenceContribution / 0.25;
+  const preferenceScore = hasTech ? preferenceContribution / 0.25 : preferenceContribution / 0.5;
   return {
     avgTech, coeur, base, note,
-    techContribution, coeurContribution, preferenceContribution, preferenceScore
+    techContribution, coeurContribution, preferenceContribution, preferenceScore,
+    hasTech, ignoredCount: CRITERIA.filter(c => !c.isPreference).length - techCriteria.length
   };
 }
 function fmtNum(v) {
@@ -1995,18 +2052,30 @@ function computeNote(f, prefix) {
   prefix = prefix || '';
   const coeur = f[prefix + 'coupDeCoeur'];
   if (coeur == null) return null;
-  const techCriteria = CRITERIA.filter(c => !c.isPreference);
+  const techCriteria = getActiveTechCriteria(f, prefix);
   const techVals = techCriteria.map(c => f[prefix + c.key] ?? 0);
-  const avgTech = techVals.reduce((a,b) => a + b, 0) / techVals.length;
+  const avgTech = techVals.length ? techVals.reduce((a,b) => a + b, 0) / techVals.length : null;
 
   if (prefix === '') {
-    // Ma note — includes manual rank as 25% preference component
+    // Ma note — 50% tech + 25% coup de cœur + 25% préférence (rang)
     const prefVal = computePrefFromRank(f.rank);
-    const note = avgTech * 0.50 + coeur * 0.25 + prefVal * 0.25;
+    let note;
+    if (avgTech != null) {
+      note = avgTech * 0.50 + coeur * 0.25 + prefVal * 0.25;
+    } else {
+      // Tous les critères techniques ignorés → rescale (coeur 50% + pref 50%)
+      note = coeur * 0.50 + prefVal * 0.50;
+    }
     return Math.round(note * 100) / 100;
   }
-  // Other raters — no rank system, simpler formula
-  const note = avgTech * 0.67 + coeur * 0.33;
+  // Autres raters — 67% tech + 33% coup de cœur
+  let note;
+  if (avgTech != null) {
+    note = avgTech * 0.67 + coeur * 0.33;
+  } else {
+    // Tous les critères techniques ignorés → coup de cœur uniquement
+    note = coeur;
+  }
   return Math.round(note * 100) / 100;
 }
 
@@ -2026,8 +2095,13 @@ function computeBaseNote(f, prefix) {
   prefix = prefix || '';
   const coeur = f[prefix + 'coupDeCoeur'];
   if (coeur == null) return null;
-  const techCriteria = CRITERIA.filter(c => !c.isPreference);
+  const techCriteria = getActiveTechCriteria(f, prefix);
   const techVals = techCriteria.map(c => f[prefix + c.key] ?? 0);
+  if (!techVals.length) {
+    // Tous les critères techniques ignorés → base = 0.5 * coup de cœur (moitié du poids habituel du coeur)
+    // dans la formule 50% tech + 25% coeur, on rescale tech→0 et coeur→50%
+    return coeur * 0.5;
+  }
   const avgTech = techVals.reduce((a,b) => a+b, 0) / techVals.length;
   return avgTech * 0.5 + coeur * 0.25;
 }
@@ -2846,16 +2920,23 @@ function saveFilmDetails(idx) {
 function computeDraftNote(draft, raterKey, filmIdx) {
   const coeur = draft.coupDeCoeur;
   if (coeur == null || isNaN(coeur)) return null;
-  const techCriteria = CRITERIA.filter(c => !c.isPreference);
+  const ignored = Array.isArray(draft._ignoredTech) ? draft._ignoredTech : [];
+  const techCriteria = CRITERIA.filter(c => !c.isPreference && !ignored.includes(c.key));
   const techVals = techCriteria.map(c => {
     const v = draft[c.key];
     return (v == null || isNaN(v)) ? 0 : v;
   });
-  const avgTech = techVals.reduce((a,b) => a + b, 0) / techVals.length;
+  const avgTech = techVals.length ? techVals.reduce((a,b) => a + b, 0) / techVals.length : null;
 
   if (raterKey === 'notePerso' || raterKey == null) {
     // Ma note — respect monotonic constraint from neighbors in the manual ranking
-    const base = avgTech * 0.5 + coeur * 0.25;
+    let base;
+    if (avgTech != null) {
+      base = avgTech * 0.5 + coeur * 0.25;
+    } else {
+      // Tous techniques ignorés → rescale (coeur 50%)
+      base = coeur * 0.5;
+    }
     const maxReachable = Math.min(10, base + 2.5);
     const f = filmIdx != null ? films[filmIdx] : null;
     if (!f || f.rank == null) {
@@ -2874,8 +2955,15 @@ function computeDraftNote(draft, raterKey, filmIdx) {
     note = Math.max(0, Math.min(10, note));
     return Math.round(note * 100) / 100;
   }
-  // Autres raters — 67/33 simple
-  return Math.round((avgTech * 0.67 + coeur * 0.33) * 100) / 100;
+  // Autres raters
+  let note;
+  if (avgTech != null) {
+    note = avgTech * 0.67 + coeur * 0.33;
+  } else {
+    // Tous techniques ignorés → coeur uniquement
+    note = coeur;
+  }
+  return Math.round(note * 100) / 100;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -2886,13 +2974,20 @@ function openRatingBreakdown(idx, raterKey) {
   const f = films[idx];
   const note = f[rater.key];
   window._ratingBreakdownCtx = { idx, raterKey };
-  const hasAnyData = note != null || CRITERIA.some(c => f[rater.prefix + c.key] != null);
+  const currentIgnored = getIgnoredTech(f, rater.prefix);
+  const hasAnyData = note != null || CRITERIA.some(c => f[rater.prefix + c.key] != null) || currentIgnored.length > 0;
   const rows = CRITERIA.map(c => {
     const value = f[rater.prefix + c.key];
+    const isIgnored = !c.isPreference && currentIgnored.includes(c.key);
     const weight = c.isPreference
       ? (raterKey === 'notePerso' ? ' <span style="color:var(--gold);font-size:.7rem">(25%)</span>' : ' <span style="color:var(--gold);font-size:.7rem">(33%)</span>')
       : '';
-    return `<div class="breakdown-row">
+    const rowCls = isIgnored ? 'breakdown-row ignored' : 'breakdown-row';
+    const ignoreBtn = !c.isPreference
+      ? `<button type="button" class="breakdown-ignore-btn" onclick="toggleIgnoreCriterion('${c.key}')" title="Exclure ce critère du calcul de la note globale">${isIgnored ? '↺ Réactiver' : '🚫 Ignorer'}</button>`
+      : '';
+    const suffixHtml = isIgnored ? '<em>Ignoré dans la moyenne</em>' : c.suffix;
+    return `<div class="${rowCls}" data-criterion="${c.key}">
       <div class="breakdown-meta">
         <div class="breakdown-label">${c.label}${weight}</div>
         <div class="breakdown-desc">${c.desc}</div>
@@ -2904,12 +2999,15 @@ function openRatingBreakdown(idx, raterKey) {
           id="rbreakdown_${c.key}"
           data-min="${c.min}"
           data-max="${c.max}"
+          data-ignored="${isIgnored ? '1' : ''}"
+          ${isIgnored ? 'disabled' : ''}
           value="${value != null ? value : ''}"
-          placeholder="${c.min} à ${c.max}"
+          placeholder="${isIgnored ? 'Ignoré' : c.min + ' à ' + c.max}"
           oninput="updateRatingBreakdownPreview()"
           class="breakdown-input"
         >
-        <div class="breakdown-suffix" style="color:${rater.color}">${c.suffix}</div>
+        <div class="breakdown-suffix" style="color:${rater.color}">${suffixHtml}</div>
+        ${ignoreBtn}
       </div>
     </div>`;
   }).join('');
@@ -2959,11 +3057,21 @@ function openRatingBreakdown(idx, raterKey) {
 
 function getRatingBreakdownDraft() {
   const draft = {};
+  const ignoredTech = [];
   CRITERIA.forEach(c => {
-    const raw = document.getElementById('rbreakdown_' + c.key)?.value ?? '';
+    const input = document.getElementById('rbreakdown_' + c.key);
+    if (!input) { draft[c.key] = null; return; }
+    const isIgnored = input.dataset.ignored === '1';
+    if (isIgnored && !c.isPreference) {
+      draft[c.key] = null;
+      ignoredTech.push(c.key);
+      return;
+    }
+    const raw = input.value ?? '';
     const trimmed = String(raw).trim();
     draft[c.key] = trimmed === '' ? null : parseFloat(trimmed);
   });
+  draft._ignoredTech = ignoredTech;
   return draft;
 }
 
@@ -2981,6 +3089,32 @@ function updateRatingBreakdownPreview() {
   noteEl.textContent = note != null ? note.toFixed(2) + '/10' : 'n/a';
 }
 
+/* Bascule l'état "ignoré" d'un critère technique dans le modal de ventilation */
+function toggleIgnoreCriterion(critKey) {
+  const row = document.querySelector(`.breakdown-row[data-criterion="${critKey}"]`);
+  const input = document.getElementById('rbreakdown_' + critKey);
+  const btn = row && row.querySelector('.breakdown-ignore-btn');
+  const suffix = row && row.querySelector('.breakdown-suffix');
+  if (!row || !input || !btn) return;
+  const crit = CRITERIA.find(c => c.key === critKey);
+  if (!crit || crit.isPreference) return; // ne s'applique pas au coup de cœur
+  const nowIgnored = !(input.dataset.ignored === '1');
+  input.dataset.ignored = nowIgnored ? '1' : '';
+  input.disabled = nowIgnored;
+  if (nowIgnored) {
+    row.classList.add('ignored');
+    btn.innerHTML = '↺ Réactiver';
+    input.placeholder = 'Ignoré';
+    if (suffix) suffix.innerHTML = '<em>Ignoré dans la moyenne</em>';
+  } else {
+    row.classList.remove('ignored');
+    btn.innerHTML = '🚫 Ignorer';
+    input.placeholder = `${crit.min} à ${crit.max}`;
+    if (suffix) suffix.textContent = crit.suffix;
+  }
+  updateRatingBreakdownPreview();
+}
+
 function saveRatingBreakdown(idx, raterKey) {
   const rater = getRaterByKey(raterKey);
   const f = films[idx];
@@ -2993,7 +3127,10 @@ function saveRatingBreakdown(idx, raterKey) {
     }
   }
   const oldNote = f[rater.key];
+  const oldIgnored = getIgnoredTech(f, rater.prefix);
   CRITERIA.forEach(c => { f[rater.prefix + c.key] = draft[c.key]; });
+  // Sauvegarde la liste des critères techniques ignorés pour ce rater
+  f[rater.prefix + 'ignoredTech'] = Array.isArray(draft._ignoredTech) ? draft._ignoredTech.slice() : [];
   // For Ma note: auto-assign rank at the end if coup de cœur just set and no rank yet
   if (raterKey === 'notePerso' && draft.coupDeCoeur != null && f.rank == null && !f.watchlist) {
     const maxRank = films.filter(ff => !ff.watchlist && ff.rank != null)
@@ -3005,7 +3142,12 @@ function saveRatingBreakdown(idx, raterKey) {
   if (raterKey === 'notePerso') recomputeAllPersoNotes();
   saveFilms();
   const newNote = f[rater.key];
-  addLog('note', `<strong>${rater.label}</strong> — Ventilation modifiée pour <strong>${f.titre}</strong> : ${oldNote != null ? oldNote.toFixed(2) : '—'} → ${newNote != null ? newNote.toFixed(2) : '—'}`);
+  const newIgnored = f[rater.prefix + 'ignoredTech'];
+  const ignoredChanged = JSON.stringify(oldIgnored) !== JSON.stringify(newIgnored);
+  const ignoredInfo = ignoredChanged && newIgnored.length
+    ? ` · ignorés : ${newIgnored.map(k => (CRITERIA.find(c => c.key === k) || {}).label || k).join(', ')}`
+    : (ignoredChanged ? ' · aucun critère ignoré' : '');
+  addLog('note', `<strong>${rater.label}</strong> — Ventilation modifiée pour <strong>${f.titre}</strong> : ${oldNote != null ? oldNote.toFixed(2) : '—'} → ${newNote != null ? newNote.toFixed(2) : '—'}${ignoredInfo}`);
   toast(`${rater.label} → ${f.titre} : ${newNote != null ? newNote.toFixed(2) : '—'}`, 'success');
   closeOverlay();
   render();
@@ -3032,6 +3174,7 @@ function doDeleteRaterNote(idx, raterKey) {
   const f = films[idx];
   const oldNote = f[rater.key];
   CRITERIA.forEach(c => { f[rater.prefix + c.key] = null; });
+  f[rater.prefix + 'ignoredTech'] = [];
   f[rater.key] = null;
   // If deleting Ma note: clear rank and normalize the remaining ones + recompute
   if (raterKey === 'notePerso') {
