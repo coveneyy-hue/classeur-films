@@ -8,7 +8,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Classeur Films</title>
 <link rel="manifest" href="manifest.json">
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Barlow:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
   --bg:        #0a0a16;
@@ -46,6 +48,9 @@ body::before {
   position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.03'/%3E%3C/svg%3E") repeat;
   opacity: .6;
+  /* Promote to its own GPU layer so scrolling doesn't trigger a full-page repaint */
+  transform: translateZ(0);
+  will-change: transform;
 }
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
@@ -1460,6 +1465,20 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.7); cursor
   justify-content: center;
 }
 .quick-tags-modal .modal-row .btn { flex: 1; }
+.quick-tag-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  background: rgba(0,0,0,.48);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+.quick-tag-overlay .quick-tags-modal {
+  width: min(560px, 100%);
+}
 
 /* ─── NOTES SUMMARY GRID (in details modal) ───────── */
 .note-summary-grid {
@@ -1834,8 +1853,7 @@ td.editing input {
 }
 
 </style>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<!-- Chart.js et SheetJS sont chargés à la demande via _loadScript() pour ne pas bloquer le chargement initial -->
 </head>
 <body>
 
@@ -1859,7 +1877,7 @@ td.editing input {
     </div>
     <div class="topbar-search-row">
       <div class="search-inline-wrap">
-        <input type="text" class="searchbox" id="search" placeholder="Rechercher titre, genre, réalisateur, tag…" oninput="render()">
+        <input type="text" class="searchbox" id="search" placeholder="Rechercher titre, genre, réalisateur, tag…" oninput="debouncedSearch()">
       </div>
       <span class="count" id="counter"></span>
     </div>
@@ -2110,11 +2128,15 @@ let duelRevealed = false;        // indique si les notes ont été révélées p
 let activeTournament = null;     // tournoi en cours : { championId, streak, fights, startedAt, currentPair, faced, lastResult }
 
 function loadState() {
+  const _clone = typeof structuredClone === 'function'
+    ? (x) => structuredClone(x)
+    : (x) => JSON.parse(JSON.stringify(x));
   try {
     const d = localStorage.getItem('cf_films');
-    films = d ? JSON.parse(d) : JSON.parse(JSON.stringify(DEFAULT_FILMS));
+    films = d ? JSON.parse(d) : _clone(DEFAULT_FILMS);
     films.forEach(f => ensureFilmKeys(f));
-  } catch(e) { films = JSON.parse(JSON.stringify(DEFAULT_FILMS)); films.forEach(f => ensureFilmKeys(f)); }
+  } catch(e) { films = _clone(DEFAULT_FILMS); films.forEach(f => ensureFilmKeys(f)); }
+  _invalidateFidIndex();
   try { log = JSON.parse(localStorage.getItem('cf_log') || '[]'); } catch(e) { log = []; }
   try { duelLog = JSON.parse(localStorage.getItem('cf_duelLog') || '[]'); } catch(e) { duelLog = []; }
   try {
@@ -2161,7 +2183,14 @@ function seedInitialRanksIfNeeded() {
   saveFilms();
 }
 
-function saveTags() { localStorage.setItem('cf_tags', JSON.stringify(tags)); }
+function saveTags() {
+  _invalidateTagIndex();
+  localStorage.setItem('cf_tags', JSON.stringify(tags));
+}
+
+// Tag index for fast lookup (O(1) instead of O(n) via find)
+let _tagIndex = null;
+function _invalidateTagIndex() { _tagIndex = null; }
 
 function getDefaultTags() {
   return [
@@ -2180,11 +2209,75 @@ function getDefaultTags() {
 
 function genTagId() { return 'tag_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,7); }
 function genFilmId() { return 'film_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8); }
-function findTag(id) { return tags.find(t => t.id === id) || null; }
+function findTag(id) {
+  if (!_tagIndex) {
+    _tagIndex = new Map();
+    for (let i = 0; i < tags.length; i++) _tagIndex.set(tags[i].id, tags[i]);
+  }
+  return _tagIndex.get(id) || null;
+}
 
-function saveFilms() { localStorage.setItem('cf_films', JSON.stringify(films)); }
-function saveLog() { localStorage.setItem('cf_log', JSON.stringify(log)); }
-function saveDuelLog() { localStorage.setItem('cf_duelLog', JSON.stringify(duelLog)); }
+/* ═══════════════════════════════════════════════════
+   PERFORMANCE HELPERS (debounce + index + lazy libs)
+   ═══════════════════════════════════════════════════ */
+// Lazy-load external libraries on demand (returns a Promise that resolves once loaded)
+const _loadedScripts = {};
+function _loadScript(url) {
+  if (_loadedScripts[url]) return _loadedScripts[url];
+  _loadedScripts[url] = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = url;
+    s.async = true;
+    s.onload = () => resolve();
+    s.onerror = () => { delete _loadedScripts[url]; reject(new Error('Failed to load ' + url)); };
+    document.head.appendChild(s);
+  });
+  return _loadedScripts[url];
+}
+const _CHARTJS_URL = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+const _SHEETJS_URL = 'https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js';
+function loadChartJs() { return typeof Chart !== 'undefined' ? Promise.resolve() : _loadScript(_CHARTJS_URL); }
+function loadSheetJs() { return typeof XLSX !== 'undefined' ? Promise.resolve() : _loadScript(_SHEETJS_URL); }
+const _saveTimers = {};
+function _debouncedSave(key, value, delay = 250) {
+  if (_saveTimers[key]) clearTimeout(_saveTimers[key]);
+  _saveTimers[key] = setTimeout(() => {
+    localStorage.setItem(key, value);
+    delete _saveTimers[key];
+  }, delay);
+}
+function _flushSaves() {
+  Object.keys(_saveTimers).forEach(k => { clearTimeout(_saveTimers[k]); });
+  // Re-serialize current state immediately to be safe
+  localStorage.setItem('cf_films', JSON.stringify(films));
+  localStorage.setItem('cf_log', JSON.stringify(log));
+  localStorage.setItem('cf_duelLog', JSON.stringify(duelLog));
+  Object.keys(_saveTimers).forEach(k => delete _saveTimers[k]);
+}
+// Avoid data loss: flush pending saves before unload/hide
+window.addEventListener('pagehide', _flushSaves);
+window.addEventListener('beforeunload', _flushSaves);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') _flushSaves(); });
+
+function saveFilms() { _debouncedSave('cf_films', JSON.stringify(films)); }
+function saveLog() { _debouncedSave('cf_log', JSON.stringify(log)); }
+function saveDuelLog() { _debouncedSave('cf_duelLog', JSON.stringify(duelLog)); }
+
+// Debounced search — avoids re-rendering on every keystroke
+let _searchTimer = null;
+function debouncedSearch() {
+  if (_searchTimer) clearTimeout(_searchTimer);
+  _searchTimer = setTimeout(() => { _searchTimer = null; render(); }, 150);
+}
+
+// Index fid → index (avoids repeated findIndex scans)
+let _fidIndex = null;
+function _rebuildFidIndex() {
+  _fidIndex = new Map();
+  for (let i = 0; i < films.length; i++) if (films[i] && films[i].fid) _fidIndex.set(films[i].fid, i);
+}
+function _invalidateFidIndex() { _fidIndex = null; }
+
 function savePrefs() {
   localStorage.setItem('cf_showHidden', showHidden ? '1' : '0');
   localStorage.setItem('cf_titleExpanded', titleExpanded ? '1' : '0');
@@ -2265,17 +2358,30 @@ function addLog(type, msg) {
 function getRankedFilmsSorted() {
   return films.filter(f => !f.watchlist && f.rank != null && f.notePerso != null).sort((a,b) => a.rank - b.rank);
 }
-function getFilmIndexById(fid) { return films.findIndex(f => f.fid === fid); }
+function getFilmIndexById(fid) {
+  if (!_fidIndex) _rebuildFidIndex();
+  const v = _fidIndex.get(fid);
+  if (v != null && films[v] && films[v].fid === fid) return v;
+  // Fallback + self-heal
+  _rebuildFidIndex();
+  const w = _fidIndex.get(fid);
+  return w != null ? w : -1;
+}
 
 /* Retourne la liste des clés de critères techniques ignorés pour un film et un rater donné */
 function getIgnoredTech(f, prefix) {
   const arr = f[(prefix || '') + 'ignoredTech'];
   return Array.isArray(arr) ? arr : [];
 }
+// Pre-compute: tech criteria list (static — CRITERIA never changes after init)
+const _TECH_CRITERIA = CRITERIA.filter(c => !c.isPreference);
+const _TECH_CRITERIA_ALL = _TECH_CRITERIA; // alias for clarity
 /* Retourne les critères techniques à utiliser dans le calcul (exclut les ignorés) */
 function getActiveTechCriteria(f, prefix) {
   const ignored = getIgnoredTech(f, prefix);
-  return CRITERIA.filter(c => !c.isPreference && !ignored.includes(c.key));
+  if (!ignored.length) return _TECH_CRITERIA_ALL; // Fast path: nothing to exclude
+  const ignoredSet = new Set(ignored);
+  return _TECH_CRITERIA.filter(c => !ignoredSet.has(c.key));
 }
 function getDuelPairKey(a, b) { return [a.fid, b.fid].sort().join('__'); }
 function getPairHistory(a, b) {
@@ -2540,24 +2646,91 @@ function toast(msg, type='info') {
   el.className = 'toast ' + type;
   el.textContent = msg;
   document.getElementById('toasts').appendChild(el);
-  setTimeout(() => { el.style.animation = 'toastOut .3s forwards'; setTimeout(() => el.remove(), 300); }, 3000);
+  setTimeout(() => {
+    el.style.animation = 'toastOut .3s forwards';
+    el.addEventListener('animationend', () => el.remove(), { once: true });
+  }, 3000);
 }
 
 /* ═══════════════════════════════════════════════════
    RENDER TABLE
    ═══════════════════════════════════════════════════ */
-function render() {
-  renderViewModeBar();
-  const q = document.getElementById('search').value.trim().toLowerCase();
-  // Filter by view mode
-  let list = films.map((f, i) => ({ ...f, _idx: i }))
-    .filter(f => !f.watchlist);
+// Pre-computed constants (RATERS + CRITERIA are static — compute once)
+const _RATER_KEY_SET = new Set(RATERS.map(r => r.key));
+const _CRITERIA_STORAGE_KEY_SET = (() => {
+  const s = new Set();
+  RATERS.forEach(r => CRITERIA.forEach(c => s.add(r.prefix + c.key)));
+  return s;
+})();
 
-  // Determine if sort column is a "note" column (rater or criteria)
-  const raterKeys = RATERS.map(r => r.key);
-  const criteriaStorageKeys = [];
-  RATERS.forEach(r => CRITERIA.forEach(c => criteriaStorageKeys.push(r.prefix + c.key)));
-  const isNoteSort = sortCol && (raterKeys.includes(sortCol) || criteriaStorageKeys.includes(sortCol));
+// Event delegation for table — single listener pair replaces 100+ inline handlers per render
+function _initTableDelegation() {
+  const wrap = document.getElementById('tableWrap');
+  if (!wrap || wrap._delegated) return;
+  wrap._delegated = true;
+  wrap.addEventListener('click', _onTableClick);
+  wrap.addEventListener('dblclick', _onTableDblClick);
+}
+function _onTableClick(e) {
+  const el = e.target.closest('[data-click]');
+  if (!el) return;
+  const action = el.dataset.click;
+  const idxStr = el.dataset.idx;
+  const idx = idxStr != null ? parseInt(idxStr, 10) : null;
+  switch (action) {
+    case 'sort':       doSort(el.dataset.key); break;
+    case 'del':        deleteFilm(idx); break;
+    case 'tw':         e.stopPropagation(); toggleTitleWidth(); break;
+    case 'tagf':       e.stopPropagation(); setTagFilter(el.dataset.tid); break;
+    case 'moveup':     moveFilmUp(idx); break;
+    case 'movedown':   moveFilmDown(idx); break;
+    case 'rankprompt': promptMoveToRank(idx); break;
+    case 'wlpri':      e.stopPropagation(); setWatchlistPriority(idx, parseInt(el.dataset.stars, 10)); break;
+    case 'towatched':  moveToClasseur(idx); break;
+  }
+}
+function _onTableDblClick(e) {
+  const el = e.target.closest('[data-dblclick]');
+  if (!el) return;
+  const action = el.dataset.dblclick;
+  const idx = el.dataset.idx != null ? parseInt(el.dataset.idx, 10) : null;
+  switch (action) {
+    case 'rate':      openRating(idx, el.dataset.key); break;
+    case 'editdate':  startDateVuEdit(idx, el); break;
+    case 'edittiers': startTiersEdit(idx, el); break;
+    case 'break':     openTitleBreakdown(idx); break;
+    case 'edit':      startEdit(idx, el.dataset.key, el); break;
+  }
+}
+
+// Render batching: multiple render() calls in the same tick collapse to one actual render
+let _renderRafId = 0;
+function render() {
+  if (_renderRafId) return;
+  _renderRafId = requestAnimationFrame(() => { _renderRafId = 0; _renderImpl(); });
+}
+// For cases that need synchronous render (rare: input editing that reads DOM right after)
+function renderNow() {
+  if (_renderRafId) { cancelAnimationFrame(_renderRafId); _renderRafId = 0; }
+  _renderImpl();
+}
+
+function _renderImpl() {
+  renderViewModeBar();
+  _initTableDelegation();
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  // Filter + project in a single pass
+  let list = [];
+  let classeurTotal = 0;
+  for (let i = 0; i < films.length; i++) {
+    const f = films[i];
+    if (f.watchlist) continue;
+    classeurTotal++;
+    list.push({ ...f, _idx: i });
+  }
+
+  // Determine if sort column is a "note" column (rater or criteria) — O(1) Set lookup
+  const isNoteSort = sortCol && (_RATER_KEY_SET.has(sortCol) || _CRITERIA_STORAGE_KEY_SET.has(sortCol));
 
   // Find tiebreaker key: for Ma note, use rank ascending; for others, use coupDeCoeur desc
   let tiebreakerKey = null;
@@ -2620,16 +2793,16 @@ function render() {
   });
   if (tagFilter) list = list.filter(f => (f.tags || []).includes(tagFilter));
 
-  const classeurTotal = films.filter(f => !f.watchlist).length;
   document.getElementById('counter').textContent = list.length + ' / ' + classeurTotal + ' films';
   // Columns vary by view mode
   const hiddenBaseCols = new Set(['genre','realisateur','acteurs','annee','budget','boxOffice','dateVu','tags']);
-  // In watchlist mode, hide note columns + tier + dateVu (replaced by priority)
   const wlHiddenCols = new Set(['notePerso','tmdbVote','tiers','victor','lilyRose','julie','dateVu']);
   const isWL = false;
-  let html = '<table><thead><tr><th class="col-frozen-del" style="width:24px"></th>';
+
+  // Build HTML using array push + join (faster than string concatenation with +=)
+  const parts = ['<table><thead><tr><th class="col-frozen-del" style="width:24px"></th>'];
   const isReorderHeader = !isWL && sortCol === 'notePerso' && sortDir === 'desc';
-  html += '<th class="col-frozen-pos ' + (sortCol ? 'sorted' : '') + '" style="text-align:center;min-width:24px;width:24px;' + (isReorderHeader ? 'color:var(--gold)' : '') + '" title="' + (isReorderHeader ? 'Classement manuel — flèches pour réorganiser' : 'Rang') + '">' + (isReorderHeader ? '⇅' : '#') + '</th>';
+  parts.push('<th class="col-frozen-pos ' + (sortCol ? 'sorted' : '') + '" style="text-align:center;min-width:24px;width:24px;' + (isReorderHeader ? 'color:var(--gold)' : '') + '" title="' + (isReorderHeader ? 'Classement manuel — flèches pour réorganiser' : 'Rang') + '">' + (isReorderHeader ? '⇅' : '#') + '</th>');
   COLS.forEach(c => {
     if (!showHidden && hiddenBaseCols.has(c.key)) return;
     if (isWL && wlHiddenCols.has(c.key)) return;
@@ -2642,47 +2815,45 @@ function render() {
         : `min-width:${titreReducedWidth}px;width:${titreReducedWidth}px;max-width:${titreReducedWidth}px`)
       : `min-width:${c.w}px`;
     const labelHtml = c.key === 'titre'
-      ? `${c.label}${arrow}<button class="col-expand-btn" onclick="event.stopPropagation();toggleTitleWidth()" title="${titleExpanded ? 'Réduire la colonne Titre' : 'Agrandir la colonne Titre'}" aria-label="${titleExpanded ? 'Réduire la colonne Titre' : 'Agrandir la colonne Titre'}">⤢</button>`
+      ? `${c.label}${arrow}<button class="col-expand-btn" data-click="tw" title="${titleExpanded ? 'Réduire la colonne Titre' : 'Agrandir la colonne Titre'}" aria-label="${titleExpanded ? 'Réduire la colonne Titre' : 'Agrandir la colonne Titre'}">⤢</button>`
       : `${c.label}${arrow}`;
-    html += `<th class="${cls}${frozenCls}" onclick="doSort('${c.key}')" style="text-align:${c.align};${widthStyle}">${labelHtml}</th>`;
+    parts.push(`<th class="${cls}${frozenCls}" data-click="sort" data-key="${c.key}" style="text-align:${c.align};${widthStyle}">${labelHtml}</th>`);
   });
-  // Watchlist-specific columns
   if (isWL) {
     const priCls = sortCol === 'watchlistPriority' ? ' sorted' : '';
     const priArrow = sortCol === 'watchlistPriority' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
     const dateCls = sortCol === 'watchlistDate' ? ' sorted' : '';
     const dateArrow = sortCol === 'watchlistDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
-    html += `<th class="${priCls}" onclick="doSort('watchlistPriority')" style="text-align:center;min-width:90px">Priorité${priArrow}</th>`;
-    html += `<th class="${dateCls}" onclick="doSort('watchlistDate')" style="text-align:center;min-width:100px">Ajouté${dateArrow}</th>`;
-    html += `<th style="text-align:center;min-width:130px">Actions</th>`;
+    parts.push(`<th class="${priCls}" data-click="sort" data-key="watchlistPriority" style="text-align:center;min-width:90px">Priorité${priArrow}</th>`);
+    parts.push(`<th class="${dateCls}" data-click="sort" data-key="watchlistDate" style="text-align:center;min-width:100px">Ajouté${dateArrow}</th>`);
+    parts.push(`<th style="text-align:center;min-width:130px">Actions</th>`);
   }
   if (showHidden) RATERS.forEach(r => {
     CRITERIA.forEach(c => {
       const sk = r.prefix + c.key;
       const cls = sortCol === sk ? ' sorted' : '';
       const arrow = sortCol === sk ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
-      html += `<th class="${cls}" onclick="doSort('${sk}')" style="text-align:center;min-width:85px;color:${r.color};opacity:.7;font-size:.6rem;cursor:pointer">${r.label.substring(0,3)}·${c.label}${arrow}</th>`;
+      parts.push(`<th class="${cls}" data-click="sort" data-key="${sk}" style="text-align:center;min-width:85px;color:${r.color};opacity:.7;font-size:.6rem;cursor:pointer">${r.label.substring(0,3)}·${c.label}${arrow}</th>`);
     });
   });
-  html += '</tr></thead><tbody>';
+  parts.push('</tr></thead><tbody>');
 
   list.forEach(f => {
-    html += '<tr>';
-    html += `<td class="cell-num col-frozen-del"><button class="del-btn" onclick="deleteFilm(${f._idx})" title="Supprimer">✕</button></td>`;
-    // Position cell — becomes reorder cell when sorted by Ma note desc in classeur view
+    parts.push('<tr>');
+    parts.push(`<td class="cell-num col-frozen-del"><button class="del-btn" data-click="del" data-idx="${f._idx}" title="Supprimer">✕</button></td>`);
     const rank = ranks.get(f._idx);
     const showRank = isNoteSort ? (f[sortCol] != null ? rank : null) : rank;
     const isReorderMode = !isWL && sortCol === 'notePerso' && sortDir === 'desc' && f.rank != null;
     if (isReorderMode) {
-      html += `<td class="cell-num col-frozen-pos reorder-cell" style="text-align:center">
+      parts.push(`<td class="cell-num col-frozen-pos reorder-cell" style="text-align:center">
         <div class="reorder-wrap">
-          <button class="reorder-btn" onclick="moveFilmUp(${f._idx})" title="Monter d'un rang">▲</button>
-          <span class="reorder-rank" onclick="promptMoveToRank(${f._idx})" title="Cliquer pour saisir un rang">${f.rank}</span>
-          <button class="reorder-btn" onclick="moveFilmDown(${f._idx})" title="Descendre d'un rang">▼</button>
+          <button class="reorder-btn" data-click="moveup" data-idx="${f._idx}" title="Monter d'un rang">▲</button>
+          <span class="reorder-rank" data-click="rankprompt" data-idx="${f._idx}" title="Cliquer pour saisir un rang">${f.rank}</span>
+          <button class="reorder-btn" data-click="movedown" data-idx="${f._idx}" title="Descendre d'un rang">▼</button>
         </div>
-      </td>`;
+      </td>`);
     } else {
-      html += `<td class="cell-num col-frozen-pos" style="font-weight:700;color:var(--txt3);font-size:.8rem">${showRank != null ? showRank : '—'}</td>`;
+      parts.push(`<td class="cell-num col-frozen-pos" style="font-weight:700;color:var(--txt3);font-size:.8rem">${showRank != null ? showRank : '—'}</td>`);
     }
     COLS.forEach(col => {
       if (!showHidden && hiddenBaseCols.has(col.key)) return;
@@ -2691,26 +2862,26 @@ function render() {
         const rater = RATERS.find(r => r.key === col.key);
         const v = f[col.key];
         const display = v != null ? v.toFixed(2) : '<span class="hint">double-clic</span>';
-        html += `<td class="${rater.css}" ondblclick="openRating(${f._idx},'${col.key}')">${display}</td>`;
+        parts.push(`<td class="${rater.css}" data-dblclick="rate" data-idx="${f._idx}" data-key="${col.key}">${display}</td>`);
       } else if (col.isDate) {
         const display = f[col.key] ? esc(displayDateVu(f[col.key])) : '<span class="hint">double-clic</span>';
-        html += `<td class="cell-num editable" style="text-align:${col.align}" ondblclick="startDateVuEdit(${f._idx},this)">${display}</td>`;
+        parts.push(`<td class="cell-num editable" style="text-align:${col.align}" data-dblclick="editdate" data-idx="${f._idx}">${display}</td>`);
       } else if (col.isTiers) {
         const v = f[col.key];
         const tiersCls = v ? 'tiers-' + v : '';
         const cls = 'cell-tiers' + (tiersCls ? ' ' + tiersCls : '');
         const display = v ? esc(v) : '<span class="hint">double-clic</span>';
-        html += `<td class="${cls}" ondblclick="startTiersEdit(${f._idx},this)">${display}</td>`;
+        parts.push(`<td class="${cls}" data-dblclick="edittiers" data-idx="${f._idx}">${display}</td>`);
       } else if (col.isTmdbVote) {
         const v = f[col.key];
         const display = v != null ? v.toFixed(1) : '—';
-        html += `<td class="cell-num" style="text-align:${col.align};color:var(--gold)">${display}</td>`;
+        parts.push(`<td class="cell-num" style="text-align:${col.align};color:var(--gold)">${display}</td>`);
       } else if (col.isTags) {
         const filmTags = (f.tags || []).map(tid => findTag(tid)).filter(Boolean);
         const chips = filmTags.map(t => {
-          return `<span class="tag-chip" style="--tag-color:${t.color}" onclick="event.stopPropagation();setTagFilter('${t.id}')"><span class="emoji">${t.emoji||'🏷'}</span>${esc(t.name)}</span>`;
+          return `<span class="tag-chip" style="--tag-color:${t.color}" data-click="tagf" data-tid="${t.id}"><span class="emoji">${t.emoji||'🏷'}</span>${esc(t.name)}</span>`;
         }).join('');
-        html += `<td class="cell-num" style="text-align:left" ondblclick="openTitleBreakdown(${f._idx})"><div class="tag-chips-cell">${chips || '<span class="hint">double-clic</span>'}</div></td>`;
+        parts.push(`<td class="cell-num" style="text-align:left" data-dblclick="break" data-idx="${f._idx}"><div class="tag-chips-cell">${chips || '<span class="hint">double-clic</span>'}</div></td>`);
       } else if (col.key === 'titre') {
         const titreStyle = titleExpanded
           ? 'min-width:min(calc(100vw - 124px), 1000px);width:min(calc(100vw - 124px), 1000px)'
@@ -2724,41 +2895,41 @@ function render() {
         }
         const primary = f.primaryTag ? findTag(f.primaryTag) : null;
         const primaryChip = primary
-          ? `<span class="cell-titre-primary-tag"><span class="tag-chip" style="--tag-color:${primary.color}" onclick="event.stopPropagation();setTagFilter('${primary.id}')"><span class="emoji">${primary.emoji||'🏷'}</span>${esc(primary.name)}</span></span>`
+          ? `<span class="cell-titre-primary-tag"><span class="tag-chip" style="--tag-color:${primary.color}" data-click="tagf" data-tid="${primary.id}"><span class="emoji">${primary.emoji||'🏷'}</span>${esc(primary.name)}</span></span>`
           : '';
         const inner = `${posterPart}<span class="cell-titre-textcol"><span class="cell-titre-text">${esc(f[col.key]||'—')}</span>${primaryChip}</span>`;
-        html += `<td class="cell-titre col-frozen-titre" style="${titreStyle}" ondblclick="openTitleBreakdown(${f._idx})" title="${esc(f[col.key]||'')}"><span class="cell-titre-inner">${inner}</span></td>`;
+        parts.push(`<td class="cell-titre col-frozen-titre" style="${titreStyle}" data-dblclick="break" data-idx="${f._idx}" title="${esc(f[col.key]||'')}"><span class="cell-titre-inner">${inner}</span></td>`);
       } else if (col.edit) {
         const v = f[col.key];
         const display = v != null ? (col.type==='num' && col.key==='annee' ? String(Math.round(v)) : (typeof v==='number' ? v.toLocaleString('fr-CA'):esc(v))) : '—';
-        html += `<td class="cell-num editable" style="text-align:${col.align}" ondblclick="startEdit(${f._idx},'${col.key}',this)">${display}</td>`;
+        parts.push(`<td class="cell-num editable" style="text-align:${col.align}" data-dblclick="edit" data-idx="${f._idx}" data-key="${col.key}">${display}</td>`);
       } else {
-        html += `<td class="cell-num">${f[col.key]!=null?f[col.key]:'—'}</td>`;
+        parts.push(`<td class="cell-num">${f[col.key]!=null?f[col.key]:'—'}</td>`);
       }
     });
     if (showHidden) RATERS.forEach(r => {
       CRITERIA.forEach(c => {
         const val = f[r.prefix + c.key];
-        html += `<td class="cell-hidden" style="color:${r.color};opacity:.6">${val!=null?val:'—'}</td>`;
+        parts.push(`<td class="cell-hidden" style="color:${r.color};opacity:.6">${val!=null?val:'—'}</td>`);
       });
     });
-    // Watchlist-specific cells
     if (isWL) {
       const p = f.watchlistPriority || 0;
-      let stars = '';
+      const starParts = [];
       for (let i = 1; i <= 5; i++) {
         const cls = i <= p ? '' : 'dim';
-        stars += `<span class="${cls}" onclick="event.stopPropagation();setWatchlistPriority(${f._idx},${i === p ? 0 : i})">★</span>`;
+        starParts.push(`<span class="${cls}" data-click="wlpri" data-idx="${f._idx}" data-stars="${i === p ? 0 : i}">★</span>`);
       }
-      html += `<td class="cell-num" style="text-align:center"><span class="priority-stars">${stars}</span></td>`;
+      parts.push(`<td class="cell-num" style="text-align:center"><span class="priority-stars">${starParts.join('')}</span></td>`);
       const dateStr = f.watchlistDate ? new Date(f.watchlistDate).toLocaleDateString('fr-CA') : '—';
-      html += `<td class="cell-num" style="text-align:center;color:var(--txt3);font-size:.8rem">${dateStr}</td>`;
-      html += `<td class="cell-num" style="text-align:center"><button class="btn btn-move-to-classeur" onclick="moveToClasseur(${f._idx})" style="padding:4px 10px;font-size:.75rem">👁 Marquer vu</button></td>`;
+      parts.push(`<td class="cell-num" style="text-align:center;color:var(--txt3);font-size:.8rem">${dateStr}</td>`);
+      parts.push(`<td class="cell-num" style="text-align:center"><button class="btn btn-move-to-classeur" data-click="towatched" data-idx="${f._idx}" style="padding:4px 10px;font-size:.75rem">👁 Marquer vu</button></td>`);
     }
-    html += '</tr>';
+    parts.push('</tr>');
   });
-  html += '</tbody></table>';
-  document.getElementById('tableWrap').innerHTML = html;
+  parts.push('</tbody></table>');
+  document.getElementById('tableWrap').innerHTML = parts.join('');
+  _invalidateFrozenHeader();
   renderTagFilterBar();
   requestAnimationFrame(syncFrozenHeader);
 }
@@ -2900,6 +3071,10 @@ function clearTagFilter() {
 }
 
 
+// Cache for the floating header clone — rebuilt only when the table is re-rendered
+let _frozenHeaderCache = null;
+function _invalidateFrozenHeader() { _frozenHeaderCache = null; }
+
 function syncFrozenHeader() {
   const wrap = document.getElementById('tableWrap');
   const host = document.getElementById('floatingHead');
@@ -2907,6 +3082,7 @@ function syncFrozenHeader() {
   const thead = table ? table.querySelector('thead') : null;
   if (!wrap || !host || !table || !thead) {
     if (host) { host.classList.remove('active'); host.innerHTML = ''; }
+    _frozenHeaderCache = null;
     return;
   }
 
@@ -2915,55 +3091,69 @@ function syncFrozenHeader() {
   const shouldShow = wrapRect.top < 0 && wrapRect.bottom - headHeight > 0;
 
   if (!shouldShow) {
-    host.classList.remove('active');
-    host.innerHTML = '';
+    if (host.classList.contains('active')) {
+      host.classList.remove('active');
+      host.innerHTML = '';
+    }
     return;
   }
 
-  const sourceTable = table;
-  const sourceHead = thead.cloneNode(true);
-  const cloneTable = document.createElement('table');
-  cloneTable.appendChild(sourceHead);
-  cloneTable.style.width = sourceTable.offsetWidth + 'px';
-  // No translateX — the floating header container is clipped to table width and scrolls via overflow:hidden
+  // Build (or rebuild) the clone only when invalidated — heavy DOM op we avoid on every scroll frame
+  if (!_frozenHeaderCache || _frozenHeaderCache.srcTable !== table) {
+    const cloneTable = document.createElement('table');
+    cloneTable.appendChild(thead.cloneNode(true));
+    cloneTable.style.width = table.offsetWidth + 'px';
+    const sourceThs = table.querySelectorAll('thead th');
+    const cloneThs = cloneTable.querySelectorAll('thead th');
+    cloneThs.forEach((th, i) => {
+      const src = sourceThs[i];
+      if (!src) return;
+      const w = src.getBoundingClientRect().width;
+      th.style.width = w + 'px';
+      th.style.minWidth = w + 'px';
+      th.style.maxWidth = w + 'px';
+      if (src.classList.contains('col-frozen-del'))   th.classList.add('col-frozen-del');
+      if (src.classList.contains('col-frozen-pos'))   th.classList.add('col-frozen-pos');
+      if (src.classList.contains('col-frozen-titre')) th.classList.add('col-frozen-titre');
+    });
+    host.innerHTML = '';
+    host.appendChild(cloneTable);
+    _frozenHeaderCache = { srcTable: table, cloneTable };
+  }
 
-  const sourceThs = sourceTable.querySelectorAll('thead th');
-  const cloneThs = cloneTable.querySelectorAll('thead th');
-  cloneThs.forEach((th, i) => {
-    const w = sourceThs[i].getBoundingClientRect().width;
-    th.style.width = w + 'px';
-    th.style.minWidth = w + 'px';
-    th.style.maxWidth = w + 'px';
-    // Keep sticky classes functional in the clone
-    if (sourceThs[i].classList.contains('col-frozen-del')) th.classList.add('col-frozen-del');
-    if (sourceThs[i].classList.contains('col-frozen-pos')) th.classList.add('col-frozen-pos');
-    if (sourceThs[i].classList.contains('col-frozen-titre')) th.classList.add('col-frozen-titre');
-  });
-
-  host.innerHTML = '';
-  host.appendChild(cloneTable);
   host.style.left = wrapRect.left + 'px';
   host.style.width = wrap.clientWidth + 'px';
-  // Sync horizontal scroll of floating header
   host.scrollLeft = wrap.scrollLeft;
-  host.classList.add('active');
+  if (!host.classList.contains('active')) host.classList.add('active');
+}
+
+// Throttle via rAF: coalesces multiple scroll events into one sync per frame
+let _syncFrozenRafId = 0;
+function _syncFrozenThrottled() {
+  if (_syncFrozenRafId) return;
+  _syncFrozenRafId = requestAnimationFrame(() => {
+    _syncFrozenRafId = 0;
+    syncFrozenHeader();
+  });
 }
 
 function bindFrozenHeader() {
   const wrap = document.getElementById('tableWrap');
   if (wrap && !wrap.dataset.frozenBound) {
     wrap.addEventListener('scroll', () => {
-      syncFrozenHeader();
+      _syncFrozenThrottled();
       const host = document.getElementById('floatingHead');
       if (host && host.classList.contains('active')) host.scrollLeft = wrap.scrollLeft;
     }, { passive: true });
     wrap.dataset.frozenBound = '1';
   }
-  window.addEventListener('scroll', syncFrozenHeader, { passive: true });
-  window.addEventListener('resize', syncFrozenHeader, { passive: true });
+  window.addEventListener('scroll', _syncFrozenThrottled, { passive: true });
+  window.addEventListener('resize', _syncFrozenThrottled, { passive: true });
 }
 
-function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+const _ESC_MAP = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
+const _ESC_RE = /[&<>"']/g;
+function esc(s) { return s == null ? '' : String(s).replace(_ESC_RE, c => _ESC_MAP[c]); }
 function escAttr(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function doSort(key) { if (sortCol===key) sortDir = sortDir==='asc'?'desc':'asc'; else { sortCol=key; sortDir='asc'; } render(); }
 function toggleHidden() { showHidden=!showHidden; savePrefs(); render(); toast(showHidden?'Colonnes détaillées affichées':'Colonnes détaillées masquées','info'); }
@@ -3077,16 +3267,23 @@ function buildPosterTagButton(idx) {
   const f = films[idx];
   if (!f) return '';
   const count = Array.isArray(f.tags) ? f.tags.length : 0;
-  return `<span class="poster-tag-btn ${count ? 'has-tags' : ''}" title="Modifier les tags" onclick="event.stopPropagation();event.preventDefault();openQuickTagModal(${idx})"><span class="heart">❤</span>${count ? `<span class="badge">${count}</span>` : ''}</span>`;
+  return `<span class="poster-tag-btn ${count ? 'has-tags' : ''}" data-poster-tag-btn="${idx}" title="Modifier les tags" onclick="event.stopPropagation();event.preventDefault();openQuickTagModal(${idx})"><span class="heart">❤</span>${count ? `<span class="badge">${count}</span>` : ''}</span>`;
+}
+
+function refreshPosterTagButtons(idx) {
+  document.querySelectorAll(`[data-poster-tag-btn="${idx}"]`).forEach(el => {
+    el.outerHTML = buildPosterTagButton(idx);
+  });
 }
 
 function openQuickTagModal(idx) {
   const f = films[idx];
   if (!f) return;
+  closeQuickTagModal();
   window._quickTagFilmIdx = idx;
   window._quickTagsDraft = [...(f.tags || [])];
   window._quickPrimaryDraft = f.primaryTag || null;
-  const html = `<div class="overlay" onclick="if(event.target===this)closeQuickTagModal()">
+  const html = `<div class="quick-tag-overlay" id="quickTagOverlay" onclick="if(event.target===this)closeQuickTagModal()">
     <div class="modal quick-tags-modal" style="max-width:560px">
       <h2>❤ Tags</h2>
       <p class="desc">Sélectionnez les tags puis cliquez sur ☆ pour définir le tag principal.</p>
@@ -3098,16 +3295,17 @@ function openQuickTagModal(idx) {
       </div>
     </div>
   </div>`;
-  document.getElementById('overlay').innerHTML = html;
+  document.body.insertAdjacentHTML('beforeend', html);
   renderQuickTagsList();
   renderQuickTagsPicker();
 }
 
 function closeQuickTagModal() {
+  const overlay = document.getElementById('quickTagOverlay');
+  if (overlay) overlay.remove();
   window._quickTagFilmIdx = null;
   window._quickTagsDraft = null;
   window._quickPrimaryDraft = null;
-  closeOverlay();
 }
 
 function renderQuickTagsList() {
@@ -3170,6 +3368,7 @@ function saveQuickTags() {
   if (primary && !f.tags.includes(primary)) primary = null;
   f.primaryTag = primary;
   saveFilms();
+  refreshPosterTagButtons(idx);
   if (typeof render === 'function') render();
   closeQuickTagModal();
   toast(`Tags mis à jour pour ${f.titre}`, 'success');
@@ -3834,18 +4033,18 @@ function tmdbKey() { return localStorage.getItem('cf_tmdbKey') || ''; }
 function tmdbLang() { return localStorage.getItem('cf_tmdbLang') || 'fr-FR'; }
 function hasTmdbKey() { return !!tmdbKey(); }
 
-async function tmdbSearch(query) {
+async function tmdbSearch(query, signal) {
   if (!query || !hasTmdbKey()) return [];
   const url = `${TMDB_BASE}/search/movie?api_key=${encodeURIComponent(tmdbKey())}&language=${tmdbLang()}&query=${encodeURIComponent(query)}&include_adult=false`;
-  const r = await fetch(url);
+  const r = await fetch(url, signal ? { signal } : undefined);
   if (!r.ok) throw new Error('TMDb recherche : ' + r.status);
   const data = await r.json();
   return data.results || [];
 }
 
-async function tmdbDetails(id) {
+async function tmdbDetails(id, signal) {
   const url = `${TMDB_BASE}/movie/${id}?api_key=${encodeURIComponent(tmdbKey())}&language=${tmdbLang()}&append_to_response=credits`;
-  const r = await fetch(url);
+  const r = await fetch(url, signal ? { signal } : undefined);
   if (!r.ok) throw new Error('TMDb détails : ' + r.status);
   return r.json();
 }
@@ -3879,15 +4078,20 @@ function openTmdbAssociate(filmIdx) {
   }, 100);
 }
 
+let _tmdbSearchAbort = null;
 function onTmdbAssocSearchInput(filmIdx, q) {
   clearTimeout(tmdbSearchTimer);
+  if (_tmdbSearchAbort) { try { _tmdbSearchAbort.abort(); } catch(_){} _tmdbSearchAbort = null; }
   const box = document.getElementById('tmdbAssocResults');
   if (!q || q.trim().length < 2) { box.style.display = 'none'; box.innerHTML = ''; return; }
   box.style.display = 'block';
   box.innerHTML = '<div class="tmdb-status">🔎 Recherche…</div>';
   tmdbSearchTimer = setTimeout(async () => {
+    const ctrl = new AbortController();
+    _tmdbSearchAbort = ctrl;
     try {
-      const results = await tmdbSearch(q.trim());
+      const results = await tmdbSearch(q.trim(), ctrl.signal);
+      if (ctrl.signal.aborted) return;
       if (!results.length) {
         box.innerHTML = '<div class="tmdb-status">Aucun résultat.</div>';
         return;
@@ -3906,6 +4110,7 @@ function onTmdbAssocSearchInput(filmIdx, q) {
         </div>`;
       }).join('');
     } catch (err) {
+      if (err.name === 'AbortError') return; // Silently ignore intentional aborts
       box.innerHTML = `<div class="tmdb-status error">Erreur : ${esc(err.message)}</div>`;
     }
   }, 350);
@@ -4436,6 +4641,7 @@ function openAddModal() {
 
 function onTmdbSearchInput(q) {
   clearTimeout(tmdbSearchTimer);
+  if (_tmdbSearchAbort) { try { _tmdbSearchAbort.abort(); } catch(_){} _tmdbSearchAbort = null; }
   const box = document.getElementById('tmdbResults');
   if (!q || q.trim().length < 2) {
     box.style.display = 'none';
@@ -4445,8 +4651,11 @@ function onTmdbSearchInput(q) {
   box.style.display = 'block';
   box.innerHTML = '<div class="tmdb-status">🔎 Recherche…</div>';
   tmdbSearchTimer = setTimeout(async () => {
+    const ctrl = new AbortController();
+    _tmdbSearchAbort = ctrl;
     try {
-      const results = await tmdbSearch(q.trim());
+      const results = await tmdbSearch(q.trim(), ctrl.signal);
+      if (ctrl.signal.aborted) return;
       if (!results.length) {
         box.innerHTML = '<div class="tmdb-status">Aucun résultat. Saisissez manuellement ci-dessous.</div>';
         return;
@@ -4467,6 +4676,7 @@ function onTmdbSearchInput(q) {
         </div>`;
       }).join('');
     } catch (err) {
+      if (err.name === 'AbortError') return; // Silently ignore intentional aborts
       box.innerHTML = `<div class="tmdb-status error">Erreur : ${esc(err.message)}</div>`;
     }
   }, 350);
@@ -4530,6 +4740,7 @@ function doAddFilm() {
   RATERS.forEach(r => { f[r.key] = null; });
   ensureCriteriaKeys(f);
   films.push(f);
+  _invalidateFidIndex();
   saveFilms();
   const source = tmdbSelected ? ' (via TMDb)' : '';
   const dest = addAsWatchlist ? ' 🎯 à la watchlist' : '';
@@ -4558,6 +4769,7 @@ function doDelete(idx) {
   const name = films[idx].titre;
   const hadRank = films[idx].rank != null;
   films.splice(idx, 1);
+  _invalidateFidIndex();
   if (hadRank) {
     normalizeRanks();
     recomputeAllPersoNotes();
@@ -4606,6 +4818,11 @@ let statsActiveTab = 'overview';
 let statsCharts = {}; // keep Chart instances for destroy on rebuild
 
 function openStats() {
+  // Lazy-load Chart.js on first stats open — saves ~200KB on initial page load
+  loadChartJs().catch(err => {
+    console.error('Chart.js load failed:', err);
+    toast('Impossible de charger la librairie de graphiques', 'error');
+  });
   const overlay = document.createElement('div');
   overlay.className = 'stats-overlay';
   overlay.id = 'statsOverlay';
@@ -4649,7 +4866,7 @@ function destroyStatsCharts() {
   statsCharts = {};
 }
 
-function setStatsTab(tab) {
+async function setStatsTab(tab) {
   statsActiveTab = tab;
   destroyStatsCharts();
   document.querySelectorAll('.stats-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
@@ -4668,8 +4885,11 @@ function setStatsTab(tab) {
     profile: buildStatsProfile,
     stats: buildStatsStats,
   };
-  content.innerHTML = '';
+  content.innerHTML = '<div class="stats-card" style="text-align:center;padding:40px"><p style="color:var(--txt2)">Chargement…</p></div>';
   try {
+    // Ensure Chart.js is ready before building charts
+    await loadChartJs();
+    content.innerHTML = '';
     (builders[tab] || buildStatsOverview)();
   } catch (err) {
     content.innerHTML = `<div class="stats-card"><p>Erreur lors du calcul : ${esc(err.message)}</p></div>`;
@@ -5899,8 +6119,10 @@ function buildExcelRows() {
   });
   return rows;
 }
-function exportExcel() {
+async function exportExcel() {
   try {
+    // Lazy-load SheetJS — saves ~900KB on initial load
+    await loadSheetJs();
     if (typeof XLSX === 'undefined') throw new Error('Librairie Excel indisponible');
     const rows = buildExcelRows();
     const wb = XLSX.utils.book_new();
@@ -5932,6 +6154,7 @@ function importJSON(e) {
       const count = data.films.length;
       films = data.films;
       films.forEach(f => ensureFilmKeys(f));
+      _invalidateFidIndex();
       if (data.log && Array.isArray(data.log)) log = data.log;
       if (data.duelLog && Array.isArray(data.duelLog)) duelLog = data.duelLog;
       if (data.tags && Array.isArray(data.tags)) { tags = data.tags; saveTags(); }
@@ -6919,7 +7142,7 @@ function showSuggestModal(f, idx, count, reason) {
    ═══════════════════════════════════════════════════ */
 loadState();
 applyLayoutVars();
-render();
+renderNow();
 renderLogCount();
 bindFrozenHeader();
 syncFrozenHeader();
