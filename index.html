@@ -6706,23 +6706,106 @@ function pickTournamentOpponent(championFid, excludeFids) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-/* Lance un nouveau tournoi */
+/* Affiche le modal de sélection du champion de départ */
 function startTournament() {
-  const pair = pickDuelCandidates();
-  if (!pair) {
+  const ranked = getRankedFilmsSorted();
+  if (ranked.length < 2) {
     toast('Pas assez de films classés pour lancer un tournoi', 'info');
     return;
   }
+  showTournamentChampionPickerModal();
+}
+
+/* Construit les lignes du picker champion — tous les films, sans limite */
+function buildChampionPickerRows(filter) {
+  var ranked = getRankedFilmsSorted();
+  var list = filter
+    ? ranked.filter(function(f) { return (f.titre || '').toLowerCase().indexOf(filter.toLowerCase()) !== -1; })
+    : ranked;
+  if (!list.length) return '<div class="podium-empty">Aucun film trouv\u00e9.</div>';
+  return list.map(function(f) {
+    var pStyle = f.posterPath
+      ? 'background-image:url(' + TMDB_IMG + f.posterPath + ');background-size:cover;background-position:center'
+      : '';
+    var year = f.annee ? Math.round(f.annee) : '';
+    var meta = ['#' + f.rank, year, f.genre].filter(Boolean).join(' \u00b7 ');
+    var fid = f.fid;
+    return [
+      '<div class="podium-row" style="cursor:pointer;transition:background .15s"',
+      ' onclick="launchTournamentWithChampion(&quot;' + fid + '&quot;)"',
+      ' onmouseenter="this.style.background=\'var(--bg3)\'"',
+      ' onmouseleave="this.style.background=\'\'">',
+      '<div class="podium-pos" style="color:var(--gold);font-size:.85rem">#' + f.rank + '</div>',
+      '<div class="podium-poster" style="width:36px;height:54px;border-radius:6px;flex-shrink:0;',
+      'background-color:var(--bg3);' + pStyle + ';display:flex;align-items:center;justify-content:center;font-size:1.2rem">',
+      (f.posterPath ? '' : '\ud83c\udfac') + '</div>',
+      '<div class="podium-info" style="flex:1;min-width:0">',
+      '<div class="podium-title" style="font-size:.9rem">' + esc(f.titre) + '</div>',
+      '<div class="podium-meta" style="font-size:.75rem">' + esc(meta) + '</div>',
+      '</div>',
+      '<div style="color:var(--txt3);font-size:.8rem;padding-right:4px">\u25b6</div>',
+      '</div>'
+    ].join('');
+  }).join('');
+}
+
+/* Appel\u00e9e par l'input de recherche du picker */
+function filterChampionPicker(val) {
+  var el = document.getElementById('champion-picker-list');
+  if (el) el.innerHTML = buildChampionPickerRows(val);
+}
+
+/* Modal de s\u00e9lection du candidat de d\u00e9part */
+function showTournamentChampionPickerModal() {
+  var body = '<div class="breakdown-modal-body">'
+    + '<h2>\ud83c\udfd9 Choisir le champion de d\u00e9part</h2>'
+    + '<p class="desc">Ce film affrontera tous les autres jusqu\'à sa premi\u00e8re d\u00e9faite.</p>'
+    + '<div style="margin:14px 0 10px">'
+    + '<input id="champion-picker-search" class="searchbox" style="width:100%;max-width:none;min-width:0"'
+    + ' placeholder="Rechercher un film\u2026" oninput="filterChampionPicker(this.value)">'
+    + '</div>'
+    + '<div id="champion-picker-list" style="max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:2px">'
+    + buildChampionPickerRows('')
+    + '</div>'
+    + '</div>';
+  var footer = '<div class="breakdown-modal-footer"><div class="modal-row">'
+    + '<button class="btn" onclick="closeOverlay()">Annuler</button>'
+    + '<button class="btn gold" onclick="launchTournamentWithChampion(null)">Champion al\u00e9atoire \ud83c\udfb2</button>'
+    + '</div></div>';
+  var html = '<div class="overlay" onclick="if(event.target===this)closeOverlay()">'
+    + '<div class="modal breakdown-modal" style="max-width:540px">'
+    + body + footer
+    + '</div></div>';
+  document.getElementById('overlay').innerHTML = html;
+}
+
+/* Lance le tournoi avec un champion désigné (ou aléatoire si fid=null) */
+function launchTournamentWithChampion(fid) {
+  const ranked = getRankedFilmsSorted();
+  let champion = fid ? ranked.find(f => f.fid === fid) : null;
+  if (!champion) {
+    // Aléatoire
+    champion = ranked[Math.floor(Math.random() * ranked.length)];
+  }
+  if (!champion) {
+    toast('Pas assez de films classés pour lancer un tournoi', 'info');
+    return;
+  }
+  const opponent = pickTournamentOpponent(champion.fid, []);
+  if (!opponent) {
+    toast('Impossible de trouver un adversaire pour ce film', 'info');
+    return;
+  }
   activeTournament = {
-    championId: null,     // sera défini après le premier combat
+    championId: champion.fid,  // champion désigné dès le départ
     streak: 0,
-    fights: [],           // [{ fightNum, opponentId, opponentTitle, opponentPoster, result, rankDelta, ts }]
+    fights: [],
     startedAt: new Date().toISOString(),
-    currentPair: { aId: pair[0].fid, bId: pair[1].fid },
-    faced: [pair[0].fid, pair[1].fid], // films déjà impliqués
+    currentPair: { aId: champion.fid, bId: opponent.fid },
+    faced: [champion.fid, opponent.fid],
     lastResult: null
   };
-  showTournamentFightModal(pair[0], pair[1]);
+  showTournamentFightModal(champion, opponent);
 }
 
 /* Affiche le modal de combat du tournoi (pré-verdict) */
@@ -6741,7 +6824,7 @@ function showTournamentFightModal(a, b) {
           <div class="th-title">🏟 Tournoi · Combat #${fightNum}</div>
             <div class="th-champion">Champion : <strong>${esc(championFilm.titre)}</strong></div>
         </div>
-        <span class="tournament-streak"><span class="flames">🔥</span>${activeTournament.streak} victoire${activeTournament.streak > 1 ? 's' : ''} de suite</span>
+        <span class="tournament-streak"><span class="flames">🔥</span>${activeTournament.streak > 0 ? activeTournament.streak + ' victoire' + (activeTournament.streak > 1 ? 's' : '') + ' de suite' : 'Combat #1'}</span>
        </div>`
     : `<div class="tournament-header">
         <div>
@@ -6786,8 +6869,8 @@ function resolveTournamentFight(winnerId) {
   const afterLoser = films[getFilmIndexById(loser.fid)];
 
   // Détermine si le champion a gagné ou perdu
-  const wasChampion = activeTournament.championId;
-  const championWon = wasChampion ? (winner.fid === wasChampion) : true; // 1er combat : winner devient champion
+  const wasChampion = activeTournament.championId; // toujours défini (champion pré-désigné)
+  const championWon = winner.fid === wasChampion;
   const fightNum = activeTournament.fights.length + 1;
 
   // Enregistre le duel dans le log global aussi (cohérence avec duelLog)
@@ -6812,24 +6895,8 @@ function resolveTournamentFight(winnerId) {
   const loserDelta = before.loserRank != null && afterLoser.rank != null ? (before.loserRank - afterLoser.rank) : 0;
 
   // Enregistre le combat dans le tournoi
-  if (!wasChampion) {
-    // Premier combat : winner devient champion
-    activeTournament.championId = winner.fid;
-    activeTournament.streak = 1;
-    activeTournament.fights.push({
-      fightNum,
-      championId: winner.fid,
-      championTitle: winner.titre,
-      opponentId: loser.fid,
-      opponentTitle: loser.titre,
-      opponentPoster: loser.posterPath || null,
-      result: 'won',
-      championDelta: winnerDelta,
-      opponentDelta: loserDelta,
-      changed,
-      ts: duelEntry.ts
-    });
-  } else if (championWon) {
+  // Note: le champion est toujours pré-désigné (wasChampion est toujours truthy)
+  if (championWon) {
     // Champion a gagné
     activeTournament.streak += 1;
     activeTournament.fights.push({
@@ -6867,10 +6934,10 @@ function resolveTournamentFight(winnerId) {
     winnerId: winner.fid, loserId: loser.fid,
     winnerRankBefore: before.winnerRank, winnerRankAfter: afterWinner.rank,
     loserRankBefore: before.loserRank, loserRankAfter: afterLoser.rank,
-    scoreGapBefore, championWon: wasChampion ? championWon : true
+    scoreGapBefore, championWon
   };
   render();
-  showTournamentFightResultModal(afterWinner, afterLoser, before, scoreGapBefore, wasChampion ? championWon : true, wasChampion);
+  showTournamentFightResultModal(afterWinner, afterLoser, before, scoreGapBefore, championWon, true);
 }
 
 /* Affiche le résultat d'un combat avec bannières Victoire!/Défaite! et les sauts de rang */
