@@ -927,10 +927,10 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.7); cursor
 .ambig-btns .btn { padding: 4px 8px; font-size: .72rem; min-width: 60px; }
 
 /* ─── REORDER CONTROLS (drag and drop) ──────────── */
-.reorder-cell { padding: 3px 4px !important; }
+.reorder-cell { padding: 3px 0 3px 2px !important; }
 .reorder-wrap {
-  display: flex; align-items: center; justify-content: center;
-  min-width: 38px;
+  display: flex; align-items: center; justify-content: flex-start;
+  min-width: 32px;
 }
 .reorder-handle {
   width: 34px; height: 34px; border-radius: 9px;
@@ -1530,9 +1530,9 @@ tr.drag-over td { background: rgba(232,166,48,.10) !important; }
   z-index: 2;
   background: var(--bg2);
 }
-.col-frozen-del  { left: 0;    min-width: 24px; width: 24px; }
-.col-frozen-pos  { left: 24px; min-width: 44px; width: 44px; }
-.col-frozen-titre{ left: 68px; min-width: var(--titre-col-width, 113px); width: var(--titre-col-width, 113px); max-width: var(--titre-col-max, 113px); }
+.col-frozen-del  { left: 0;    min-width: 14px; width: 14px; }
+.col-frozen-pos  { left: 14px; min-width: 36px; width: 36px; }
+.col-frozen-titre{ left: 50px; min-width: var(--titre-col-width, 113px); width: var(--titre-col-width, 113px); max-width: var(--titre-col-max, 113px); }
 
 thead .col-frozen-del,
 thead .col-frozen-pos,
@@ -2828,9 +2828,9 @@ function _renderImpl() {
   const hiddenBaseCols = new Set(COLS.filter(c => c.key !== 'titre').map(c => c.key));
 
   // Build HTML using array push + join (faster than string concatenation with +=)
-  const parts = ['<table><thead><tr><th class="col-frozen-del" style="width:24px"></th>'];
+  const parts = ['<table><thead><tr><th class="col-frozen-del" style="width:14px"></th>'];
   const isReorderHeader = sortCol === 'notePerso' && sortDir === 'desc';
-  parts.push('<th class="col-frozen-pos ' + (sortCol ? 'sorted' : '') + '" style="text-align:center;min-width:44px;width:44px;' + (isReorderHeader ? 'color:var(--gold)' : '') + '" title="' + (isReorderHeader ? 'Glisser-déposer avec la poignée pour réorganiser' : 'Poignée de classement') + '">⇅</th>');
+  parts.push('<th class="col-frozen-pos ' + (sortCol ? 'sorted' : '') + '" style="text-align:left;min-width:36px;width:36px;padding-left:2px;' + (isReorderHeader ? 'color:var(--gold)' : '') + '" title="' + (isReorderHeader ? 'Glisser-déposer avec la poignée pour réorganiser' : 'Poignée de classement') + '">⇅</th>');
   COLS.forEach(c => {
     if (!showHidden && hiddenBaseCols.has(c.key)) return;
     const cls = sortCol === c.key ? ' sorted' : '';
@@ -2864,13 +2864,13 @@ function _renderImpl() {
     const showRank = isNoteSort ? (f[sortCol] != null ? rank : null) : rank;
     const isReorderMode = sortCol === 'notePerso' && sortDir === 'desc' && f.rank != null;
     if (isReorderMode) {
-      parts.push(`<td class="cell-num col-frozen-pos reorder-cell" style="text-align:center">
+      parts.push(`<td class="cell-num col-frozen-pos reorder-cell" style="text-align:left">
         <div class="reorder-wrap">
           <span class="reorder-handle" data-click="rankprompt" data-idx="${f._idx}" title="Glisser-déposer pour modifier le rang ou cliquer pour saisir un rang">☰</span>
         </div>
       </td>`);
     } else {
-      parts.push(`<td class="cell-num col-frozen-pos reorder-cell" style="text-align:center;color:var(--txt3);font-size:.8rem">
+      parts.push(`<td class="cell-num col-frozen-pos reorder-cell" style="text-align:left;color:var(--txt3);font-size:.8rem">
         <div class="reorder-wrap"><span class="reorder-handle" title="Passez en tri Ma note décroissant pour réorganiser">☰</span></div>
       </td>`);
     }
