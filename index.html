@@ -1349,26 +1349,29 @@ tr.drag-over td { background: rgba(232,166,48,.10) !important; }
   font-size: .85rem; opacity: .4;
 }
 .cell-titre-inner {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: 10px;
   max-width: 100%; overflow: hidden;
 }
 .cell-titre-textcol {
-  display: flex; flex-direction: column; min-width: 0; flex: 1;
+  display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;
   line-height: 1.2;
 }
 .cell-titre-text {
+  flex: 1 1 auto;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
 }
 .cell-titre-primary-tag {
-  margin-top: 3px;
-  display: inline-block;
-  max-width: 100%;
+  margin-top: 0;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  min-width: 0;
 }
 .cell-titre-primary-tag .tag-chip {
-  font-size: .65rem; padding: 1px 6px; margin: 0;
+  font-size: .56rem; padding: 1px 6px; margin: 0;
   max-width: 100%;
 }
-.cell-titre-primary-tag .tag-chip .emoji { font-size: .75rem; }
+.cell-titre-primary-tag .tag-chip .emoji { font-size: .68rem; }
 
 /* ─── BREAKDOWN MODAL POSTER ──────────────────────── */.breakdown-header {
   display: flex; gap: 16px; margin-bottom: 16px;
