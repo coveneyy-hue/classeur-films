@@ -927,27 +927,26 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.7); cursor
 .ambig-btns .btn { padding: 4px 8px; font-size: .72rem; min-width: 60px; }
 
 /* ─── REORDER CONTROLS (drag and drop) ──────────── */
-.reorder-cell { padding: 2px !important; }
+.reorder-cell { padding: 3px 4px !important; }
 .reorder-wrap {
   display: flex; align-items: center; justify-content: center;
-  gap: 4px; min-width: 24px;
+  min-width: 38px;
 }
 .reorder-handle {
-  width: 22px; height: 22px; border-radius: 6px;
+  width: 34px; height: 34px; border-radius: 9px;
   display: inline-flex; align-items: center; justify-content: center;
   background: var(--bg3); color: var(--gold);
-  font-family: var(--font-display); font-weight: 900; font-size: .8rem;
+  font-family: var(--font-display); font-weight: 900; font-size: 1.15rem;
   cursor: grab; user-select: none;
-  border: 1px solid rgba(232,166,48,.18);
+  border: 1px solid rgba(232,166,48,.28);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.03);
+  line-height: 1;
 }
-.reorder-handle:active { cursor: grabbing; }
-.reorder-rank {
-  font-weight: 800; color: var(--gold); font-size: .72rem;
-  font-family: var(--font-display); cursor: pointer;
-  padding: 1px 2px; line-height: 1;
-  border-radius: 3px; min-width: 20px; text-align: center;
+.reorder-handle:hover {
+  background: var(--bg4);
+  border-color: var(--gold-dim);
 }
-.reorder-rank:hover { background: var(--bg3); }
+.reorder-handle:active { cursor: grabbing; transform: scale(.96); }
 tr.dragging { opacity: .45; }
 tr.drag-over td { background: rgba(232,166,48,.10) !important; }
 
@@ -1529,8 +1528,8 @@ tr.drag-over td { background: rgba(232,166,48,.10) !important; }
   background: var(--bg2);
 }
 .col-frozen-del  { left: 0;    min-width: 24px; width: 24px; }
-.col-frozen-pos  { left: 24px; min-width: 24px; width: 24px; }
-.col-frozen-titre{ left: 48px; min-width: var(--titre-col-width, 113px); width: var(--titre-col-width, 113px); max-width: var(--titre-col-max, 113px); }
+.col-frozen-pos  { left: 24px; min-width: 44px; width: 44px; }
+.col-frozen-titre{ left: 68px; min-width: var(--titre-col-width, 113px); width: var(--titre-col-width, 113px); max-width: var(--titre-col-max, 113px); }
 
 thead .col-frozen-del,
 thead .col-frozen-pos,
@@ -2823,12 +2822,12 @@ function _renderImpl() {
   if (tagFilter) list = list.filter(f => (f.tags || []).includes(tagFilter));
 
   document.getElementById('counter').textContent = list.length + ' / ' + classeurTotal + ' films';
-  const hiddenBaseCols = new Set(['genre','realisateur','acteurs','annee','budget','boxOffice','tmdbVote','dateVu','tags']);
+  const hiddenBaseCols = new Set(COLS.filter(c => c.key !== 'titre').map(c => c.key));
 
   // Build HTML using array push + join (faster than string concatenation with +=)
   const parts = ['<table><thead><tr><th class="col-frozen-del" style="width:24px"></th>'];
   const isReorderHeader = sortCol === 'notePerso' && sortDir === 'desc';
-  parts.push('<th class="col-frozen-pos ' + (sortCol ? 'sorted' : '') + '" style="text-align:center;min-width:24px;width:24px;' + (isReorderHeader ? 'color:var(--gold)' : '') + '" title="' + (isReorderHeader ? 'Classement manuel, glisser-déposer pour réorganiser' : 'Rang') + '">' + (isReorderHeader ? '⇅' : '#') + '</th>');
+  parts.push('<th class="col-frozen-pos ' + (sortCol ? 'sorted' : '') + '" style="text-align:center;min-width:44px;width:44px;' + (isReorderHeader ? 'color:var(--gold)' : '') + '" title="' + (isReorderHeader ? 'Glisser-déposer avec la poignée pour réorganiser' : 'Poignée de classement') + '">⇅</th>');
   COLS.forEach(c => {
     if (!showHidden && hiddenBaseCols.has(c.key)) return;
     const cls = sortCol === c.key ? ' sorted' : '';
@@ -2864,12 +2863,13 @@ function _renderImpl() {
     if (isReorderMode) {
       parts.push(`<td class="cell-num col-frozen-pos reorder-cell" style="text-align:center">
         <div class="reorder-wrap">
-          <span class="reorder-handle" title="Glisser-déposer pour modifier le rang">⋮⋮</span>
-          <span class="reorder-rank" data-click="rankprompt" data-idx="${f._idx}" title="Cliquer pour saisir un rang">${f.rank}</span>
+          <span class="reorder-handle" data-click="rankprompt" data-idx="${f._idx}" title="Glisser-déposer pour modifier le rang ou cliquer pour saisir un rang">☰</span>
         </div>
       </td>`);
     } else {
-      parts.push(`<td class="cell-num col-frozen-pos" style="font-weight:700;color:var(--txt3);font-size:.8rem">${showRank != null ? showRank : '—'}</td>`);
+      parts.push(`<td class="cell-num col-frozen-pos reorder-cell" style="text-align:center;color:var(--txt3);font-size:.8rem">
+        <div class="reorder-wrap"><span class="reorder-handle" title="Passez en tri Ma note décroissant pour réorganiser">☰</span></div>
+      </td>`);
     }
     COLS.forEach(col => {
       if (!showHidden && hiddenBaseCols.has(col.key)) return;
