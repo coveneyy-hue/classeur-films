@@ -1858,6 +1858,90 @@ td.editing input {
   }
 }
 
+
+/* --- Profils d'affichage et filtres avancés --- */
+.filter-panel {
+  display: none;
+  margin: -4px 0 14px;
+  padding: 12px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 24px rgba(0,0,0,.25);
+}
+.filter-panel.open { display: block; }
+.filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+  gap: 10px;
+  align-items: end;
+}
+.filter-field label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: .68rem;
+  color: var(--txt2);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-weight: 700;
+}
+.filter-field input,
+.filter-field select {
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: .9rem;
+  outline: none;
+}
+.filter-field input:focus,
+.filter-field select:focus { border-color: var(--gold); }
+.filter-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.profile-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.profile-pill {
+  padding: 8px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  color: var(--txt);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: .8rem;
+  font-weight: 700;
+}
+.profile-pill:hover { border-color: var(--gold-dim); color: var(--gold); }
+.profile-pill.active {
+  background: linear-gradient(135deg, var(--gold), #d08820);
+  color: #000;
+  border-color: transparent;
+}
+.filter-badge-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gold);
+  display: none;
+  margin-left: -2px;
+}
+.filter-badge-dot.active { display: inline-block; }
+@media (max-width: 768px) {
+  .filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 </style>
 <!-- Chart.js et SheetJS sont chargés à la demande via _loadScript() pour ne pas bloquer le chargement initial -->
 </head>
@@ -1884,6 +1968,7 @@ td.editing input {
     <div class="topbar-search-row">
       <div class="search-inline-wrap">
         <input type="text" class="searchbox" id="search" placeholder="Rechercher titre, genre, réalisateur, tag…" oninput="debouncedSearch()">
+        <button class="btn btn-icon" onclick="toggleAdvancedFilters()" title="Filtres avancés" aria-label="Filtres avancés">⚗<span id="filterActiveDot" class="filter-badge-dot"></span></button>
       </div>
       <span class="count" id="counter"></span>
     </div>
@@ -1895,6 +1980,7 @@ td.editing input {
 
   <!-- Tag Filter Bar -->
   <div id="tagFilterBar"></div>
+  <div id="advancedFilterPanel" class="filter-panel"></div>
   <!-- Table -->
   <div class="table-wrap" id="tableWrap"></div>
 
@@ -2123,6 +2209,9 @@ const DEFAULT_FILMS=[
    ═══════════════════════════════════════════════════ */
 let films = [], log = [], duelLog = [], showHidden = false, sortCol = 'notePerso', sortDir = 'desc', titleExpanded = false, titreReducedWidth = 113, listZoomPercent = 100, showPosters = true, startupSuggestEnabled = true, startupDuelEnabled = true;
 let viewMode = 'classeur';
+let displayProfile = localStorage.getItem('cf_displayProfile') || 'compact';
+let filtersOpen = false;
+let advancedFilters = { yearMin:'', yearMax:'', noteMin:'', noteMax:'', genre:'', status:'all' };
 let tags = []; // [{ id, name, color, emoji }]
 let tagFilter = null; // tag id or null
 let editCell = null; // {idx, key}
@@ -2167,6 +2256,11 @@ function loadState() {
   if (!isNaN(savedTRW) && savedTRW >= 50 && savedTRW <= 600) titreReducedWidth = savedTRW;
   const savedLZP = parseInt(localStorage.getItem('cf_listZoomPercent'));
   if (!isNaN(savedLZP) && savedLZP >= 70 && savedLZP <= 220) listZoomPercent = savedLZP;
+  try {
+    const af = JSON.parse(localStorage.getItem('cf_advancedFilters') || '{}');
+    advancedFilters = { ...advancedFilters, ...af };
+  } catch(e) {}
+  displayProfile = localStorage.getItem('cf_displayProfile') || displayProfile;
   applyLayoutVars();
 }
 
@@ -2295,6 +2389,8 @@ function savePrefs() {
   localStorage.setItem('cf_startupSuggestEnabled', startupSuggestEnabled ? '1' : '0');
   localStorage.setItem('cf_startupDuelEnabled', startupDuelEnabled ? '1' : '0');
   localStorage.setItem('cf_duelBlindMode', duelBlindMode ? '1' : '0');
+  localStorage.setItem('cf_displayProfile', displayProfile || 'compact');
+  localStorage.setItem('cf_advancedFilters', JSON.stringify(advancedFilters));
 }
 function applyLayoutVars() {
   const titreWidth = titleExpanded ? 'min(calc(100vw - 124px), 1000px)' : titreReducedWidth + 'px';
@@ -2762,6 +2858,127 @@ function _onTableDblClick(e) {
   }
 }
 
+
+function numOrNull(v) {
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n : null;
+}
+function getFilmGenreList(f) {
+  return String(f.genre || '').split(/[,;]/).map(x => x.trim()).filter(Boolean);
+}
+function getAllGenres() {
+  const set = new Set();
+  films.forEach(f => getFilmGenreList(f).forEach(g => set.add(g)));
+  return Array.from(set).sort((a, b) => a.localeCompare(b, 'fr'));
+}
+function hasActiveAdvancedFilters() {
+  return !!(advancedFilters.yearMin || advancedFilters.yearMax || advancedFilters.noteMin || advancedFilters.noteMax || advancedFilters.genre || (advancedFilters.status && advancedFilters.status !== 'all'));
+}
+function filmPassesAdvancedFilters(f) {
+  const yMin = numOrNull(advancedFilters.yearMin);
+  const yMax = numOrNull(advancedFilters.yearMax);
+  const nMin = numOrNull(advancedFilters.noteMin);
+  const nMax = numOrNull(advancedFilters.noteMax);
+  if (yMin != null && (f.annee == null || Number(f.annee) < yMin)) return false;
+  if (yMax != null && (f.annee == null || Number(f.annee) > yMax)) return false;
+  if (nMin != null && (f.notePerso == null || Number(f.notePerso) < nMin)) return false;
+  if (nMax != null && (f.notePerso == null || Number(f.notePerso) > nMax)) return false;
+  if (advancedFilters.genre) {
+    const wanted = advancedFilters.genre.toLowerCase();
+    const genres = getFilmGenreList(f).map(g => g.toLowerCase());
+    if (!genres.includes(wanted)) return false;
+  }
+  switch (advancedFilters.status) {
+    case 'rated': if (f.notePerso == null) return false; break;
+    case 'unrated': if (f.notePerso != null) return false; break;
+    case 'noPoster': if (posterUrl(f, 'small')) return false; break;
+    case 'withPoster': if (!posterUrl(f, 'small')) return false; break;
+    case 'noTags': if ((f.tags || []).length) return false; break;
+    case 'withTags': if (!(f.tags || []).length) return false; break;
+  }
+  return true;
+}
+function renderAdvancedFilters() {
+  const panel = document.getElementById('advancedFilterPanel');
+  if (!panel) return;
+  panel.classList.toggle('open', filtersOpen);
+  const genres = getAllGenres();
+  panel.innerHTML = `<div class="filter-grid">
+    <div class="filter-field"><label>Année min</label><input type="number" id="filterYearMin" value="${escAttr(advancedFilters.yearMin)}" placeholder="ex. 1980"></div>
+    <div class="filter-field"><label>Année max</label><input type="number" id="filterYearMax" value="${escAttr(advancedFilters.yearMax)}" placeholder="ex. 2026"></div>
+    <div class="filter-field"><label>Note min</label><input type="number" id="filterNoteMin" min="0" max="10" step="0.1" value="${escAttr(advancedFilters.noteMin)}" placeholder="ex. 7.5"></div>
+    <div class="filter-field"><label>Note max</label><input type="number" id="filterNoteMax" min="0" max="10" step="0.1" value="${escAttr(advancedFilters.noteMax)}" placeholder="ex. 10"></div>
+    <div class="filter-field"><label>Genre</label><select id="filterGenre"><option value="">Tous</option>${genres.map(g => `<option value="${escAttr(g)}" ${advancedFilters.genre === g ? 'selected' : ''}>${esc(g)}</option>`).join('')}</select></div>
+    <div class="filter-field"><label>État</label><select id="filterStatus">
+      <option value="all" ${advancedFilters.status === 'all' ? 'selected' : ''}>Tous</option>
+      <option value="rated" ${advancedFilters.status === 'rated' ? 'selected' : ''}>Notés</option>
+      <option value="unrated" ${advancedFilters.status === 'unrated' ? 'selected' : ''}>Non notés</option>
+      <option value="withPoster" ${advancedFilters.status === 'withPoster' ? 'selected' : ''}>Avec affiche</option>
+      <option value="noPoster" ${advancedFilters.status === 'noPoster' ? 'selected' : ''}>Sans affiche</option>
+      <option value="withTags" ${advancedFilters.status === 'withTags' ? 'selected' : ''}>Avec tags</option>
+      <option value="noTags" ${advancedFilters.status === 'noTags' ? 'selected' : ''}>Sans tags</option>
+    </select></div>
+  </div>
+  <div class="filter-actions">
+    <button class="btn" onclick="clearAdvancedFilters()">Réinitialiser</button>
+    <button class="btn gold" onclick="applyAdvancedFilters()">Appliquer</button>
+  </div>`;
+  const dot = document.getElementById('filterActiveDot');
+  if (dot) dot.classList.toggle('active', hasActiveAdvancedFilters());
+}
+function readAdvancedFilterInputs() {
+  advancedFilters = {
+    yearMin: document.getElementById('filterYearMin')?.value.trim() || '',
+    yearMax: document.getElementById('filterYearMax')?.value.trim() || '',
+    noteMin: document.getElementById('filterNoteMin')?.value.trim() || '',
+    noteMax: document.getElementById('filterNoteMax')?.value.trim() || '',
+    genre: document.getElementById('filterGenre')?.value || '',
+    status: document.getElementById('filterStatus')?.value || 'all'
+  };
+}
+function toggleAdvancedFilters() {
+  filtersOpen = !filtersOpen;
+  renderAdvancedFilters();
+}
+function applyAdvancedFilters() {
+  readAdvancedFilterInputs();
+  savePrefs();
+  render();
+  toast('Filtres appliqués', 'success');
+}
+function clearAdvancedFilters() {
+  advancedFilters = { yearMin:'', yearMax:'', noteMin:'', noteMax:'', genre:'', status:'all' };
+  savePrefs();
+  render();
+  toast('Filtres réinitialisés', 'info');
+}
+const DISPLAY_PROFILES = {
+  compact: { label: 'Compact', hidden: false, posters: false, zoom: 90, titleWidth: 130, sortCol: 'notePerso', sortDir: 'desc' },
+  posters: { label: 'Posters', hidden: false, posters: true, zoom: 145, titleWidth: 220, sortCol: 'notePerso', sortDir: 'desc' },
+  analyse: { label: 'Analyse', hidden: true, posters: false, zoom: 100, titleWidth: 190, sortCol: 'notePerso', sortDir: 'desc' },
+  tags: { label: 'Tags', hidden: true, posters: true, zoom: 120, titleWidth: 190, sortCol: 'titre', sortDir: 'asc' }
+};
+function applyDisplayProfile(profileKey, opts = {}) {
+  const p = DISPLAY_PROFILES[profileKey];
+  if (!p) return;
+  displayProfile = profileKey;
+  showHidden = !!p.hidden;
+  showPosters = !!p.posters;
+  listZoomPercent = p.zoom;
+  titreReducedWidth = p.titleWidth;
+  titleExpanded = false;
+  sortCol = p.sortCol;
+  sortDir = p.sortDir;
+  applyLayoutVars();
+  savePrefs();
+  if (opts.close) closeOverlay();
+  render();
+  toast(`Profil ${p.label} appliqué`, 'success');
+}
+function renderProfileButtons() {
+  return Object.entries(DISPLAY_PROFILES).map(([key, p]) => `<button class="profile-pill ${displayProfile === key ? 'active' : ''}" onclick="applyDisplayProfile('${key}')">${p.label}</button>`).join('');
+}
+
 // Render batching: multiple render() calls in the same tick collapse to one actual render
 let _renderRafId = 0;
 function render() {
@@ -2850,6 +3067,7 @@ function _renderImpl() {
     return haystack.includes(q);
   });
   if (tagFilter) list = list.filter(f => (f.tags || []).includes(tagFilter));
+  if (hasActiveAdvancedFilters()) list = list.filter(f => filmPassesAdvancedFilters(f));
 
   document.getElementById('counter').textContent = list.length + ' / ' + classeurTotal + ' films';
   const hiddenBaseCols = new Set(COLS.filter(c => c.key !== 'titre').map(c => c.key));
@@ -2977,6 +3195,7 @@ function _renderImpl() {
   document.getElementById('tableWrap').innerHTML = parts.join('');
   _invalidateFrozenHeader();
   renderTagFilterBar();
+  renderAdvancedFilters();
   requestAnimationFrame(syncFrozenHeader);
 }
 
@@ -5687,6 +5906,9 @@ function openSettings() {
         <div class="settings-section">
           <div class="settings-section-title">Affichage</div>
           <div class="settings-section-desc">Réglez la présentation du tableau principal.</div>
+          <label>Profils d'affichage</label>
+          <div class="profile-pills">${renderProfileButtons()}</div>
+          <p style="font-size:.78rem;color:var(--txt3);margin-top:6px;margin-bottom:14px">Compact, Posters, Analyse ou Tags. Chaque profil ajuste les colonnes, les affiches, le zoom et le tri.</p>
           <label>Largeur réduite de la colonne Titre (px)</label>
           <input type="number" id="settingsTitreWidth" min="50" max="600" step="10" value="${titreReducedWidth}" placeholder="90">
           <p style="font-size:.78rem;color:var(--txt3);margin-top:6px;margin-bottom:14px">Valeur par défaut : 90 px · Min 50 · Max 600</p>
@@ -5925,6 +6147,7 @@ function saveSettings() {
   titreReducedWidth = raw;
   listZoomPercent = zoomRaw;
   showPosters = document.getElementById('settingsShowPosters').checked;
+  displayProfile = 'custom';
   startupSuggestEnabled = document.getElementById('settingsStartupSuggest').checked;
   startupDuelEnabled = document.getElementById('settingsStartupDuel').checked;
   savePrefs();
