@@ -33,6 +33,9 @@
   --radius:    12px;
   --radius-sm: 8px;
   --shadow:    0 8px 40px rgba(0,0,0,.5);
+  --list-zoom: 1;
+  --list-poster-w: 28px;
+  --list-poster-h: 42px;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { font-size: 14px; scroll-behavior: smooth; }
@@ -572,9 +575,9 @@ body::before {
   border: 1px solid var(--border); background: var(--bg2);
   box-shadow: var(--shadow);
 }
-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+table { width: 100%; border-collapse: collapse; font-size: calc(.88rem * var(--list-zoom)); }
 thead th {
-  padding: 11px 8px; background: var(--bg3);
+  padding: calc(11px * var(--list-zoom)) calc(8px * var(--list-zoom)); background: var(--bg3);
   font-family: var(--font-display); font-weight: 700;
   font-size: .7rem; letter-spacing: .08em; text-transform: uppercase;
   color: var(--txt2); border-bottom: 2px solid var(--border);
@@ -600,7 +603,7 @@ thead th {
 .floating-head.active { display: block; }
 .floating-head table { border-collapse: collapse; margin: 0; }
 .floating-head th {
-  padding: 11px 8px;
+  padding: calc(11px * var(--list-zoom)) calc(8px * var(--list-zoom));
   background: var(--bg3);
   font-family: var(--font-display);
   font-weight: 700;
@@ -619,9 +622,9 @@ thead th {
 thead th:hover { color: var(--gold); }
 thead th.sorted { color: var(--gold); }
 tbody td {
-  padding: 9px 8px; border-bottom: 1px solid var(--border);
+  padding: calc(9px * var(--list-zoom)) calc(8px * var(--list-zoom)); border-bottom: 1px solid var(--border);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  max-width: 240px; transition: background .15s;
+  max-width: calc(240px * var(--list-zoom)); transition: background .15s;
 }
 tbody tr { transition: background .15s; }
 tbody tr:nth-child(even) { background: rgba(255,255,255,.012); }
@@ -1342,8 +1345,8 @@ tr.drag-over .col-frozen-titre {
 }
 
 .title-poster {
-  display: inline-block; width: 28px; height: 42px;
-  border-radius: 3px; background-size: cover; background-position: center;
+  display: inline-block; width: var(--list-poster-w); height: var(--list-poster-h);
+  border-radius: calc(3px * var(--list-zoom)); background-size: cover; background-position: center;
   background-color: var(--bg4); vertical-align: middle;
   flex-shrink: 0;
 }
@@ -1357,11 +1360,11 @@ tr.drag-over .col-frozen-titre {
   font-size: .85rem; opacity: .4;
 }
 .cell-titre-inner {
-  display: flex; align-items: center; gap: 10px;
+  display: flex; align-items: center; gap: calc(10px * var(--list-zoom));
   max-width: 100%; overflow: hidden;
 }
 .cell-titre-textcol {
-  display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;
+  display: flex; align-items: center; gap: calc(8px * var(--list-zoom)); min-width: 0; flex: 1;
   line-height: 1.2;
 }
 .cell-titre-text {
@@ -2109,7 +2112,7 @@ const DEFAULT_FILMS=[
 /* ═══════════════════════════════════════════════════
    STATE
    ═══════════════════════════════════════════════════ */
-let films = [], log = [], duelLog = [], showHidden = false, sortCol = 'notePerso', sortDir = 'desc', titleExpanded = false, titreReducedWidth = 113, showPosters = true, startupSuggestEnabled = true, startupDuelEnabled = true;
+let films = [], log = [], duelLog = [], showHidden = false, sortCol = 'notePerso', sortDir = 'desc', titleExpanded = false, titreReducedWidth = 113, listZoomPercent = 100, showPosters = true, startupSuggestEnabled = true, startupDuelEnabled = true;
 let viewMode = 'classeur';
 let tags = []; // [{ id, name, color, emoji }]
 let tagFilter = null; // tag id or null
@@ -2153,6 +2156,8 @@ function loadState() {
   duelBlindMode = localStorage.getItem('cf_duelBlindMode') !== '0'; // défaut true
   const savedTRW = parseInt(localStorage.getItem('cf_titreReducedWidth'));
   if (!isNaN(savedTRW) && savedTRW >= 50 && savedTRW <= 600) titreReducedWidth = savedTRW;
+  const savedLZP = parseInt(localStorage.getItem('cf_listZoomPercent'));
+  if (!isNaN(savedLZP) && savedLZP >= 70 && savedLZP <= 220) listZoomPercent = savedLZP;
   applyLayoutVars();
 }
 
@@ -2276,6 +2281,7 @@ function savePrefs() {
   localStorage.setItem('cf_showHidden', showHidden ? '1' : '0');
   localStorage.setItem('cf_titleExpanded', titleExpanded ? '1' : '0');
   localStorage.setItem('cf_titreReducedWidth', String(titreReducedWidth));
+  localStorage.setItem('cf_listZoomPercent', String(listZoomPercent));
   localStorage.setItem('cf_showPosters', showPosters ? '1' : '0');
   localStorage.setItem('cf_startupSuggestEnabled', startupSuggestEnabled ? '1' : '0');
   localStorage.setItem('cf_startupDuelEnabled', startupDuelEnabled ? '1' : '0');
@@ -2286,6 +2292,10 @@ function applyLayoutVars() {
   const titreMax = titleExpanded ? 'min(calc(100vw - 80px), 1000px)' : titreReducedWidth + 'px';
   document.documentElement.style.setProperty('--titre-col-width', titreWidth);
   document.documentElement.style.setProperty('--titre-col-max', titreMax);
+  const listZoom = Math.max(0.7, Math.min(2.2, listZoomPercent / 100));
+  document.documentElement.style.setProperty('--list-zoom', String(listZoom));
+  document.documentElement.style.setProperty('--list-poster-w', Math.round(28 * listZoom) + 'px');
+  document.documentElement.style.setProperty('--list-poster-h', Math.round(42 * listZoom) + 'px');
 }
 
 function normalizeDateVu(value) {
@@ -5658,6 +5668,9 @@ function openSettings() {
           <label>Largeur réduite de la colonne Titre (px)</label>
           <input type="number" id="settingsTitreWidth" min="50" max="600" step="10" value="${titreReducedWidth}" placeholder="90">
           <p style="font-size:.78rem;color:var(--txt3);margin-top:6px;margin-bottom:14px">Valeur par défaut : 90 px · Min 50 · Max 600</p>
+          <label>Zoom de la liste (%)</label>
+          <input type="number" id="settingsListZoom" min="70" max="220" step="5" value="${listZoomPercent}" placeholder="100">
+          <p style="font-size:.78rem;color:var(--txt3);margin-top:6px;margin-bottom:14px">Valeur par défaut : 100 % · Min 70 · Max 220. Agrandit les lignes, le texte et les mini-affiches.</p>
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
             <input type="checkbox" id="settingsShowPosters" ${showPosters ? 'checked' : ''} style="width:auto;margin:0">
             <span>Afficher les mini-affiches dans le tableau</span>
@@ -5882,7 +5895,13 @@ function saveSettings() {
     toast('La largeur doit être entre 50 et 600 px', 'error');
     return;
   }
+  const zoomRaw = parseInt(document.getElementById('settingsListZoom').value);
+  if (isNaN(zoomRaw) || zoomRaw < 70 || zoomRaw > 220) {
+    toast('Le zoom doit être entre 70 % et 220 %', 'error');
+    return;
+  }
   titreReducedWidth = raw;
+  listZoomPercent = zoomRaw;
   showPosters = document.getElementById('settingsShowPosters').checked;
   startupSuggestEnabled = document.getElementById('settingsStartupSuggest').checked;
   startupDuelEnabled = document.getElementById('settingsStartupDuel').checked;
