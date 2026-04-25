@@ -998,6 +998,15 @@ tr.drag-over .col-frozen-titre {
 .tag-chips-cell {
   display: flex; flex-wrap: wrap; align-items: center; min-height: 20px;
 }
+.tags-right-col {
+  min-width: 220px;
+  max-width: 320px;
+  white-space: normal;
+  vertical-align: middle;
+}
+.tags-right-col .tag-chips-cell {
+  gap: 4px;
+}
 .tag-chips-list {
   display: flex; flex-wrap: wrap; padding: 10px;
   border: 1px solid var(--border); border-radius: var(--radius-sm);
@@ -2850,6 +2859,7 @@ function _renderImpl() {
   const isReorderHeader = sortCol === 'notePerso' && sortDir === 'desc';
   parts.push('<th class="col-frozen-pos ' + (sortCol ? 'sorted' : '') + '" style="text-align:left;min-width:36px;width:36px;padding-left:2px;' + (isReorderHeader ? 'color:var(--gold)' : '') + '" title="' + (isReorderHeader ? 'Glisser-déposer avec la poignée pour réorganiser' : 'Poignée de classement') + '">⇅</th>');
   COLS.forEach(c => {
+    if (c.key === 'tags') return;
     if (!showHidden && hiddenBaseCols.has(c.key)) return;
     const cls = sortCol === c.key ? ' sorted' : '';
     const arrow = sortCol === c.key ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
@@ -2872,6 +2882,12 @@ function _renderImpl() {
       parts.push(`<th class="${cls}" data-click="sort" data-key="${sk}" style="text-align:center;min-width:85px;color:${r.color};opacity:.7;font-size:.6rem;cursor:pointer">${r.label.substring(0,3)}·${c.label}${arrow}</th>`);
     });
   });
+  if (showHidden) {
+    const tagCol = COLS.find(c => c.key === 'tags');
+    const cls = sortCol === 'tags' ? ' sorted' : '';
+    const arrow = sortCol === 'tags' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
+    parts.push(`<th class="${cls}" data-click="sort" data-key="tags" style="text-align:left;min-width:${tagCol ? tagCol.w : 220}px">Tags${arrow}</th>`);
+  }
   parts.push('</tr></thead><tbody>');
 
   list.forEach(f => {
@@ -2893,6 +2909,7 @@ function _renderImpl() {
       </td>`);
     }
     COLS.forEach(col => {
+      if (col.key === 'tags') return;
       if (!showHidden && hiddenBaseCols.has(col.key)) return;
       if (col.rater) {
         const rater = RATERS.find(r => r.key === col.key);
@@ -2929,11 +2946,7 @@ function _renderImpl() {
             ? `<span class="title-poster" style="background-image:url('${pUrl}')"></span>`
             : `<span class="title-poster empty"></span>`;
         }
-        const primary = f.primaryTag ? findTag(f.primaryTag) : null;
-        const primaryChip = primary
-          ? `<span class="cell-titre-primary-tag"><span class="tag-chip" style="--tag-color:${primary.color}" data-click="tagf" data-tid="${primary.id}"><span class="emoji">${primary.emoji||'🏷'}</span>${esc(primary.name)}</span></span>`
-          : '';
-        const inner = `${posterPart}<span class="cell-titre-textcol"><span class="cell-titre-text">${esc(f[col.key]||'—')}</span>${primaryChip}</span>`;
+        const inner = `${posterPart}<span class="cell-titre-textcol"><span class="cell-titre-text">${esc(f[col.key]||'—')}</span></span>`;
         parts.push(`<td class="cell-titre col-frozen-titre" style="${titreStyle}" data-dblclick="break" data-idx="${f._idx}" title="${esc(f[col.key]||'')}"><span class="cell-titre-inner">${inner}</span></td>`);
       } else if (col.edit) {
         const v = f[col.key];
@@ -2949,6 +2962,15 @@ function _renderImpl() {
         parts.push(`<td class="cell-hidden" style="color:${r.color};opacity:.6">${val!=null?val:'—'}</td>`);
       });
     });
+    if (showHidden) {
+      const filmTags = (f.tags || []).map(tid => findTag(tid)).filter(Boolean);
+      const chips = filmTags.map(t => {
+        const primaryClass = f.primaryTag === t.id ? ' is-primary' : '';
+        const primaryStar = f.primaryTag === t.id ? '<span class="tag-star">★</span>' : '';
+        return `<span class="tag-chip${primaryClass}" style="--tag-color:${t.color}" data-click="tagf" data-tid="${t.id}">${primaryStar}<span class="emoji">${t.emoji||'🏷'}</span>${esc(t.name)}</span>`;
+      }).join('');
+      parts.push(`<td class="cell-num tags-right-col" style="text-align:left" data-dblclick="break" data-idx="${f._idx}"><div class="tag-chips-cell">${chips || '<span class="hint">double-clic</span>'}</div></td>`);
+    }
     parts.push('</tr>');
   });
   parts.push('</tbody></table>');
