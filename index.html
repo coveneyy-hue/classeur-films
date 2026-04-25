@@ -1368,6 +1368,17 @@ tr.drag-over .col-frozen-titre {
   display: flex; align-items: center; justify-content: center;
   font-size: .85rem; opacity: .4;
 }
+
+html[data-display-profile="posters"] .title-poster {
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.35);
+}
+html[data-display-profile="posters"] .cell-titre-inner {
+  align-items: center;
+}
+html[data-display-profile="posters"] .cell-titre-text {
+  font-size: 1.04em;
+}
 .cell-titre-inner {
   display: flex; align-items: center; gap: calc(10px * var(--list-zoom));
   max-width: 100%; overflow: hidden;
@@ -2209,7 +2220,7 @@ const DEFAULT_FILMS=[
    ═══════════════════════════════════════════════════ */
 let films = [], log = [], duelLog = [], showHidden = false, sortCol = 'notePerso', sortDir = 'desc', titleExpanded = false, titreReducedWidth = 113, listZoomPercent = 100, showPosters = true, startupSuggestEnabled = true, startupDuelEnabled = true;
 let viewMode = 'classeur';
-let displayProfile = localStorage.getItem('cf_displayProfile') || 'compact';
+let displayProfile = localStorage.getItem('cf_displayProfile') || 'custom';
 let filtersOpen = false;
 let advancedFilters = { yearMin:'', yearMax:'', noteMin:'', noteMax:'', genre:'', status:'all' };
 let tags = []; // [{ id, name, color, emoji }]
@@ -2260,7 +2271,26 @@ function loadState() {
     const af = JSON.parse(localStorage.getItem('cf_advancedFilters') || '{}');
     advancedFilters = { ...advancedFilters, ...af };
   } catch(e) {}
-  displayProfile = localStorage.getItem('cf_displayProfile') || displayProfile;
+  const savedProfile = localStorage.getItem('cf_displayProfile');
+  displayProfile = savedProfile || displayProfile;
+  if (savedProfile && savedProfile !== 'custom') {
+    const profilePrefs = {
+      compact: { hidden: false, posters: false, zoom: 85, titleWidth: 110, sortCol: 'notePerso', sortDir: 'desc' },
+      posters: { hidden: false, posters: true, zoom: 165, titleWidth: 360, sortCol: 'notePerso', sortDir: 'desc' },
+      analyse: { hidden: true, posters: false, zoom: 100, titleWidth: 220, sortCol: 'notePerso', sortDir: 'desc' },
+      tags: { hidden: true, posters: true, zoom: 125, titleWidth: 180, sortCol: 'titre', sortDir: 'asc' }
+    };
+    const p = profilePrefs[savedProfile];
+    if (p) {
+      showHidden = !!p.hidden;
+      showPosters = !!p.posters;
+      listZoomPercent = p.zoom;
+      titreReducedWidth = p.titleWidth;
+      titleExpanded = false;
+      sortCol = p.sortCol;
+      sortDir = p.sortDir;
+    }
+  }
   applyLayoutVars();
 }
 
@@ -2398,9 +2428,12 @@ function applyLayoutVars() {
   document.documentElement.style.setProperty('--titre-col-width', titreWidth);
   document.documentElement.style.setProperty('--titre-col-max', titreMax);
   const listZoom = Math.max(0.7, Math.min(2.2, listZoomPercent / 100));
+  const posterBaseW = displayProfile === 'posters' ? 54 : 28;
+  const posterBaseH = displayProfile === 'posters' ? 81 : 42;
+  document.documentElement.dataset.displayProfile = displayProfile || 'custom';
   document.documentElement.style.setProperty('--list-zoom', String(listZoom));
-  document.documentElement.style.setProperty('--list-poster-w', Math.round(28 * listZoom) + 'px');
-  document.documentElement.style.setProperty('--list-poster-h', Math.round(42 * listZoom) + 'px');
+  document.documentElement.style.setProperty('--list-poster-w', Math.round(posterBaseW * listZoom) + 'px');
+  document.documentElement.style.setProperty('--list-poster-h', Math.round(posterBaseH * listZoom) + 'px');
 }
 
 function normalizeDateVu(value) {
@@ -2954,7 +2987,7 @@ function clearAdvancedFilters() {
 }
 const DISPLAY_PROFILES = {
   compact: { label: 'Compact', hidden: false, posters: false, zoom: 85, titleWidth: 110, sortCol: 'notePerso', sortDir: 'desc' },
-  posters: { label: 'Posters', hidden: false, posters: true, zoom: 165, titleWidth: 320, sortCol: 'notePerso', sortDir: 'desc' },
+  posters: { label: 'Posters', hidden: false, posters: true, zoom: 165, titleWidth: 360, sortCol: 'notePerso', sortDir: 'desc' },
   analyse: { label: 'Analyse', hidden: true, posters: false, zoom: 100, titleWidth: 220, sortCol: 'notePerso', sortDir: 'desc' },
   tags: { label: 'Tags', hidden: true, posters: true, zoom: 125, titleWidth: 180, sortCol: 'titre', sortDir: 'asc' }
 };
@@ -5908,7 +5941,7 @@ function openSettings() {
           <div class="settings-section-desc">Réglez la présentation du tableau principal.</div>
           <label>Profils d'affichage</label>
           <div class="profile-pills">${renderProfileButtons()}</div>
-          <p style="font-size:.78rem;color:var(--txt3);margin-top:6px;margin-bottom:14px">Chaque profil ajuste maintenant les colonnes, les affiches, le zoom, la largeur de la colonne Titre et le tri. Compact : 85 % / 110 px. Posters : 165 % / 320 px. Analyse : 100 % / 220 px. Tags : 125 % / 180 px.</p>
+          <p style="font-size:.78rem;color:var(--txt3);margin-top:6px;margin-bottom:14px">Chaque profil ajuste maintenant les colonnes, les affiches, le zoom, la largeur de la colonne Titre et le tri. Compact : 85 % / 110 px. Posters : 165 % / 360 px avec affiches agrandies. Analyse : 100 % / 220 px. Tags : 125 % / 180 px.</p>
           <label>Largeur réduite de la colonne Titre (px)</label>
           <input type="number" id="settingsTitreWidth" min="50" max="600" step="10" value="${titreReducedWidth}" placeholder="90">
           <p style="font-size:.78rem;color:var(--txt3);margin-top:6px;margin-bottom:14px">Valeur par défaut : 90 px · Min 50 · Max 600</p>
