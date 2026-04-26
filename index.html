@@ -2836,14 +2836,16 @@ let _dragRankSourceIdx = null;
 let _dragScrollRAF = null;
 let _dragScrollSpeed = 0;          // px/frame, signe = direction (+ bas, - haut)
 let _dragLastClientY = 0;
-const _DRAG_EDGE_SIZE = 90;        // taille de la zone "edge" en px
-const _DRAG_MAX_SPEED = 22;        // vitesse max par frame
+const _DRAG_EDGE_SIZE = 150;       // zone de déclenchement plus large pour un scroll plus réactif
+const _DRAG_MAX_SPEED = 48;        // vitesse max par frame
+const _DRAG_MIN_SPEED = 12;        // vitesse minimale dès qu'on entre dans la zone edge
+const _DRAG_ACCEL_POWER = 1.35;    // accélération progressive près du bord
 function _dragScrollLoop() {
   if (_dragRankSourceIdx == null || _dragScrollSpeed === 0) {
     _dragScrollRAF = null;
     return;
   }
-  window.scrollBy(0, _dragScrollSpeed);
+  window.scrollBy({ top: _dragScrollSpeed, left: 0, behavior: 'auto' });
   // Met à jour la ligne survolée en fonction du nouveau scroll
   _updateDragOverFromPoint(_dragLastClientY);
   _dragScrollRAF = requestAnimationFrame(_dragScrollLoop);
@@ -2853,12 +2855,12 @@ function _updateDragScrollSpeed(clientY) {
   const vh = window.innerHeight;
   let speed = 0;
   if (clientY < _DRAG_EDGE_SIZE) {
-    // Plus on est proche du haut (clientY petit), plus on scrolle vite vers le haut
-    const ratio = (_DRAG_EDGE_SIZE - clientY) / _DRAG_EDGE_SIZE;
-    speed = -Math.ceil(_DRAG_MAX_SPEED * Math.min(1, Math.max(0, ratio)));
+    // Plus on est proche du haut, plus le scroll accélère vers le haut
+    const ratio = Math.min(1, Math.max(0, (_DRAG_EDGE_SIZE - clientY) / _DRAG_EDGE_SIZE));
+    speed = -Math.ceil(_DRAG_MIN_SPEED + (_DRAG_MAX_SPEED - _DRAG_MIN_SPEED) * Math.pow(ratio, _DRAG_ACCEL_POWER));
   } else if (clientY > vh - _DRAG_EDGE_SIZE) {
-    const ratio = (clientY - (vh - _DRAG_EDGE_SIZE)) / _DRAG_EDGE_SIZE;
-    speed = Math.ceil(_DRAG_MAX_SPEED * Math.min(1, Math.max(0, ratio)));
+    const ratio = Math.min(1, Math.max(0, (clientY - (vh - _DRAG_EDGE_SIZE)) / _DRAG_EDGE_SIZE));
+    speed = Math.ceil(_DRAG_MIN_SPEED + (_DRAG_MAX_SPEED - _DRAG_MIN_SPEED) * Math.pow(ratio, _DRAG_ACCEL_POWER));
   }
   _dragScrollSpeed = speed;
   if (speed !== 0 && _dragScrollRAF == null) {
