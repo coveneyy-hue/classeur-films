@@ -3101,10 +3101,10 @@ function clearAdvancedFilters() {
   toast('Filtres réinitialisés', 'info');
 }
 const DISPLAY_PROFILES = {
-  compact: { label: 'Compact', hidden: false, posters: false, zoom: 85, titleWidth: 110, sortCol: 'notePerso', sortDir: 'desc' },
-  posters: { label: 'Posters', hidden: false, posters: true, zoom: 165, titleWidth: 320, sortCol: 'notePerso', sortDir: 'desc' },
-  analyse: { label: 'Analyse', hidden: true, posters: false, zoom: 100, titleWidth: 220, sortCol: 'notePerso', sortDir: 'desc' },
-  tags: { label: 'Tags', hidden: true, posters: true, zoom: 125, titleWidth: 180, sortCol: 'titre', sortDir: 'asc' }
+  compact: { label: 'Compact', hidden: false, posters: false, zoom: 75,  titleWidth: 100, sortCol: 'notePerso', sortDir: 'desc' },
+  posters: { label: 'Posters', hidden: false, posters: true,  zoom: 165, titleWidth: 320, sortCol: 'notePerso', sortDir: 'desc' },
+  analyse: { label: 'Analyse', hidden: true,  posters: false, zoom: 90,  titleWidth: 180, sortCol: 'notePerso', sortDir: 'desc' },
+  tags:    { label: 'Tags',    hidden: true,  posters: true,  zoom: 125, titleWidth: 180, sortCol: 'titre',     sortDir: 'asc'  }
 };
 function applyDisplayProfile(profileKey, opts = {}) {
   const p = DISPLAY_PROFILES[profileKey];
@@ -3119,6 +3119,19 @@ function applyDisplayProfile(profileKey, opts = {}) {
   sortDir = p.sortDir;
   applyLayoutVars();
   savePrefs();
+  // Si la modale Paramètres est ouverte, on synchronise les champs visibles
+  // pour que l'utilisateur voie ce que le profil a changé (zoom, largeur, posters).
+  // Les pills sont aussi remis à jour pour refléter le profil actif.
+  const titreInput = document.getElementById('settingsTitreWidth');
+  if (titreInput) {
+    titreInput.value = titreReducedWidth;
+    const zoomInput = document.getElementById('settingsListZoom');
+    if (zoomInput) zoomInput.value = listZoomPercent;
+    const postersChk = document.getElementById('settingsShowPosters');
+    if (postersChk) postersChk.checked = showPosters;
+    const pillsBox = document.querySelector('.profile-pills');
+    if (pillsBox) pillsBox.innerHTML = renderProfileButtons();
+  }
   if (opts.close) closeOverlay();
   render();
   toast(`Profil ${p.label} appliqué`, 'success');
@@ -6061,7 +6074,11 @@ function openSettings() {
           <div class="settings-section-desc">Réglez la présentation du tableau principal.</div>
           <label>Profils d'affichage</label>
           <div class="profile-pills">${renderProfileButtons()}</div>
-          <p style="font-size:.78rem;color:var(--txt3);margin-top:6px;margin-bottom:14px">Chaque profil ajuste maintenant les colonnes, les affiches, le zoom, la largeur de la colonne Titre et le tri. Compact : 85 % / 110 px. Posters : 165 % / 320 px. Analyse : 100 % / 220 px. Tags : 125 % / 180 px.</p>
+          <p style="font-size:.78rem;color:var(--txt3);margin-top:6px;margin-bottom:14px">Cliquez sur un profil : le zoom, la largeur du titre et les mini-affiches ci-dessous se mettent à jour. Vous pouvez ensuite ajuster manuellement avant d'enregistrer.<br>
+          <strong>Compact</strong> : densité maximale, sans posters · 75 % / 100 px.<br>
+          <strong>Posters</strong> : grandes affiches · 165 % / 320 px.<br>
+          <strong>Analyse</strong> : toutes les colonnes, sans posters · 90 % / 180 px.<br>
+          <strong>Tags</strong> : trié par titre, avec affiches · 125 % / 180 px.</p>
           <label>Largeur réduite de la colonne Titre (px)</label>
           <input type="number" id="settingsTitreWidth" min="50" max="600" step="10" value="${titreReducedWidth}" placeholder="90">
           <p style="font-size:.78rem;color:var(--txt3);margin-top:6px;margin-bottom:14px">Valeur par défaut : 90 px · Min 50 · Max 600</p>
@@ -6309,7 +6326,16 @@ function saveSettings() {
   listZoomPercent = zoomRaw;
   dragScrollSpeedPercent = dssRaw;
   showPosters = document.getElementById('settingsShowPosters').checked;
-  displayProfile = 'custom';
+  // Si les valeurs correspondent exactement au profil actif (parce qu'on a
+  // cliqué sur une pill et pas modifié les champs), on garde le profil.
+  // Sinon on bascule en "custom" pour refléter une personnalisation manuelle.
+  const activeP = DISPLAY_PROFILES[displayProfile];
+  const matchesActive = activeP
+    && activeP.zoom === listZoomPercent
+    && activeP.titleWidth === titreReducedWidth
+    && !!activeP.posters === !!showPosters
+    && !!activeP.hidden === !!showHidden;
+  if (!matchesActive) displayProfile = 'custom';
   startupSuggestEnabled = document.getElementById('settingsStartupSuggest').checked;
   startupDuelEnabled = document.getElementById('settingsStartupDuel').checked;
   savePrefs();
