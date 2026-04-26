@@ -2813,6 +2813,70 @@ function _onTableClick(e) {
 }
 
 let _dragRankSourceIdx = null;
+// ── Auto-scroll pendant le drag ───────────────────────────────
+// Quand l'utilisateur drag un item près du haut/bas de l'écran, on fait
+// défiler la fenêtre automatiquement pour qu'il puisse atteindre des items
+// non visibles. La vitesse augmente quand on se rapproche du bord.
+let _dragScrollRAF = null;
+let _dragScrollSpeed = 0;          // px/frame, signe = direction (+ bas, - haut)
+let _dragLastClientY = 0;
+const _DRAG_EDGE_SIZE = 90;        // taille de la zone "edge" en px
+const _DRAG_MAX_SPEED = 22;        // vitesse max par frame
+function _dragScrollLoop() {
+  if (_dragRankSourceIdx == null || _dragScrollSpeed === 0) {
+    _dragScrollRAF = null;
+    return;
+  }
+  window.scrollBy(0, _dragScrollSpeed);
+  // Met à jour la ligne survolée en fonction du nouveau scroll
+  _updateDragOverFromPoint(_dragLastClientY);
+  _dragScrollRAF = requestAnimationFrame(_dragScrollLoop);
+}
+function _updateDragScrollSpeed(clientY) {
+  _dragLastClientY = clientY;
+  const vh = window.innerHeight;
+  let speed = 0;
+  if (clientY < _DRAG_EDGE_SIZE) {
+    // Plus on est proche du haut (clientY petit), plus on scrolle vite vers le haut
+    const ratio = (_DRAG_EDGE_SIZE - clientY) / _DRAG_EDGE_SIZE;
+    speed = -Math.ceil(_DRAG_MAX_SPEED * Math.min(1, Math.max(0, ratio)));
+  } else if (clientY > vh - _DRAG_EDGE_SIZE) {
+    const ratio = (clientY - (vh - _DRAG_EDGE_SIZE)) / _DRAG_EDGE_SIZE;
+    speed = Math.ceil(_DRAG_MAX_SPEED * Math.min(1, Math.max(0, ratio)));
+  }
+  _dragScrollSpeed = speed;
+  if (speed !== 0 && _dragScrollRAF == null) {
+    _dragScrollRAF = requestAnimationFrame(_dragScrollLoop);
+  }
+}
+function _stopDragScroll() {
+  _dragScrollSpeed = 0;
+  if (_dragScrollRAF != null) {
+    cancelAnimationFrame(_dragScrollRAF);
+    _dragScrollRAF = null;
+  }
+}
+// Trouve la ligne sous le point (clientX, clientY) et la marque comme drag-over
+function _updateDragOverFromPoint(clientY, clientX) {
+  if (_dragRankSourceIdx == null) return;
+  // Cherche au centre horizontal du tableau si X non fourni (utile pendant l'auto-scroll)
+  let x = clientX;
+  if (x == null) {
+    const wrap = document.getElementById('tableWrap');
+    if (wrap) {
+      const r = wrap.getBoundingClientRect();
+      x = r.left + r.width / 2;
+    } else {
+      x = window.innerWidth / 2;
+    }
+  }
+  const el = document.elementFromPoint(x, clientY);
+  if (!el) return;
+  const row = el.closest && el.closest('tr[data-drag-idx]');
+  _clearDragOverRows();
+  if (row) row.classList.add('drag-over');
+}
+
 function _clearDragOverRows() {
   document.querySelectorAll('#tableWrap tr.drag-over').forEach(row => row.classList.remove('drag-over'));
 }
@@ -2823,6 +2887,17 @@ function _onTableDragStart(e) {
   row.classList.add('dragging');
   e.dataTransfer.effectAllowed = 'move';
   e.dataTransfer.setData('text/plain', String(_dragRankSourceIdx));
+  // Active l'écoute globale pour suivre le drag même hors du tableau (zone edge)
+  document.addEventListener('dragover', _onDocumentDragOver);
+}
+// Listener global: gère le preventDefault + l'auto-scroll partout sur la page
+function _onDocumentDragOver(e) {
+  if (_dragRankSourceIdx == null) return;
+  e.preventDefault();
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+  _updateDragScrollSpeed(e.clientY);
+  // Met à jour la ligne survolée (au cas où le dragover du tableau ne se déclencherait pas)
+  _updateDragOverFromPoint(e.clientY, e.clientX);
 }
 function _onTableDragOver(e) {
   const row = e.target.closest('tr[data-drag-idx]');
@@ -2837,9 +2912,14 @@ function _onTableDragLeave(e) {
   if (row && !row.contains(e.relatedTarget)) row.classList.remove('drag-over');
 }
 function _onTableDrop(e) {
-  const row = e.target.closest('tr[data-drag-idx]');
-  if (!row || _dragRankSourceIdx == null) return;
+  if (_dragRankSourceIdx == null) return;
   e.preventDefault();
+  // Cherche la ligne cible: soit sous le curseur, soit la dernière ligne marquée drag-over
+  let row = e.target.closest('tr[data-drag-idx]');
+  if (!row) {
+    row = document.querySelector('#tableWrap tr.drag-over');
+  }
+  if (!row) { _clearDragOverRows(); return; }
   const targetIdx = parseInt(row.dataset.dragIdx, 10);
   const target = films[targetIdx];
   const source = films[_dragRankSourceIdx];
@@ -2854,8 +2934,19 @@ function _onTableDrop(e) {
 function _onTableDragEnd() {
   document.querySelectorAll('#tableWrap tr.dragging').forEach(row => row.classList.remove('dragging'));
   _clearDragOverRows();
+  _stopDragScroll();
+  document.removeEventListener('dragover', _onDocumentDragOver);
   _dragRankSourceIdx = null;
 }
+// Gère aussi un drop hors du tableau pour bien arrêter l'auto-scroll
+document.addEventListener('drop', (e) => {
+  if (_dragRankSourceIdx == null) return;
+  // Si le drop n'est pas dans le tableau, on annule simplement
+  if (!e.target.closest || !e.target.closest('#tableWrap')) {
+    _clearDragOverRows();
+    _stopDragScroll();
+  }
+});
 
 function _onTableDblClick(e) {
   const el = e.target.closest('[data-dblclick]');
