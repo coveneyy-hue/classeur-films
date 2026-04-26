@@ -980,6 +980,23 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.7); cursor
 }
 .reorder-handle:active { cursor: grabbing; transform: scale(.96); }
 tr.dragging { opacity: .45; }
+/* Mode tactile : ligne "soulevée" pendant un long-press drag (Android/iOS) */
+tr.touch-dragging {
+  opacity: .55;
+  background: rgba(232,166,48,.10) !important;
+  box-shadow: 0 6px 22px rgba(0,0,0,.4);
+}
+/* Pendant un drag tactile actif sur la page, on bloque la sélection de texte
+   et l'action tactile native pour éviter que le navigateur n'intercepte. */
+body.touch-dragging-active {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+body.touch-dragging-active #tableWrap,
+body.touch-dragging-active #tableWrap * {
+  touch-action: none;
+}
 tr.drag-over td {
   background: rgba(232,166,48,.22) !important;
   box-shadow: inset 0 2px 0 rgba(240,192,96,.78), inset 0 -2px 0 rgba(240,192,96,.78);
@@ -2992,6 +3009,160 @@ document.addEventListener('drop', (e) => {
   }
 });
 
+/* ═══════════════════════════════════════════════════
+   DRAG TACTILE (Android / iOS)
+   ───────────────────────────────────────────────────
+   L'API HTML5 drag-and-drop ne fonctionne pas avec les
+   événements tactiles sur mobile. Ce module reproduit la
+   même fonctionnalité avec Pointer Events :
+   - long-press (~400 ms) sur une ligne déclenche le drag,
+   - pointermove met à jour la position et l'auto-scroll,
+   - pointerup réordonne via moveFilmToRank.
+   On réutilise les variables _dragRankSourceIdx /
+   _dragLastClient* / _dragScrollSpeed pour que l'auto-scroll
+   et le facteur dragScrollSpeedPercent s'appliquent pareil.
+   ═══════════════════════════════════════════════════ */
+const _TOUCH_LONGPRESS_MS = 380;     // durée pour démarrer le drag
+const _TOUCH_MOVE_TOLERANCE = 10;    // px : si on bouge plus que ça avant le déclenchement, on annule (= scroll normal)
+let _touchPressTimer = null;
+let _touchPressStartX = 0;
+let _touchPressStartY = 0;
+let _touchPressRow = null;
+let _touchDragging = false;
+let _touchPointerId = null;
+// Boucle d'auto-scroll spécifique tactile : pendant un drag tactile, le navigateur
+// n'émet plus pointermove quand le doigt ne bouge pas, donc la boucle doit
+// recalculer la vitesse à chaque frame en gardant le dernier clientY connu.
+let _touchScrollRAF = null;
+function _touchScrollLoop() {
+  if (!_touchDragging) { _touchScrollRAF = null; return; }
+  // Recalcule la vitesse à chaque frame depuis la dernière position connue
+  // (le doigt peut être immobile, mais l'auto-scroll doit continuer).
+  _updateDragScrollSpeed(_dragLastClientY, _dragLastClientX);
+  if (_dragScrollSpeed !== 0) {
+    window.scrollBy(0, _dragScrollSpeed);
+  }
+  // Met à jour la ligne survolée 1 frame sur N (throttle)
+  if ((++_dragOverFrameTick % _DRAG_OVER_FRAMES) === 0) {
+    _updateDragOverFromPoint(_dragLastClientY, _dragLastClientX);
+  }
+  _touchScrollRAF = requestAnimationFrame(_touchScrollLoop);
+}
+function _cancelTouchPress() {
+  if (_touchPressTimer != null) { clearTimeout(_touchPressTimer); _touchPressTimer = null; }
+  _touchPressRow = null;
+  _touchPointerId = null;
+}
+function _onTablePointerDown(e) {
+  // Uniquement tactile (le drag souris reste géré par l'API HTML5 native)
+  if (e.pointerType === 'mouse') return;
+  // Ne déclenche pas sur un bouton, un lien, un input, etc.
+  if (e.target.closest('button, a, input, select, textarea, [contenteditable]')) return;
+  const row = e.target.closest('tr[data-drag-idx]');
+  if (!row) return;
+  _touchPressStartX = e.clientX;
+  _touchPressStartY = e.clientY;
+  _touchPressRow = row;
+  _touchPointerId = e.pointerId;
+  _dragLastClientX = e.clientX;
+  _dragLastClientY = e.clientY;
+  if (_touchPressTimer != null) clearTimeout(_touchPressTimer);
+  _touchPressTimer = setTimeout(() => {
+    _touchPressTimer = null;
+    if (!_touchPressRow) return;
+    _startTouchDrag(_touchPressRow);
+  }, _TOUCH_LONGPRESS_MS);
+}
+function _onTablePointerMove(e) {
+  if (e.pointerType === 'mouse') return;
+  if (e.pointerId !== _touchPointerId && !_touchDragging) return;
+  // Avant le déclenchement : si le doigt bouge trop, on annule (scroll normal).
+  if (!_touchDragging) {
+    const dx = Math.abs(e.clientX - _touchPressStartX);
+    const dy = Math.abs(e.clientY - _touchPressStartY);
+    if (dx > _TOUCH_MOVE_TOLERANCE || dy > _TOUCH_MOVE_TOLERANCE) {
+      _cancelTouchPress();
+    }
+    return;
+  }
+  // Pendant le drag : empêche le scroll natif et met à jour position + auto-scroll
+  e.preventDefault();
+  _dragLastClientX = e.clientX;
+  _dragLastClientY = e.clientY;
+  _updateDragScrollSpeed(e.clientY, e.clientX);
+  _updateDragOverFromPoint(e.clientY, e.clientX);
+}
+function _onTablePointerUp(e) {
+  if (e.pointerType === 'mouse') return;
+  if (_touchPressTimer != null) { clearTimeout(_touchPressTimer); _touchPressTimer = null; }
+  if (!_touchDragging) { _cancelTouchPress(); return; }
+  _finishTouchDrag();
+}
+function _onTablePointerCancel(e) {
+  if (e.pointerType === 'mouse') return;
+  _cancelTouchPress();
+  if (_touchDragging) _abortTouchDrag();
+}
+function _startTouchDrag(row) {
+  _touchDragging = true;
+  _dragRankSourceIdx = parseInt(row.dataset.dragIdx, 10);
+  row.classList.add('touch-dragging');
+  document.body.classList.add('touch-dragging-active');
+  // Vibration tactile pour confirmer à l'utilisateur
+  if (navigator.vibrate) { try { navigator.vibrate(35); } catch(e) {} }
+  toast('Glissez pour reclasser · Relâchez pour valider', 'info');
+  _dragOverFrameTick = 0;
+  // Démarre la boucle d'auto-scroll tactile
+  if (_touchScrollRAF == null) {
+    _touchScrollRAF = requestAnimationFrame(_touchScrollLoop);
+  }
+}
+function _finishTouchDrag() {
+  if (!_touchDragging) return;
+  const sourceIdx = _dragRankSourceIdx;
+  // Cherche la ligne cible sous le doigt, sinon la dernière marquée drag-over
+  let row = null;
+  const elAt = document.elementFromPoint(_dragLastClientX, _dragLastClientY);
+  if (elAt && elAt.closest) row = elAt.closest('tr[data-drag-idx]');
+  if (!row) row = _dragLastOverRow;
+  _stopTouchDrag();
+  if (!row) return;
+  const targetIdx = parseInt(row.dataset.dragIdx, 10);
+  const target = films[targetIdx];
+  const source = sourceIdx != null ? films[sourceIdx] : null;
+  if (!target || !source || targetIdx === sourceIdx || target.rank == null) return;
+  if (moveFilmToRank(sourceIdx, target.rank)) {
+    toast(`${source.titre} déplacé au rang #${target.rank}`, 'success');
+    render();
+  }
+}
+function _abortTouchDrag() {
+  _stopTouchDrag();
+}
+function _stopTouchDrag() {
+  document.querySelectorAll('#tableWrap tr.touch-dragging').forEach(r => r.classList.remove('touch-dragging'));
+  document.body.classList.remove('touch-dragging-active');
+  _clearDragOverRows();
+  _stopDragScroll();
+  if (_touchScrollRAF != null) { cancelAnimationFrame(_touchScrollRAF); _touchScrollRAF = null; }
+  _touchDragging = false;
+  _touchPressRow = null;
+  _touchPointerId = null;
+  _dragRankSourceIdx = null;
+  _dragLastOverRow = null;
+}
+// Hook les pointer events sur le tableau (en plus du drag HTML5 desktop)
+function _initTableTouchDrag() {
+  const wrap = document.getElementById('tableWrap');
+  if (!wrap || wrap._touchDragInit) return;
+  wrap._touchDragInit = true;
+  wrap.addEventListener('pointerdown', _onTablePointerDown);
+  // pointermove doit être global pour suivre le doigt même hors du tableau (zone edge)
+  document.addEventListener('pointermove', _onTablePointerMove, { passive: false });
+  document.addEventListener('pointerup', _onTablePointerUp);
+  document.addEventListener('pointercancel', _onTablePointerCancel);
+}
+
 function _onTableDblClick(e) {
   const el = e.target.closest('[data-dblclick]');
   if (!el) return;
@@ -3155,6 +3326,7 @@ function renderNow() {
 function _renderImpl() {
   renderViewModeBar();
   _initTableDelegation();
+  _initTableTouchDrag();
   const q = document.getElementById('search').value.trim().toLowerCase();
   // Filter + project in a single pass
   let list = [];
