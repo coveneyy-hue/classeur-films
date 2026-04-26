@@ -954,7 +954,7 @@ input[type=date]::-webkit-calendar-picker-indicator { filter: invert(.7); cursor
   display: inline-flex; align-items: center; justify-content: center;
   background: var(--bg3); color: var(--gold);
   font-family: var(--font-display); font-weight: 900; font-size: .95rem;
-  cursor: grab; user-select: none;
+  cursor: grab; user-select: none; touch-action: none; -webkit-user-select: none;
   border: 1px solid rgba(232,166,48,.28);
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.03);
   line-height: 1;
@@ -2000,6 +2000,7 @@ tr.row-drop-placeholder td {
   background: rgba(232,166,48,.10) !important;
   box-shadow: inset 0 0 0 2px rgba(232,166,48,.08);
 }
+html:has(body.manual-reorder-active) { scroll-behavior: auto; }
 body.manual-reorder-active {
   user-select: none;
   -webkit-user-select: none;
