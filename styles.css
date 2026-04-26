@@ -2006,8 +2006,18 @@ body.manual-reorder-active {
   -webkit-user-select: none;
   -webkit-touch-callout: none;
   overscroll-behavior: none;
-}
-body.manual-reorder-active #tableWrap,
-body.manual-reorder-active #tableWrap * {
+  /* Bloque tout geste natif (scroll, zoom, pull-to-refresh) pendant le drag */
   touch-action: none;
+  -ms-touch-action: none;
+}
+body.manual-reorder-active * {
+  touch-action: none !important;
+  -ms-touch-action: none !important;
+}
+/* Empêche le scroll horizontal du tableau de "voler" le geste sur le handle */
+.reorder-handle,
+.reorder-handle * {
+  touch-action: none !important;
+  -ms-touch-action: none !important;
+  -webkit-tap-highlight-color: transparent;
 }
