@@ -2258,7 +2258,7 @@ let films = [], log = [], duelLog = [], showHidden = false, sortCol = 'notePerso
 let viewMode = 'classeur';
 let displayProfile = localStorage.getItem('cf_displayProfile') || 'compact';
 let filtersOpen = false;
-let advancedFilters = { yearMin:'', yearMax:'', noteMin:'', noteMax:'', genre:'', status:'all' };
+let advancedFilters = { title:'', yearMin:'', yearMax:'', noteMin:'', noteMax:'', genre:'', description:'', status:'all' };
 let tags = []; // [{ id, name, color, emoji }]
 let tagFilter = null; // tag id or null
 let editCell = null; // {idx, key}
@@ -3179,6 +3179,9 @@ function _onTableDblClick(e) {
 }
 
 
+function normalizeText(v) {
+  return String(v || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
 function numOrNull(v) {
   const n = parseFloat(v);
   return Number.isFinite(n) ? n : null;
@@ -3192,7 +3195,7 @@ function getAllGenres() {
   return Array.from(set).sort((a, b) => a.localeCompare(b, 'fr'));
 }
 function hasActiveAdvancedFilters() {
-  return !!(advancedFilters.yearMin || advancedFilters.yearMax || advancedFilters.noteMin || advancedFilters.noteMax || advancedFilters.genre || (advancedFilters.status && advancedFilters.status !== 'all'));
+  return !!(advancedFilters.title || advancedFilters.yearMin || advancedFilters.yearMax || advancedFilters.noteMin || advancedFilters.noteMax || advancedFilters.genre || advancedFilters.description || (advancedFilters.status && advancedFilters.status !== 'all'));
 }
 function filmPassesAdvancedFilters(f) {
   const yMin = numOrNull(advancedFilters.yearMin);
@@ -3207,6 +3210,16 @@ function filmPassesAdvancedFilters(f) {
     const wanted = advancedFilters.genre.toLowerCase();
     const genres = getFilmGenreList(f).map(g => g.toLowerCase());
     if (!genres.includes(wanted)) return false;
+  }
+  if (advancedFilters.title) {
+    const wantedTitle = normalizeText(advancedFilters.title);
+    const filmTitle = normalizeText(f.titre || '');
+    if (!filmTitle.includes(wantedTitle)) return false;
+  }
+  if (advancedFilters.description) {
+    const wantedDescription = normalizeText(advancedFilters.description);
+    const filmDescription = normalizeText(f.description || '');
+    if (!filmDescription.includes(wantedDescription)) return false;
   }
   switch (advancedFilters.status) {
     case 'rated': if (f.notePerso == null) return false; break;
@@ -3231,6 +3244,8 @@ function renderAdvancedFilters() {
     <div class="filter-field"><label>Note min</label><input type="number" id="filterNoteMin" min="0" max="10" step="0.1" value="${escAttr(advancedFilters.noteMin)}" placeholder="ex. 7.5"></div>
     <div class="filter-field"><label>Note max</label><input type="number" id="filterNoteMax" min="0" max="10" step="0.1" value="${escAttr(advancedFilters.noteMax)}" placeholder="ex. 10"></div>
     <div class="filter-field"><label>Genre</label><select id="filterGenre"><option value="">Tous</option>${genres.map(g => `<option value="${escAttr(g)}" ${advancedFilters.genre === g ? 'selected' : ''}>${esc(g)}</option>`).join('')}</select></div>
+    <div class="filter-field"><label>Titre contient</label><input type="text" id="filterTitle" value="${escAttr(advancedFilters.title)}" placeholder="ex. dune, alien, parrain"></div>
+    <div class="filter-field"><label>Description contient</label><input type="text" id="filterDescription" value="${escAttr(advancedFilters.description)}" placeholder="ex. vengeance, voyage, famille"></div>
     <div class="filter-field"><label>État</label><select id="filterStatus">
       <option value="all" ${advancedFilters.status === 'all' ? 'selected' : ''}>Tous</option>
       <option value="rated" ${advancedFilters.status === 'rated' ? 'selected' : ''}>Notés</option>
@@ -3257,6 +3272,8 @@ function readAdvancedFilterInputs() {
     noteMin: document.getElementById('filterNoteMin')?.value.trim() || '',
     noteMax: document.getElementById('filterNoteMax')?.value.trim() || '',
     genre: document.getElementById('filterGenre')?.value || '',
+    title: document.getElementById('filterTitle')?.value.trim() || '',
+    description: document.getElementById('filterDescription')?.value.trim() || '',
     status: document.getElementById('filterStatus')?.value || 'all'
   };
 }
@@ -3271,7 +3288,7 @@ function applyAdvancedFilters() {
   toast('Filtres appliqués', 'success');
 }
 function clearAdvancedFilters() {
-  advancedFilters = { yearMin:'', yearMax:'', noteMin:'', noteMax:'', genre:'', status:'all' };
+  advancedFilters = { title:'', yearMin:'', yearMax:'', noteMin:'', noteMax:'', genre:'', description:'', status:'all' };
   savePrefs();
   render();
   toast('Filtres réinitialisés', 'info');
