@@ -2236,7 +2236,7 @@ const DEFAULT_FILMS=[
 /* ═══════════════════════════════════════════════════
    STATE
    ═══════════════════════════════════════════════════ */
-let films = [], log = [], duelLog = [], showHidden = false, sortCol = 'notePerso', sortDir = 'desc', titleExpanded = false, titreReducedWidth = 113, listZoomPercent = 100, showPosters = true, startupSuggestEnabled = true, startupDuelEnabled = true;
+let films = [], log = [], duelLog = [], showHidden = false, sortCol = 'notePerso', sortDir = 'desc', titleExpanded = false, titreReducedWidth = 113, listZoomPercent = 100, showPosters = true, startupSuggestEnabled = true, startupDuelEnabled = true, dragScrollSpeedPercent = 100;
 let viewMode = 'classeur';
 let displayProfile = localStorage.getItem('cf_displayProfile') || 'compact';
 let filtersOpen = false;
@@ -2285,6 +2285,8 @@ function loadState() {
   if (!isNaN(savedTRW) && savedTRW >= 50 && savedTRW <= 600) titreReducedWidth = savedTRW;
   const savedLZP = parseInt(localStorage.getItem('cf_listZoomPercent'));
   if (!isNaN(savedLZP) && savedLZP >= 70 && savedLZP <= 220) listZoomPercent = savedLZP;
+  const savedDSS = parseInt(localStorage.getItem('cf_dragScrollSpeedPercent'));
+  if (!isNaN(savedDSS) && savedDSS >= 25 && savedDSS <= 300) dragScrollSpeedPercent = savedDSS;
   try {
     const af = JSON.parse(localStorage.getItem('cf_advancedFilters') || '{}');
     advancedFilters = { ...advancedFilters, ...af };
@@ -2414,6 +2416,7 @@ function savePrefs() {
   localStorage.setItem('cf_titleExpanded', titleExpanded ? '1' : '0');
   localStorage.setItem('cf_titreReducedWidth', String(titreReducedWidth));
   localStorage.setItem('cf_listZoomPercent', String(listZoomPercent));
+  localStorage.setItem('cf_dragScrollSpeedPercent', String(dragScrollSpeedPercent));
   localStorage.setItem('cf_showPosters', showPosters ? '1' : '0');
   localStorage.setItem('cf_startupSuggestEnabled', startupSuggestEnabled ? '1' : '0');
   localStorage.setItem('cf_startupDuelEnabled', startupDuelEnabled ? '1' : '0');
@@ -2836,34 +2839,48 @@ let _dragRankSourceIdx = null;
 let _dragScrollRAF = null;
 let _dragScrollSpeed = 0;          // px/frame, signe = direction (+ bas, - haut)
 let _dragLastClientY = 0;
-const _DRAG_EDGE_SIZE = 150;       // zone de déclenchement plus large pour un scroll plus réactif
-const _DRAG_MAX_SPEED = 48;        // vitesse max par frame
-const _DRAG_MIN_SPEED = 12;        // vitesse minimale dès qu'on entre dans la zone edge
-const _DRAG_ACCEL_POWER = 1.35;    // accélération progressive près du bord
+let _dragLastClientX = 0;
+let _dragOverFrameTick = 0;        // throttle pour la mise à jour de la ligne survolée
+let _dragLastOverRow = null;       // dernière ligne marquée drag-over (cache)
+const _DRAG_EDGE_SIZE = 140;       // zone de déclenchement
+// Vitesses de base (px/frame) pour 100 %. La vitesse réelle est multipliée
+// par dragScrollSpeedPercent / 100 (réglable dans Paramètres ⚙).
+const _DRAG_MAX_SPEED_BASE = 80;   // vitesse max par frame (au bord extrême)
+const _DRAG_MIN_SPEED_BASE = 18;   // vitesse minimale dès qu'on entre dans la zone edge
+const _DRAG_ACCEL_POWER = 1.6;     // accélération progressive près du bord
+const _DRAG_OVER_FRAMES = 4;       // mise à jour de la ligne survolée 1 frame sur N
 function _dragScrollLoop() {
   if (_dragRankSourceIdx == null || _dragScrollSpeed === 0) {
     _dragScrollRAF = null;
     return;
   }
-  window.scrollBy({ top: _dragScrollSpeed, left: 0, behavior: 'auto' });
-  // Met à jour la ligne survolée en fonction du nouveau scroll
-  _updateDragOverFromPoint(_dragLastClientY);
+  window.scrollBy(0, _dragScrollSpeed);
+  // On ne met à jour la ligne survolée que périodiquement: elementFromPoint +
+  // mutations DOM coûtent cher et ralentissent le scroll perçu.
+  if ((++_dragOverFrameTick % _DRAG_OVER_FRAMES) === 0) {
+    _updateDragOverFromPoint(_dragLastClientY, _dragLastClientX);
+  }
   _dragScrollRAF = requestAnimationFrame(_dragScrollLoop);
 }
-function _updateDragScrollSpeed(clientY) {
+function _updateDragScrollSpeed(clientY, clientX) {
   _dragLastClientY = clientY;
+  if (clientX != null) _dragLastClientX = clientX;
   const vh = window.innerHeight;
+  const factor = (typeof dragScrollSpeedPercent === 'number' ? dragScrollSpeedPercent : 100) / 100;
+  const maxS = _DRAG_MAX_SPEED_BASE * factor;
+  const minS = _DRAG_MIN_SPEED_BASE * factor;
   let speed = 0;
   if (clientY < _DRAG_EDGE_SIZE) {
     // Plus on est proche du haut, plus le scroll accélère vers le haut
     const ratio = Math.min(1, Math.max(0, (_DRAG_EDGE_SIZE - clientY) / _DRAG_EDGE_SIZE));
-    speed = -Math.ceil(_DRAG_MIN_SPEED + (_DRAG_MAX_SPEED - _DRAG_MIN_SPEED) * Math.pow(ratio, _DRAG_ACCEL_POWER));
+    speed = -Math.ceil(minS + (maxS - minS) * Math.pow(ratio, _DRAG_ACCEL_POWER));
   } else if (clientY > vh - _DRAG_EDGE_SIZE) {
     const ratio = Math.min(1, Math.max(0, (clientY - (vh - _DRAG_EDGE_SIZE)) / _DRAG_EDGE_SIZE));
-    speed = Math.ceil(_DRAG_MIN_SPEED + (_DRAG_MAX_SPEED - _DRAG_MIN_SPEED) * Math.pow(ratio, _DRAG_ACCEL_POWER));
+    speed = Math.ceil(minS + (maxS - minS) * Math.pow(ratio, _DRAG_ACCEL_POWER));
   }
   _dragScrollSpeed = speed;
   if (speed !== 0 && _dragScrollRAF == null) {
+    _dragOverFrameTick = 0;
     _dragScrollRAF = requestAnimationFrame(_dragScrollLoop);
   }
 }
@@ -2874,10 +2891,10 @@ function _stopDragScroll() {
     _dragScrollRAF = null;
   }
 }
-// Trouve la ligne sous le point (clientX, clientY) et la marque comme drag-over
+// Trouve la ligne sous le point (clientX, clientY) et la marque comme drag-over.
+// Optimisé: garde une référence sur la dernière ligne pour éviter querySelectorAll.
 function _updateDragOverFromPoint(clientY, clientX) {
   if (_dragRankSourceIdx == null) return;
-  // Cherche au centre horizontal du tableau si X non fourni (utile pendant l'auto-scroll)
   let x = clientX;
   if (x == null) {
     const wrap = document.getElementById('tableWrap');
@@ -2889,13 +2906,19 @@ function _updateDragOverFromPoint(clientY, clientX) {
     }
   }
   const el = document.elementFromPoint(x, clientY);
-  if (!el) return;
-  const row = el.closest && el.closest('tr[data-drag-idx]');
-  _clearDragOverRows();
+  const row = el && el.closest ? el.closest('tr[data-drag-idx]') : null;
+  if (row === _dragLastOverRow) return; // pas de changement → on ne touche pas le DOM
+  if (_dragLastOverRow) _dragLastOverRow.classList.remove('drag-over');
   if (row) row.classList.add('drag-over');
+  _dragLastOverRow = row;
 }
 
 function _clearDragOverRows() {
+  if (_dragLastOverRow) {
+    _dragLastOverRow.classList.remove('drag-over');
+    _dragLastOverRow = null;
+  }
+  // Sécurité: au cas où un re-render aurait laissé une classe orpheline
   document.querySelectorAll('#tableWrap tr.drag-over').forEach(row => row.classList.remove('drag-over'));
 }
 function _onTableDragStart(e) {
@@ -2913,7 +2936,7 @@ function _onDocumentDragOver(e) {
   if (_dragRankSourceIdx == null) return;
   e.preventDefault();
   if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-  _updateDragScrollSpeed(e.clientY);
+  _updateDragScrollSpeed(e.clientY, e.clientX);
   // Met à jour la ligne survolée (au cas où le dragover du tableau ne se déclencherait pas)
   _updateDragOverFromPoint(e.clientY, e.clientX);
 }
@@ -2922,8 +2945,11 @@ function _onTableDragOver(e) {
   if (!row || _dragRankSourceIdx == null) return;
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
-  _clearDragOverRows();
-  row.classList.add('drag-over');
+  if (row !== _dragLastOverRow) {
+    if (_dragLastOverRow) _dragLastOverRow.classList.remove('drag-over');
+    row.classList.add('drag-over');
+    _dragLastOverRow = row;
+  }
 }
 function _onTableDragLeave(e) {
   const row = e.target.closest('tr[data-drag-idx]');
@@ -6042,6 +6068,9 @@ function openSettings() {
           <label>Zoom de la liste (%)</label>
           <input type="number" id="settingsListZoom" min="70" max="220" step="5" value="${listZoomPercent}" placeholder="100">
           <p style="font-size:.78rem;color:var(--txt3);margin-top:6px;margin-bottom:14px">Valeur par défaut : 100 % · Min 70 · Max 220. Agrandit les lignes, le texte et les mini-affiches.</p>
+          <label>Vitesse de l'auto-scroll en glisser-déposer (%)</label>
+          <input type="number" id="settingsDragScrollSpeed" min="25" max="300" step="5" value="${dragScrollSpeedPercent}" placeholder="100">
+          <p style="font-size:.78rem;color:var(--txt3);margin-top:6px;margin-bottom:14px">Valeur par défaut : 100 % · Min 25 · Max 300. Quand vous faites glisser une ligne près du haut ou du bas de l'écran, la liste défile automatiquement à cette vitesse.</p>
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
             <input type="checkbox" id="settingsShowPosters" ${showPosters ? 'checked' : ''} style="width:auto;margin:0">
             <span>Afficher les mini-affiches dans le tableau</span>
@@ -6271,8 +6300,14 @@ function saveSettings() {
     toast('Le zoom doit être entre 70 % et 220 %', 'error');
     return;
   }
+  const dssRaw = parseInt(document.getElementById('settingsDragScrollSpeed').value);
+  if (isNaN(dssRaw) || dssRaw < 25 || dssRaw > 300) {
+    toast('La vitesse d\'auto-scroll doit être entre 25 % et 300 %', 'error');
+    return;
+  }
   titreReducedWidth = raw;
   listZoomPercent = zoomRaw;
+  dragScrollSpeedPercent = dssRaw;
   showPosters = document.getElementById('settingsShowPosters').checked;
   displayProfile = 'custom';
   startupSuggestEnabled = document.getElementById('settingsStartupSuggest').checked;
