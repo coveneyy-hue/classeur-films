@@ -1973,3 +1973,40 @@ td.editing input {
 @media (max-width: 768px) {
   .filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Drag manuel fiable sur mobile et desktop */
+.table-drag-ghost {
+  position: fixed;
+  z-index: 1000;
+  pointer-events: none;
+  border-collapse: collapse;
+  background: var(--bg2);
+  border: 1px solid rgba(232,166,48,.45);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 24px 60px rgba(0,0,0,.55);
+  opacity: .96;
+  transform: translateZ(0);
+}
+.table-drag-ghost td {
+  background: var(--bg2) !important;
+}
+tr.drag-source {
+  opacity: .22;
+}
+tr.row-drop-placeholder td {
+  padding: 0 !important;
+  border: 1px dashed rgba(232,166,48,.55) !important;
+  background: rgba(232,166,48,.10) !important;
+  box-shadow: inset 0 0 0 2px rgba(232,166,48,.08);
+}
+body.manual-reorder-active {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  overscroll-behavior: none;
+}
+body.manual-reorder-active #tableWrap,
+body.manual-reorder-active #tableWrap * {
+  touch-action: none;
+}
