@@ -2013,7 +2013,7 @@ td.editing input {
     </div>
     <div class="topbar-search-row">
       <div class="search-inline-wrap">
-        <input type="text" class="searchbox" id="search" placeholder="Rechercher titre, genre, réalisateur, tag…" oninput="debouncedSearch()">
+        <input type="text" class="searchbox" id="search" placeholder="Rechercher titre, genre, réalisateur, description, tag…" oninput="debouncedSearch()">
         <button class="btn btn-icon" onclick="toggleAdvancedFilters()" title="Filtres avancés" aria-label="Filtres avancés">⚗<span id="filterActiveDot" class="filter-badge-dot"></span></button>
       </div>
       <span class="count" id="counter"></span>
@@ -2126,6 +2126,7 @@ function ensureFilmKeys(f) {
   if (!('posterPath' in f)) f.posterPath = null;
   if (!('runtime' in f)) f.runtime = null;
   if (!('tmdbVote' in f)) f.tmdbVote = null;
+  if (!('description' in f)) f.description = null;
   if (!('tags' in f) || !Array.isArray(f.tags)) f.tags = [];
   if (!('primaryTag' in f)) f.primaryTag = null;
   f.watchlist = false;
@@ -3212,6 +3213,8 @@ function filmPassesAdvancedFilters(f) {
     case 'unrated': if (f.notePerso != null) return false; break;
     case 'noPoster': if (posterUrl(f, 'small')) return false; break;
     case 'withPoster': if (!posterUrl(f, 'small')) return false; break;
+    case 'withDescription': if (!String(f.description || '').trim()) return false; break;
+    case 'noDescription': if (String(f.description || '').trim()) return false; break;
     case 'noTags': if ((f.tags || []).length) return false; break;
     case 'withTags': if (!(f.tags || []).length) return false; break;
   }
@@ -3234,6 +3237,8 @@ function renderAdvancedFilters() {
       <option value="unrated" ${advancedFilters.status === 'unrated' ? 'selected' : ''}>Non notés</option>
       <option value="withPoster" ${advancedFilters.status === 'withPoster' ? 'selected' : ''}>Avec affiche</option>
       <option value="noPoster" ${advancedFilters.status === 'noPoster' ? 'selected' : ''}>Sans affiche</option>
+      <option value="withDescription" ${advancedFilters.status === 'withDescription' ? 'selected' : ''}>Avec description</option>
+      <option value="noDescription" ${advancedFilters.status === 'noDescription' ? 'selected' : ''}>Sans description</option>
       <option value="withTags" ${advancedFilters.status === 'withTags' ? 'selected' : ''}>Avec tags</option>
       <option value="noTags" ${advancedFilters.status === 'noTags' ? 'selected' : ''}>Sans tags</option>
     </select></div>
@@ -3393,7 +3398,7 @@ function _renderImpl() {
   if (q) list = list.filter(f => {
     const tagNames = (f.tags || []).map(tid => findTag(tid)?.name || '').join(' ');
     const primaryTagName = f.primaryTag ? (findTag(f.primaryTag)?.name || '') : '';
-    const haystack = [f.titre, f.genre, f.realisateur, f.acteurs, tagNames, primaryTagName]
+    const haystack = [f.titre, f.genre, f.realisateur, f.acteurs, f.description, tagNames, primaryTagName]
       .filter(Boolean)
       .join(' ')
       .toLowerCase();
@@ -3676,6 +3681,9 @@ function openTitleBreakdown(idx) {
   const tmdbVote = f.tmdbVote ? `⭐ TMDb ${f.tmdbVote.toFixed(1)}` : null;
   const extras = [runtimeStr, tmdbVote].filter(Boolean).join(' · ');
   const tmdbLink = f.tmdbId ? `<a href="https://www.themoviedb.org/movie/${f.tmdbId}" target="_blank" class="breakdown-tmdb-link">Voir sur TMDb ↗</a>` : '';
+  const descriptionHtml = f.description
+    ? `<p class="desc" style="margin-top:10px;margin-bottom:0;font-size:.86rem;color:var(--txt);line-height:1.5">${esc(f.description)}</p>`
+    : '';
   // Notes summary for all raters (quick glance)
   const notesHtml = RATERS.map(r => {
     const n = f[r.key];
@@ -3696,6 +3704,7 @@ function openTitleBreakdown(idx) {
             ${info ? `<div class="breakdown-header-meta">${esc(info)}</div>` : ''}
             ${extras ? `<div class="breakdown-header-meta" style="color:var(--txt3)">${extras}</div>` : ''}
             ${tmdbLink}
+            ${descriptionHtml}
           </div>
         </div>
         <div class="note-summary-grid">${notesHtml}</div>
@@ -3720,6 +3729,9 @@ function openTitleBreakdown(idx) {
 
         <label style="margin-top:10px">Acteurs principaux</label>
         <textarea id="detailsActeurs" placeholder="Séparés par des ;" rows="3" style="resize:vertical;min-height:60px;font-family:var(--font-body);line-height:1.4">${esc(f.acteurs || '')}</textarea>
+
+        <label style="margin-top:10px">Description</label>
+        <textarea id="detailsDescription" placeholder="Description du film, récupérée depuis TMDb ou modifiable manuellement" rows="4" style="resize:vertical;min-height:90px;font-family:var(--font-body);line-height:1.45">${esc(f.description || '')}</textarea>
 
         <div style="display:flex;gap:10px;margin-top:10px">
           <div style="flex:1">
@@ -4000,6 +4012,7 @@ function saveFilmDetails(idx) {
     { id: 'detailsAnnee',   key: 'annee',       label: 'Année',       type: 'num' },
     { id: 'detailsReal',    key: 'realisateur', label: 'Réalisateur', type: 'text' },
     { id: 'detailsActeurs', key: 'acteurs',     label: 'Acteurs',     type: 'text' },
+    { id: 'detailsDescription', key: 'description', label: 'Description', type: 'text' },
     { id: 'detailsBudget',  key: 'budget',      label: 'Budget',      type: 'num' },
     { id: 'detailsBO',      key: 'boxOffice',   label: 'Box Office',  type: 'num' },
     { id: 'detailsRuntime', key: 'runtime',     label: 'Durée',       type: 'num' },
@@ -4632,6 +4645,7 @@ function buildTmdbDiff(f, d) {
     { key: 'budget',      label: 'Budget (M$)', oldVal: f.budget,      newVal: budget, editable: true },
     { key: 'boxOffice',   label: 'Box Office (M$)', oldVal: f.boxOffice, newVal: boxOffice, editable: true },
     { key: 'runtime',     label: 'Durée (min)', oldVal: f.runtime,     newVal: d.runtime || null, editable: true },
+    { key: 'description', label: 'Description', oldVal: f.description, newVal: d.overview || null, editable: true },
     { key: 'tmdbVote',    label: 'Note TMDb',   oldVal: f.tmdbVote,    newVal: d.vote_average || null, editable: true },
     { key: 'posterPath',  label: 'Affiche',     oldVal: f.posterPath,  newVal: d.poster_path || null, editable: true, isPoster: true },
   ];
@@ -4758,6 +4772,7 @@ const BATCH_FIELDS = [
   { key: 'posterPath', label: 'Affiche',          defaultOn: true,  alwaysFill: true },
   { key: 'runtime',    label: 'Durée (min)',      defaultOn: true,  alwaysFill: true },
   { key: 'tmdbVote',   label: 'Note TMDb ⭐',      defaultOn: true,  alwaysFill: true },
+  { key: 'description',label: 'Description',      defaultOn: true,  alwaysFill: false },
   { key: 'titre',      label: 'Titre original',   defaultOn: false, alwaysFill: false },
   { key: 'genre',      label: 'Genre',            defaultOn: true,  alwaysFill: false },
   { key: 'realisateur',label: 'Réalisateur',      defaultOn: true,  alwaysFill: false },
@@ -4773,6 +4788,27 @@ function startBatchEnrich() {
     return;
   }
   showBatchConfigModal();
+}
+
+function startBatchDescriptionsOnly() {
+  if (!hasTmdbKey()) {
+    toast('Configurez votre clé API TMDb d\'abord', 'warn');
+    return;
+  }
+  const pending = films
+    .map((f, i) => ({ f, i }))
+    .filter(x => x.f.titre && !String(x.f.description || '').trim());
+  if (!pending.length) {
+    toast('Tous les films ont déjà une description', 'info');
+    return;
+  }
+  batchState = {
+    pending, pos: 0, ok: 0, err: 0, skip: 0,
+    logs: [], cancelled: false, waitingChoice: false,
+    selectedFields: new Set(['description']), mode: 'fillEmpty', actorsCount: 3,
+  };
+  showBatchModal();
+  processBatchNext();
 }
 
 function showBatchConfigModal() {
@@ -4883,6 +4919,7 @@ function applyBatchFields(f, d, selectedFields, mode, actorsCount) {
     annee: annee,
     budget: budget,
     boxOffice: boxOffice,
+    description: d.overview || null,
   };
   // Always store tmdbId (the association anchor)
   f.tmdbId = d.id;
@@ -6299,6 +6336,13 @@ function openSettings() {
                 <div class="settings-action-desc">Charge massivement les données TMDb et vous laisse choisir les champs à remplir.</div>
               </div>
               <button class="btn" onclick="closeOverlay();startBatchEnrich()">Configurer et lancer</button>
+            </div>
+            <div class="settings-action-row">
+              <div>
+                <div class="settings-action-title">Descriptions TMDb en lot</div>
+                <div class="settings-action-desc">Récupère la description TMDb pour tous les films et remplit seulement les descriptions vides.</div>
+              </div>
+              <button class="btn" onclick="closeOverlay();startBatchDescriptionsOnly()">Récupérer</button>
             </div>
           </div>` : ''}
         </div>
